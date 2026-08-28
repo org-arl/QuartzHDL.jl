@@ -3,7 +3,7 @@ title: "Pulses, timeouts and edges"
 engine: julia
 ---
 
-**`Pulse`, `Timeout` and `Edge`: the bookkeeping you no longer write**
+**`Pulse`, `Timeout` and `Edge`: registers that clear, count and remember on their own**
 
 ```{julia}
 #| echo: false
@@ -12,7 +12,7 @@ using QuartzHDL
 using QuartzHDL.Units
 ```
 
-Three patterns come up in almost every design: a flag that should be true for exactly one cycle, a countdown, and "did this signal just change?". Each is a few lines of Verilog that are easy to get slightly wrong. QuartzHDL gives each a register type that does the bookkeeping itself. All three are stored as plain registers; the block that writes one advances it *before* its own statements run, so the block's own write always wins the cycle.
+Three patterns come up in most designs: a flag that is true for exactly one cycle, a countdown, and a check for whether a signal just changed. Each has a register type that updates itself. All three are stored as plain registers; the block that writes one advances it *before* its own statements run, so the block's own write always wins the cycle.
 
 ## `Pulse`: true for one cycle
 
@@ -38,7 +38,7 @@ end
 fires
 ```
 
-It replaces the `fire && (fire ← false)` line you would otherwise write at the top of every block, and the bug where you forget it.
+It replaces the `fire && (fire ← false)` line at the top of the block.
 
 ## `Timeout{N}`: a countdown
 
@@ -64,7 +64,7 @@ end
 let m = Divider()
   for i in 1:10
     m = step(m; arm=i == 5)
-    println("edge $i: div = $(Int(m.div))  tick = $(m.tick)  hold = $(Int(m.hold))")
+    @info "edge $i: div = $(Int(m.div)), tick = $(m.tick), hold = $(Int(m.hold))"
   end
 end
 ```
@@ -72,7 +72,7 @@ end
 Written `3`, the timeout expires four edges later, so a divider written with `period` has a period of `period + 1` clocks. A timeout that has run down stays at zero: `expired` keeps answering `true` until it is written again.
 
 ::: {.callout-tip title="If you know Verilog"}
-`Pulse` and `Timeout` are ordinary registers in the emitted Verilog — a `reg` with a clear or a decrement at the top of the `always` block, followed by your writes. Look at the output of `write(stdout, Divider, Verilog())` and you will find exactly the code you would have written by hand.
+`Pulse` and `Timeout` are ordinary registers in the emitted Verilog — a `reg` with a clear or a decrement at the top of the `always` block, followed by the block's writes. `write(stdout, Divider, Verilog())` shows it.
 :::
 
 ## `Edge`: did it just change?
@@ -106,7 +106,7 @@ end
 
 The default of an `Edge` is the level seen so far, so power-up and reset manufacture no event.
 
-## What they cannot be
+## Restrictions
 
 An input cannot be a `Pulse`, a `Timeout` or an `Edge`, since an input has no storage. A `@wire` block cannot write one, since they advance on a clock. And an `Edge` is written whole — `e[0] ← x` is an error.
 

@@ -17,6 +17,7 @@ using QuartzHDL.Units
 An `@on` block writes registers. Sometimes an output should not be a register at all but a function of the current state — `busy` is true whenever the state machine is not idle, with no cycle of delay. That is a `@wire` block:
 
 ```{julia}
+#| output: false
 @quartz struct Link
   @in  go::Bool
   @out busy::Bool
@@ -60,9 +61,10 @@ Combinational logic across modules settles to a fixed point in the simulator, wi
 A `Pad{N}` is a pin the module both drives and reads — an open-drain bus line, a bidirectional data bus, a chip select you also sense.
 
 ```{julia}
+#| output: false
 @quartz struct I2CPin
   @in  pulling::Bool
-  @io  sda::Pad{1}  ext_pull=:up
+  @io  sda::Pad{1} = Pad{1}(:pullup)
   seen::Bool = false
 end
 
@@ -75,7 +77,7 @@ end
 
 - `drive(v)` holds the pin at `v`; `drive(v, en)` holds only the bits `en` selects; `release()` lets go. `sda ← v` is shorthand for `drive(v)`.
 - Read bare, `sda` is the *resolved* net — what the pin actually sees, given the module's own drive, whatever the outside is driving, and the pull. `bus[3]` and `bus[0:3]` index a wider pad.
-- `ext_pull=:up` says the board provides a pull-up, which is what makes an open-drain bus read high when nobody is holding it low. A pad may also declare an internal pull with its default: `Pad{1}(:pulldown)`.
+- `Pad{1}(:pullup)` says the net is pulled up, which is what makes an open-drain bus read high when nobody is holding it low; `Pad{1}(:pulldown)` is the mirror, and `Pad{1}()` is push-pull, where every bit must have exactly one driver. The pull is part of the design because the design relies on it: simulation and co-simulation resolve the net with it. Whether the FPGA's own pull or a resistor on the board provides it is the [board's](boards.qmd) business.
 
 A pad keeps what it drives through a reset — it is a pin, not a register.
 
@@ -84,6 +86,7 @@ A pad keeps what it drives through a reset — it is a pin, not a register.
 A pad may be `active=:low`, and may be renamed for Verilog:
 
 ```{julia}
+#| output: false
 @quartz struct Clearer
   @io clr::Pad{1} = Pad{1}(:pulldown)  active=:low  verilog="CLR_N"
   @in go::Bool
@@ -102,7 +105,7 @@ A pad is emitted as an `inout` with a tristate `assign pin = oe ? val : 1'bz;` a
 
 ## Reading a clock as data
 
-Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. `clocklevel(this, :clk_1MHz)` reads a clock net's current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block's own.
+Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. `clocklevel(:clk_1MHz)` reads a clock net's current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block's own.
 
 ## Next
 

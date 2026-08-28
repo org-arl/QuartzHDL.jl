@@ -24,7 +24,7 @@ Everything QuartzHDL refuses to compile, it refuses with a message naming the li
 |---|---|
 | an input cannot be a `Pulse`, `Timeout` or `Edge` | an input has no storage |
 | a field or port name may not be a Verilog keyword | it is a net inside the emitted module |
-| a port attribute must be one of `verilog`, `active`, `ext_pull` | a misspelt attribute that was ignored would leave a pin the wrong way round |
+| a port attribute must be one of `verilog`, `active` | a misspelt attribute that was ignored would leave a pin the wrong way round |
 | a pad's Verilog name is the same in every module that declares it | it is one net on both sides |
 | an input may not share a field's name | it would be two things — except a `MetaGuard`, which is fed by the input of its name by design |
 | a `Timeout` needs a width | `Timeout` alone has no size |
@@ -39,31 +39,31 @@ Everything QuartzHDL refuses to compile, it refuses with a message naming the li
 | a `@wire` writes only outputs, pads and instance inputs | anything else is a register, and registers are clocked |
 | a field written by `@on` is not driven by `@wire` | one net, one kind of driver |
 | no `while` in a block | it would not have a fixed depth |
-| no local assignment inside `if` | both arms exist in hardware; use `ifelse` |
+| no local assignment inside `if` | a local is a wire, so compute it above the `if`; a value that differs by condition is an `ifelse` |
 | a condition may not make Julia branch on a hardware value | Julia would branch; the hardware cannot |
-| a bare name must be a field, an input, a local, or defined in the module | a typo would otherwise become a port nothing drives |
+| a bare name must be a field, an input, a local, or defined in the enclosing Julia module | a typo would otherwise become a port nothing drives |
 | a local may not shadow a field or an input | a silent shadow |
 | `←` is a statement, never an expression | `x ← c ? a : b` would parse as `(x ← c) ? a : b` and lose the write |
 | only a statement — a write, a log macro, a `@check` — may sit to the right of `cond && (...)` | a computed-and-discarded value is a mistake |
 | a state name may not also be a field, an input or a local | a bare name would mean two things |
 | every state has a `@state` branch, or there is an `@otherwise` | an unhandled state is a stuck machine |
 | a sequence's register is wide enough for its steps | it cannot hold a step it does not have room for |
-| a sequence divider is at the top level or in a `@repeat` | one under an `if` would be a guess |
+| `@then`, `@when`, `@delay` and `@repeat` are at the top level of a sequence or a `@repeat` | a step boundary under an `if` would have no fixed meaning |
 | a clock wire takes a bare net name | a gated or divided clock is a part's job, not logic's |
 | a wire to an instance or a part cannot sit under an `if` | the part sees its pin every cycle; put the condition in the value |
 | a black box's inputs are all wired | an unwired pin is a floating input |
 | a submodule's `@wire` output is read only if it does not depend on the submodule's inputs | the Julia model would be a cycle behind the Verilog wire |
 | a `Multicycle` wire reads only registers of its own module | the sources must be nets the constraint can name |
-| a `Multicycle` is not read before its K-th edge | that is the promise the constraint makes |
+| a `Multicycle` is not read before its K-th edge | the constraint assumes it |
 
 ## Boards
 
 | rule | why |
 |---|---|
-| every port has a pin, and every pin names a port | a port with no site is a bug found in the lab |
+| every port has a pin, and every pin names a port | a port with no site is only found on the board |
 | one port per site | two would short |
 | a port's width matches its pin count | same |
-| a pad's `ext_pull` is provided by the board | an open-drain bus with no pull never reads high |
+| a pad that relies on a pull gets one from the board, `pull` or `ext_pull`, the same way round | an open-drain bus with no pull never reads high |
 | setting and attribute names are a closed set | an attribute nothing reads is a buffer configured by a tool default |
 | `@primary` names clocks the design has | a constraint on a net that does not exist |
 

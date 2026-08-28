@@ -393,7 +393,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#pulse-true-for-one-cycle" id="toc-pulse-true-for-one-cycle" class="nav-link active" data-scroll-target="#pulse-true-for-one-cycle"><code>Pulse</code>: true for one cycle</a></li>
   <li><a href="#timeoutn-a-countdown" id="toc-timeoutn-a-countdown" class="nav-link" data-scroll-target="#timeoutn-a-countdown"><code>Timeout{N}</code>: a countdown</a></li>
   <li><a href="#edge-did-it-just-change" id="toc-edge-did-it-just-change" class="nav-link" data-scroll-target="#edge-did-it-just-change"><code>Edge</code>: did it just change?</a></li>
-  <li><a href="#what-they-cannot-be" id="toc-what-they-cannot-be" class="nav-link" data-scroll-target="#what-they-cannot-be">What they cannot be</a></li>
+  <li><a href="#restrictions" id="toc-restrictions" class="nav-link" data-scroll-target="#restrictions">Restrictions</a></li>
   <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
   </ul>
 </nav>
@@ -420,8 +420,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong><code>Pulse</code>, <code>Timeout</code> and <code>Edge</code>: the bookkeeping you no longer write</strong></p>
-<p>Three patterns come up in almost every design: a flag that should be true for exactly one cycle, a countdown, and “did this signal just change?”. Each is a few lines of Verilog that are easy to get slightly wrong. QuartzHDL gives each a register type that does the bookkeeping itself. All three are stored as plain registers; the block that writes one advances it <em>before</em> its own statements run, so the block’s own write always wins the cycle.</p>
+<p><strong><code>Pulse</code>, <code>Timeout</code> and <code>Edge</code>: registers that clear, count and remember on their own</strong></p>
+<p>Three patterns come up in most designs: a flag that is true for exactly one cycle, a countdown, and a check for whether a signal just changed. Each has a register type that updates itself. All three are stored as plain registers; the block that writes one advances it <em>before</em> its own statements run, so the block’s own write always wins the cycle.</p>
 <section id="pulse-true-for-one-cycle" class="level2">
 <h2 class="anchored" data-anchor-id="pulse-true-for-one-cycle"><code>Pulse</code>: true for one cycle</h2>
 <p>A <code>Pulse</code> is a <code>Bool</code> that clears itself. Write <code>true</code> and it is true for one cycle, then false again until the next write:</p>
@@ -452,7 +452,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  0</code></pre>
 </div>
 </div>
-<p>It replaces the <code>fire &amp;&amp; (fire ← false)</code> line you would otherwise write at the top of every block, and the bug where you forget it.</p>
+<p>It replaces the <code>fire &amp;&amp; (fire ← false)</code> line at the top of the block.</p>
 </section>
 <section id="timeoutn-a-countdown" class="level2">
 <h2 class="anchored" data-anchor-id="timeoutn-a-countdown"><code>Timeout{N}</code>: a countdown</h2>
@@ -477,20 +477,23 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Divider</span>()</span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span></span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; arm<span class="op">=</span>i <span class="op">==</span> <span class="fl">5</span>)</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"edge </span><span class="sc">$</span>i<span class="st">: div = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.div))<span class="st">  tick = </span><span class="sc">$</span>(m.tick)<span class="st">  hold = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.hold))<span class="st">"</span>)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@info</span> <span class="st">"edge </span><span class="sc">$</span>i<span class="st">: div = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.div))<span class="st">, tick = </span><span class="sc">$</span>(m.tick)<span class="st">, hold = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.hold))<span class="st">"</span></span>
 <span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
 <span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>edge 1: div = 3  tick = true  hold = 0
-edge 2: div = 2  tick = false  hold = 0
-edge 3: div = 1  tick = false  hold = 0
-edge 4: div = 0  tick = false  hold = 0
-edge 5: div = 3  tick = true  hold = 5
-edge 6: div = 2  tick = false  hold = 4
-edge 7: div = 1  tick = false  hold = 3
-edge 8: div = 0  tick = false  hold = 2
-edge 9: div = 3  tick = true  hold = 1
-edge 10: div = 2  tick = false  hold = 0</code></pre>
+<div class="ansi-escaped-output">
+<pre><span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 1: div = 3, tick = true, hold = 0
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 2: div = 2, tick = false, hold = 0
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 3: div = 1, tick = false, hold = 0
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 4: div = 0, tick = false, hold = 0
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 5: div = 3, tick = true, hold = 5
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 6: div = 2, tick = false, hold = 4
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 7: div = 1, tick = false, hold = 3
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 8: div = 0, tick = false, hold = 2
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 9: div = 3, tick = true, hold = 1
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 10: div = 2, tick = false, hold = 0
+</pre>
+</div>
 </div>
 </div>
 <p>Written <code>3</code>, the timeout expires four edges later, so a divider written with <code>period</code> has a period of <code>period + 1</code> clocks. A timeout that has run down stays at zero: <code>expired</code> keeps answering <code>true</code> until it is written again.</p>
@@ -504,7 +507,7 @@ edge 10: div = 2  tick = false  hold = 0</code></pre>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>Pulse</code> and <code>Timeout</code> are ordinary registers in the emitted Verilog — a <code>reg</code> with a clear or a decrement at the top of the <code>always</code> block, followed by your writes. Look at the output of <code>write(stdout, Divider, Verilog())</code> and you will find exactly the code you would have written by hand.</p>
+<p><code>Pulse</code> and <code>Timeout</code> are ordinary registers in the emitted Verilog — a <code>reg</code> with a clear or a decrement at the top of the <code>always</code> block, followed by the block’s writes. <code>write(stdout, Divider, Verilog())</code> shows it.</p>
 </div>
 </div>
 </section>
@@ -512,27 +515,27 @@ edge 10: div = 2  tick = false  hold = 0</code></pre>
 <h2 class="anchored" data-anchor-id="edge-did-it-just-change"><code>Edge</code>: did it just change?</h2>
 <p>An <code>Edge</code> is a <code>Bool</code> register that also remembers the value it held before, so its transitions can be queried. Write it like any register and read it bare as the level:</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Detect</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> rises<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> falls<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  xe<span class="op">::</span><span class="dt">Edge</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Detect <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  xe <span class="op">←</span> x</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rose</span>(xe) <span class="op">&amp;&amp;</span> (rises <span class="op">←</span> rises <span class="op">+</span> <span class="fl">1</span>)</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fell</span>(xe) <span class="op">&amp;&amp;</span> (falls <span class="op">←</span> falls <span class="op">+</span> <span class="fl">1</span>)</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Detect</span>()</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">12</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fl">4</span> <span class="op">&lt;=</span> i <span class="op">&lt;=</span> <span class="fl">8</span>)</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  m.rises, m.falls</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Detect</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> rises<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> falls<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  xe<span class="op">::</span><span class="dt">Edge</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Detect <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  xe <span class="op">←</span> x</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rose</span>(xe) <span class="op">&amp;&amp;</span> (rises <span class="op">←</span> rises <span class="op">+</span> <span class="fl">1</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fell</span>(xe) <span class="op">&amp;&amp;</span> (falls <span class="op">←</span> falls <span class="op">+</span> <span class="fl">1</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Detect</span>()</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">12</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fl">4</span> <span class="op">&lt;=</span> i <span class="op">&lt;=</span> <span class="fl">8</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  m.rises, m.falls</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>(Bits{8}(01h), Bits{8}(01h))</code></pre>
+<pre><code>(Bits{8}(0x01), Bits{8}(0x01))</code></pre>
 </div>
 </div>
 <ul>
@@ -541,8 +544,8 @@ edge 10: div = 2  tick = false  hold = 0</code></pre>
 </ul>
 <p>The default of an <code>Edge</code> is the level seen so far, so power-up and reset manufacture no event.</p>
 </section>
-<section id="what-they-cannot-be" class="level2">
-<h2 class="anchored" data-anchor-id="what-they-cannot-be">What they cannot be</h2>
+<section id="restrictions" class="level2">
+<h2 class="anchored" data-anchor-id="restrictions">Restrictions</h2>
 <p>An input cannot be a <code>Pulse</code>, a <code>Timeout</code> or an <code>Edge</code>, since an input has no storage. A <code>@wire</code> block cannot write one, since they advance on a clock. And an <code>Edge</code> is written whole — <code>e[0] ← x</code> is an error.</p>
 </section>
 <section id="next" class="level2">

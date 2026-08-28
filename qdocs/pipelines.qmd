@@ -17,6 +17,7 @@ Some arithmetic will not fit in one clock. A wide multiply, a sum of many terms,
 ## Writing to a pipeline
 
 ```{julia}
+#| output: false
 @quartz struct Mac
   @in  a::Bits{16}, b::Bits{16}, c::Bits{16}, d::Bits{16}
   @out y::Bits{33}
@@ -37,7 +38,7 @@ Write an expression into the pipeline and the result comes out K cycles later. H
 let m = Mac()
   for i in 1:5
     m = step(m; a=Bits{16}(i), b=Bits{16}(10), c=Bits{16}(1), d=Bits{16}(i))
-    println("edge $i: y = $(Int(m.y)), valid = $(m.valid)")
+    @info "edge $i: y = $(Int(m.y)), valid = $(m.valid)"
   end
 end
 ```
@@ -74,7 +75,7 @@ stages(TooDeep, :s)
 ```
 
 ::: {.callout-tip title="If you know Verilog"}
-The Verilog contains the stage registers and an `always` block per stage, plus a valid bit that travels with the data — the same code you would write, except the cuts were chosen by measuring the logic rather than by eye. Change the expression and the cuts move with it.
+The Verilog contains the stage registers and an `always` block per stage, plus a valid bit that travels with the data — with the cuts chosen by measuring the depth of the logic. Change the expression and the cuts move with it.
 :::
 
 ## What goes in a pipeline

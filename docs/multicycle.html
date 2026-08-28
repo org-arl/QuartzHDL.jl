@@ -422,7 +422,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <p><strong><code>Multicycle{K,T}</code>: slow logic whose inputs are slower still</strong></p>
 <p>Sometimes the logic is slow but its inputs are slower. A correlation over a long shift register that only shifts once per symbol has no need of pipeline stages, only of time: if the register holds still for sixteen clocks, the logic may take sixteen clocks to settle. Telling the vendor tools so is a <em>multicycle path</em> constraint, and it is the kind of constraint that is easy to write wrongly, because it names registers by hand and nothing checks it.</p>
-<p>A <code>Multicycle{K,T}</code> is a wire allowed K cycles to settle, on the promise that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator’s check from the same traced logic.</p>
+<p>A <code>Multicycle{K,T}</code> is a wire allowed K cycles to settle, on the condition that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator’s check from the same traced logic.</p>
 <section id="declaring-one" class="level2">
 <h2 class="anchored" data-anchor-id="declaring-one">Declaring one</h2>
 <div id="4" class="cell" data-execution_count="1">
@@ -454,7 +454,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="reading-one" class="level2">
 <h2 class="anchored" data-anchor-id="reading-one">Reading one</h2>
-<p><code>isready(m)</code> says the promise has been kept since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with <code>sample</code>, needs no <code>isready</code> — the simulator checks the timing for it, and complains if <code>sample</code> ever comes too soon:</p>
+<p><code>isready(m)</code> says the condition has held since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with <code>sample</code>, needs no <code>isready</code> — the simulator checks the timing for it, and complains if <code>sample</code> ever comes too soon:</p>
 <div id="6" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Corr</span>()</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">40</span></span>
@@ -479,34 +479,38 @@ Stacktrace:
   [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
   [2] <span class="ansi-bold">getindex</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:478</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:497</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [3] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:35</span><span class="ansi-bright-black-fg"> [inlined]</span>
-  [4] <span class="ansi-bold">#on#Corr#2</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:330</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:36</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [4] <span class="ansi-bold">var"#on#Corr#2"</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">this</span>::Corr, <span class="ansi-bright-black-fg">kw#281</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span><span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:334</span>
   [5] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1092</span><span class="ansi-bright-black-fg"> [inlined]</span>
-  [6] <span class="ansi-bold">_runclock</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">edge</span>::Val<span class="ansi-bright-black-fg">{:posedge}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, ::Val<span class="ansi-bright-black-fg">{2}</span>, <span class="ansi-bright-black-fg">written</span>::Vector<span class="ansi-bright-black-fg">{Symbol}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1086</span>
-  [7] <span class="ansi-bold">_runclock</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1083</span><span class="ansi-bright-black-fg"> [inlined]</span>
-  [8] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1026</span>
-  [9] <span class="ansi-bold">_stepwith</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1019</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [10] <span class="ansi-bold">#step#45</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1133</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [6] <span class="ansi-bold">_runedge</span><span class="ansi-bold">(</span>::Corr, ::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, ::Vector<span class="ansi-bright-black-fg">{Symbol}</span>, ::Val<span class="ansi-bright-black-fg">{:clk}</span>, ::Val<span class="ansi-bright-black-fg">{:posedge}</span>, ::Val<span class="ansi-bright-black-fg">{(:comb, Symbol(""), Symbol(""), (:xcorr,), (), ())}</span>, ::Val<span class="ansi-bright-black-fg">{(:on, :clk, :posedge, (:mfo, :bb), (:sample, :x), ())}</span><span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1127</span>
+  [7] <span class="ansi-bold">macro expansion</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1125</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [8] <span class="ansi-bold">_runclock</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1125</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [9] <span class="ansi-bold">_runclock</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1122</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ [10] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1065</span>
+ [11] <span class="ansi-bold">_stepwith</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1058</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ [12] <span class="ansi-bold">#step#47</span>
 <span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [11] <span class="ansi-bold">step</span>
+ [13] <span class="ansi-bold">step</span>
 <span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:201</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [12] top-level scope
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:66</span></pre>
+ [14] top-level scope
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:67</span></pre>
 </div>
 </div>
 </div>
 </section>
 <section id="constraints-by-hand" class="level2">
 <h2 class="anchored" data-anchor-id="constraints-by-hand">Constraints by hand</h2>
-<p>A path that is not a wire’s — a slow transfer between two registers, say — can still be declared for the constraint file, once per module:</p>
+<p>A multicycle path between two registers, with no <code>Multicycle</code> wire on it — a slow transfer from one to the other, say — can still be declared for the constraint file, once per module:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@multicycle</span> <span class="bu">Sys</span> <span class="fl">15</span> a <span class="op">=&gt;</span> b</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This writes the exception and nothing else: no counter and no check, since there is no wire to derive them from. Prefer a <code>Multicycle</code> wire where one fits.</p>
 <div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
@@ -527,7 +531,7 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="pipeline-or-multicycle">Pipeline or multicycle?</h2>
 <ul>
 <li>The inputs change every cycle and you need a result every cycle: a <a href="./pipelines.html"><code>Pipeline</code></a>. It costs registers and adds latency, and it is always safe.</li>
-<li>The inputs hold still for K cycles at a time: a <code>Multicycle</code>. It costs nothing but a counter, and the promise is checked in simulation and stated to the tools.</li>
+<li>The inputs hold still for K cycles at a time: a <code>Multicycle</code>. It costs a counter, and the condition is checked in simulation and stated to the tools.</li>
 </ul>
 </section>
 <section id="next" class="level2">

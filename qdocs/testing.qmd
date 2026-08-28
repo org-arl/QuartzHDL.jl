@@ -81,6 +81,7 @@ The reference is the same dot product in ordinary integers, over a window that s
 
 ```{julia}
 using Random
+
 Random.seed!(4)
 code = [BARKER[k] ? 1 : -1 for k in 0:TAPS-1]
 xs = [rand(-20:20) for _ in 1:60]

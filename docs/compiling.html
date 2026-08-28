@@ -476,6 +476,19 @@ endmodule</code></pre>
 <li><code>debug = true</code> emits the block’s <code>@info</code> and <code>@check</code> as <code>$display</code> and <code>$error</code>.</li>
 </ul>
 <p>Submodules and black boxes are written along with the module that instantiates them, one Verilog module each. Black boxes are instantiated, not defined: their definitions come from the vendor.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Other outputs">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Other outputs
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><code>Verilog</code> is one <code>Format</code> among several — <code>VCD</code> and <code>LPF</code> are others — and a new one, for another HDL, a netlist or a report, is a <code>write</code> method of its own. <a href="./emitters.html">Custom emitters</a> shows how to write one.</p>
+</div>
+</div>
 </section>
 <section id="what-the-verilog-looks-like" class="level2">
 <h2 class="anchored" data-anchor-id="what-the-verilog-looks-like">What the Verilog looks like</h2>
@@ -490,7 +503,7 @@ endmodule</code></pre>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Two things you may be used to doing by hand are done for you and are worth knowing about. Every port asserted low is bridged at the boundary (<code>assign rst = !rst_ni;</code>) and used asserted inside, so the module body never mentions <code>_n</code>. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops’ enable and clear pins free; only <code>static</code> fields carry <code>initial</code> values.</p>
+<p>Two things are done at the boundary that would otherwise be written by hand. Every port asserted low is bridged at the boundary (<code>assign rst = !rst_ni;</code>) and used asserted inside, so the module body never mentions <code>_n</code>. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops’ enable and clear pins free; only <code>static</code> fields carry <code>initial</code> values.</p>
 </div>
 </div>
 </section>

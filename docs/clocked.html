@@ -403,7 +403,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#writing-part-of-a-register" id="toc-writing-part-of-a-register" class="nav-link" data-scroll-target="#writing-part-of-a-register">Writing part of a register</a></li>
   <li><a href="#shifts-and-widths" id="toc-shifts-and-widths" class="nav-link" data-scroll-target="#shifts-and-widths">Shifts and widths</a></li>
-  <li><a href="#helper-functions-are-just-julia" id="toc-helper-functions-are-just-julia" class="nav-link" data-scroll-target="#helper-functions-are-just-julia">Helper functions are just Julia</a></li>
+  <li><a href="#helper-functions-are-ordinary-julia" id="toc-helper-functions-are-ordinary-julia" class="nav-link" data-scroll-target="#helper-functions-are-ordinary-julia">Helper functions are ordinary Julia</a></li>
   <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a></li>
   <li><a href="#logging-from-inside-a-block" id="toc-logging-from-inside-a-block" class="nav-link" data-scroll-target="#logging-from-inside-a-block">Logging from inside a block</a></li>
   <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
@@ -432,7 +432,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong>The <code>@on</code> block: what registers become on a clock edge</strong></p>
+<p><strong>The <code>@on</code> block: how registers behave at a clock edge</strong></p>
 <section id="the-block" class="level2">
 <h2 class="anchored" data-anchor-id="the-block">The block</h2>
 <div id="4" class="cell" data-execution_count="1">
@@ -452,14 +452,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The module type comes first, then the clock: <code>posedge(name)</code> or <code>negedge(name)</code>. Any name will do — it becomes a clock port of the module. A parametric module names the parameters its body uses: <code>@on Ctr{N} posedge(clk)</code>.</p>
-<p>Inside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever <code>@in</code> ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing module — is an error, so a typo cannot quietly become a port that nothing drives.</p>
+<p>Inside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever <code>@in</code> ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing Julia module — is an error, so a typo cannot quietly become a port that nothing drives.</p>
 <p>A block with one statement needs no <code>begin ... end</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Acc <span class="fu">posedge</span>(clk) y <span class="op">←</span> sum</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="the-clauses" class="level3">
 <h3 class="anchored" data-anchor-id="the-clauses">The clauses</h3>
 <p>Three statements may open a body, before anything else:</p>
 <ul>
-<li><code>@reset(cond)</code> puts every register the block owns back to its default when <code>cond</code> holds. A register with no default keeps its value; so does a <code>static</code> one. A keyword gives one register a different reset value: <code>@reset(rst; sum=1)</code>.</li>
+<li><code>@reset(cond)</code> puts every register the block owns back to its default when <code>cond</code> holds. A register with no default keeps its value; so does a <code>static</code> one. A <code>Step</code> needs no default: it always goes back to <code>START</code>. A keyword gives one register a different reset value: <code>@reset(rst; sum=1)</code>.</li>
 <li><code>@only_when(cond)</code> runs the block only when <code>cond</code> holds — a clock enable.</li>
 <li><code>@clockout(pin; invert, gate)</code> forwards the block’s clock to an output pin, optionally inverted or gated.</li>
 </ul>
@@ -482,7 +482,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">step</span>(<span class="fu">Swap</span>())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Swap(Bits{8}(02h), Bits{8}(01h), NamedTuple())</code></pre>
+<pre><code>Swap(Bits{8}(0x02), Bits{8}(0x01), NamedTuple())</code></pre>
 </div>
 </div>
 <p>One register has one writer: two <code>@on</code> blocks may not write the same field.</p>
@@ -496,7 +496,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>←</code> is the non-blocking assignment <code>&lt;=</code>, and the only kind of register write there is. You may write <code>&lt;=</code> if you prefer; <code>←</code> is there because <code>&lt;=</code> also means “less than or equal”, and a compiler that has to guess is a compiler that will one day guess wrong. Type it as <code>\leftarrow</code> at the Julia REPL or in an editor with Julia support.</p>
+<p><code>←</code> is the non-blocking assignment <code>&lt;=</code>, and the only kind of register write there is. You may write <code>&lt;=</code> if you prefer; <code>←</code> is there because <code>&lt;=</code> also means “less than or equal”, and the two would otherwise have to be told apart by context. Type it as <code>\leftarrow</code> at the Julia REPL or in an editor with Julia support.</p>
 </div>
 </div>
 </section>
@@ -512,7 +512,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="choosing" class="level2">
 <h2 class="anchored" data-anchor-id="choosing">Choosing</h2>
-<p><code>if</code>, <code>elseif</code> and <code>else</code> work as you would expect, on any condition the hardware can compute:</p>
+<p><code>if</code>, <code>elseif</code> and <code>else</code> work as in Julia, on any condition the hardware can compute:</p>
 <div id="8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Sat</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bits{8}</span></span>
@@ -530,16 +530,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>Both arms of an <code>if</code> exist in hardware, so a local may not be assigned inside one — the value would be undefined on the other path. Use <code>ifelse</code> for a value that depends on a condition:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>big <span class="op">=</span> <span class="fu">ifelse</span>(a <span class="op">&gt;</span> b, a, b)     <span class="co"># a mux</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Julia’s <code>&amp;&amp;</code> and <code>||</code> short-circuit, which is a branch Julia takes and hardware cannot; on hardware values use <code>&amp;</code> and <code>|</code> instead, which are plain gates.</p>
+<p>A local is assigned at the top level of the block, never inside an <code>if</code>. Compute it above the <code>if</code> and use it under the condition: it is a wire either way, and a wire that a branch does not use costs nothing. A value that must <em>differ</em> by condition is an <code>ifelse</code>, which is a mux:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>big <span class="op">=</span> <span class="fu">ifelse</span>(a <span class="op">&gt;</span> b, a, b)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>&amp;&amp;</code> and <code>||</code> on hardware values are gates, the same as <code>&amp;</code> and <code>|</code>: both sides are always computed, as hardware computes them, and nothing on either side has a side effect for the short-circuit to skip. That rewrite happens inside a block; a plain helper function is ordinary Julia, where <code>&amp;&amp;</code> short-circuits, so a helper uses <code>&amp;</code> and <code>|</code>.</p>
 <section id="one-line-conditionals" class="level3">
 <h3 class="anchored" data-anchor-id="one-line-conditionals">One-line conditionals</h3>
 <p>A single write under a condition can be written the way Julia writes it:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>count <span class="op">==</span> limit <span class="op">&amp;&amp;</span> (count <span class="op">←</span> <span class="fl">0</span>)      <span class="co"># if count == limit</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>tx_rd <span class="op">||</span> (tx_rq <span class="op">←</span> <span class="cn">true</span>)           <span class="co"># unless tx_rd</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>tx_rd <span class="op">||</span> (tx_rq <span class="op">←</span> <span class="cn">true</span>)            <span class="co"># unless tx_rd</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>a <span class="op">&amp;&amp;</span> b <span class="op">&amp;&amp;</span> (x <span class="op">←</span> v)                  <span class="co"># both conditions</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>This is exactly the <code>if</code> spelled differently. Only a statement may sit on the right — a write, a log macro (<code>cond &amp;&amp; @info "seen" x</code>), or a <code>@check</code>: something that computes a value and throws it away is still a mistake, and still warns.</p>
+<p>This is the <code>if</code> spelled differently. Only a statement may sit on the right — a write, a log macro (<code>cond &amp;&amp; @info "seen" x</code>), or a <code>@check</code>: something that computes a value and throws it away is still a mistake, and still warns.</p>
 </section>
 <section id="case" class="level3">
 <h3 class="anchored" data-anchor-id="case">Case</h3>
@@ -549,7 +549,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="writing-part-of-a-register" class="level2">
 <h2 class="anchored" data-anchor-id="writing-part-of-a-register">Writing part of a register</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>w[<span class="fl">8</span><span class="op">:</span><span class="fl">15</span>] <span class="op">←</span> byte                     <span class="co"># bits 8 to 15</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>w[<span class="fu">part</span>(i, Bits{<span class="fl">8</span>})] <span class="op">←</span> byte          <span class="co"># byte number i, counting from zero</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>w[<span class="fu">part</span>(i, Bits{<span class="fl">8</span>})] <span class="op">←</span> byte         <span class="co"># byte number i, counting from zero</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>w[base <span class="op">.+</span> (<span class="fl">0</span><span class="op">:</span><span class="fl">7</span>)] <span class="op">←</span> byte            <span class="co"># eight bits from a computed base</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>part(i, Bits{8})</code> is the one to reach for when a word is a row of equal fields: the index is widened before the multiply, so the product cannot wrap and no width appears in the design. <code>base .+ (0:7)</code> is for a base that is not a multiple of the width. Both are Verilog’s <code>x[base +: 8]</code>; a base that would run off the end is an error.</p>
 <p>Splitting is a write with <code>⊞</code> on the left, by the widths of the targets, and <code>_</code> skips a piece:</p>
@@ -562,9 +562,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Shifting left by the value’s own width or more leaves nothing behind, which is a statement about a width that is wrong rather than a shift worth making, so it is an error. Widen first if that is what you mean:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>wide <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{16}</span>(narrow) <span class="op">&lt;&lt;</span> <span class="fl">8</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="helper-functions-are-just-julia" class="level2">
-<h2 class="anchored" data-anchor-id="helper-functions-are-just-julia">Helper functions are just Julia</h2>
-<p>Anything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types:</p>
+<section id="helper-functions-are-ordinary-julia" class="level2">
+<h2 class="anchored" data-anchor-id="helper-functions-are-ordinary-julia">Helper functions are ordinary Julia</h2>
+<p>Anything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types. A helper is a pure function: it takes values and returns one, and it cannot write a register — only a block can do that.</p>
 <div id="10" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">parity</span>(x) <span class="op">=</span> <span class="fu">count_ones</span>(x)[<span class="fl">0</span>]</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saturate</span>(x, hi) <span class="op">=</span> <span class="fu">ifelse</span>(x <span class="op">&gt;</span> hi, hi, x)</span>
@@ -608,7 +608,7 @@ endmodule</code></pre>
 </div>
 </div>
 <p>This is how an algorithm moves from Julia to hardware a step at a time: the reference implementation and the hardware share helper functions, and each helper is checked in both worlds.</p>
-<p>Hardware has a few operations Julia does not, and the package supplies them:</p>
+<p>A few bit-level operations are common in hardware. Some are Julia functions that work on <code>Bits</code> as they do on any integer; the rest the package supplies:</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -643,33 +643,49 @@ endmodule</code></pre>
 </tr>
 </tbody>
 </table>
-<p>A helper that needs the whole state takes it as an argument — inside a block the state is reachable as <code>this</code>:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">in_reset</span>(m) <span class="op">=</span> !m.timer[<span class="fl">7</span>]</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">in_reset</span>(this) <span class="op">&amp;&amp;</span> (y <span class="op">←</span> <span class="fl">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="methods" class="level2">
 <h2 class="anchored" data-anchor-id="methods">Methods</h2>
-<p>A helper written <em>as if inside the module</em> — bare field names, inputs, register writes — is a method:</p>
+<p>A helper computes a value, and that is all it can do. Take a module that sends a byte when it is free to:</p>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Sender</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  busy<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  tx_tag<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  tx_data<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  tx_rq<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@method</span> <span class="kw">function</span> <span class="fu">send</span>(tag, payload)</span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  tx_tag <span class="op">←</span> tag</span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  tx_data <span class="op">←</span> payload</span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  tx_rq <span class="op">←</span> <span class="cn">true</span></span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="pp">@method</span> <span class="fu">ready</span>() <span class="op">=</span> !tx_rq <span class="op">&amp;&amp;</span> !busy</span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Sender <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ready</span>() <span class="op">&amp;&amp;</span> <span class="fu">send</span>(<span class="fl">3</span>, <span class="bn">0x55</span>)</span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Sender</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  busy<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  tx_tag<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  tx_data<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  tx_rq<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The helpers we would like to write are these:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ready</span>() <span class="op">=</span> !tx_rq <span class="op">&amp;&amp;</span> !busy</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">send</span>(tag, payload)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  tx_tag <span class="op">←</span> tag</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  tx_data <span class="op">←</span> payload</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  tx_rq <span class="op">←</span> <span class="cn">true</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Neither is possible as a plain function. <code>ready</code> names fields and an input, which a function outside the block knows nothing about; and <code>send</code> writes registers, which a pure function cannot. The closest a helper can get is to be handed the state — inside a block it is reachable as <code>this</code>, with the registers and the inputs as its properties — and read through it; <code>send</code> cannot be a helper at all, so its writes stay in the block:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ready</span>(m) <span class="op">=</span> !m.tx_rq <span class="op">&amp;</span> !m.busy</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Sender <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="fu">ready</span>(this)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    tx_tag <span class="op">←</span> <span class="fl">3</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    tx_data <span class="op">←</span> <span class="bn">0x55</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    tx_rq <span class="op">←</span> <span class="cn">true</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A <em>method</em> is the helper we wanted, as written — bare field names, inputs, register writes, nothing passed in:</p>
+<div id="14" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@method</span> <span class="fu">ready</span>() <span class="op">=</span> !tx_rq <span class="op">&amp;&amp;</span> !busy</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@method</span> <span class="kw">function</span> <span class="fu">send</span>(tag, payload)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  tx_tag <span class="op">←</span> tag</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  tx_data <span class="op">←</span> payload</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  tx_rq <span class="op">←</span> <span class="cn">true</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Sender <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ready</span>() <span class="op">&amp;&amp;</span> <span class="fu">send</span>(<span class="fl">3</span>, <span class="bn">0x55</span>)</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A method belongs to no one module: the same method serves every module whose fields it names. It is inlined where it is called, so it must be defined before the block that calls it. A method that writes is a statement, and <code>cond &amp;&amp; f()</code> guards it as it would a write; one that only computes a value may be used as one.</p>
 </section>

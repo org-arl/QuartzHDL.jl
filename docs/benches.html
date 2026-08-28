@@ -430,9 +430,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  slow  <span class="op">=</span> <span class="fl">1</span>MHz</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  sensor <span class="op">=</span> <span class="fl">400</span>kHz, dithered</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>ClockPlan(48.0MHz grid, clk 48.0MHz, slow 1.0MHz, sensor 400.0kHz dithered)</code></pre>
-</div>
 </div>
 <p>What <code>@clocks</code> makes is a <code>ClockPlan</code>. Every clock that arrives on a pin gets a rate here, and so does every stub that is stepped at a rate of its own. Rates are absolute, so a run reports the time it covered in seconds, and a capture has a real time axis.</p>
 <p>One <em>slot</em> is the finest grid every rate divides. A clock that does not divide the grid the others make can be marked <code>dithered</code>: it then ticks on the nearest slot, with its mean rate exactly as asked and up to one slot of jitter. An unmarked clock that does not fit is an error naming both ways out, because an exact common grid for two unrelated oscillators is usually an accident.</p>
@@ -442,29 +439,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="wiring-connections-to-the-outside" class="level2">
 <h2 class="anchored" data-anchor-id="wiring-connections-to-the-outside"><code>@wiring</code>: connections to the outside</h2>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Dut</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1}  </span>ext_pull<span class="op">=:</span>up</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Dut <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  tx <span class="op">←</span> n[<span class="fl">7</span>]</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Dut sda <span class="op">←</span> <span class="fu">ifelse</span>(n[<span class="fl">0</span>], <span class="fu">drive</span>(<span class="cn">false</span>), <span class="fu">release</span>())</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>wiring <span class="op">=</span> <span class="pp">@wiring</span> <span class="cf">begin</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  dut.rx    <span class="op">←</span> echo.tx                  <span class="co"># an input of the design, from a stub</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  echo.rx   <span class="op">←</span> dut.tx                   <span class="co"># an input of a stub, from the design</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  dut.sda   <span class="op">←</span> <span class="fu">drive</span>(<span class="cn">false</span>, echo.pull)  <span class="co"># what a stub drives on a pad's net</span></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  echo.sda  <span class="op">←</span> dut.sda                  <span class="co"># and the level that net resolves to</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Wiring{var"#3#4", 2}(var"#3#4"(), (:rx, :sda))</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Dut</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span><span class="dt">{1}</span>(<span class="op">:</span>pullup)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Dut <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  tx <span class="op">←</span> n[<span class="fl">7</span>]</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Dut sda <span class="op">←</span> <span class="fu">ifelse</span>(n[<span class="fl">0</span>], <span class="fu">drive</span>(<span class="cn">false</span>), <span class="fu">release</span>())</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>wiring <span class="op">=</span> <span class="pp">@wiring</span> <span class="cf">begin</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  dut.rx    <span class="op">←</span> echo.tx                  <span class="co"># an input of the design, from a stub</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  echo.rx   <span class="op">←</span> dut.tx                   <span class="co"># an input of a stub, from the design</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  dut.sda   <span class="op">←</span> <span class="fu">drive</span>(<span class="cn">false</span>, echo.pull)  <span class="co"># what a stub drives on a pad's net</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  echo.sda  <span class="op">←</span> dut.sda                  <span class="co"># and the level that net resolves to</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The arrow is the design’s own: the left side is an input, the right side a value from the others’ outputs. Every stub sees the state at the start of the slot, so a combinational path out through a peripheral and back arrives a slot later, as it would on a board.</p>
 <p>A pad of the design names its net. Wired <em>to</em>, it takes what the outside drives on the net; read, it gives the level the net resolves to — from the design’s drive, the outside’s and the pull. An input the block leaves out is undriven, and a net with no pull that nobody holds reads zero. A bench with nothing to connect needs no <code>@wiring</code> at all: <code>wiring</code> defaults to the empty one.</p>
@@ -473,39 +467,39 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="a-stub">A stub</h2>
 <p>A stub is any value with a <code>step</code> method — including another <code>@quartz</code> module, which is often the easiest way to write one:</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Echo</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  sda<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> pull<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  seen<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Echo <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  tx <span class="op">←</span> rx</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  seen <span class="op">←</span> sda</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Echo</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  sda<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> pull<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  seen<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Echo <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  tx <span class="op">←</span> rx</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  seen <span class="op">←</span> sda</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A hand-written stub is a struct with <code>Base.step(s::MyStub; inputs...)</code> returning the new state. Its outputs are its fields.</p>
 </section>
 <section id="the-bench" class="level2">
 <h2 class="anchored" data-anchor-id="the-bench">The bench</h2>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>plan <span class="op">=</span> <span class="pp">@clocks</span> <span class="cf">begin</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  clk  <span class="op">=</span> <span class="fl">48</span>MHz</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  echo <span class="op">=</span> <span class="fl">48</span>MHz         <span class="co"># a stub is stepped at a rate, like a clock</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bench</span>(<span class="fu">Dut</span>(); clocks<span class="op">=</span>plan, wiring, echo<span class="op">=</span><span class="fu">Echo</span>())</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">step</span>(b, <span class="fl">1000</span>)</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">float</span>(<span class="fu">time</span>(b))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>plan <span class="op">=</span> <span class="pp">@clocks</span> <span class="cf">begin</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  clk  <span class="op">=</span> <span class="fl">48</span>MHz</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  echo <span class="op">=</span> <span class="fl">48</span>MHz         <span class="co"># a stub is stepped at a rate, like a clock</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bench</span>(<span class="fu">Dut</span>(); clocks<span class="op">=</span>plan, wiring, echo<span class="op">=</span><span class="fu">Echo</span>())</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">step</span>(b, <span class="fl">1000</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">float</span>(<span class="fu">time</span>(b))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>2.0833333333333333e-5</code></pre>
 </div>
 </div>
 <p><code>step(b, n)</code> advances <code>n</code> slots. <code>b.dut</code> is the design and <code>b.stubs.echo</code> the stub, as values:</p>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(b.dut.n), b.stubs.echo.seen</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(b.dut.n), b.stubs.echo.seen</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>(232, false)</code></pre>
 </div>

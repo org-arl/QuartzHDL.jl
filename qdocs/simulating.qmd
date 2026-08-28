@@ -43,6 +43,7 @@ For anything with real time in it — several clocks, peripherals, a stimulus th
 ## A `Simulation`
 
 ```{julia}
+#| output: false
 sim = Simulation(Blinker(); clocks=(clk=1MHz,), watch="*")
 ```
 
@@ -61,17 +62,18 @@ nets(sim)
 A stimulus is a `@run` body. Inside it, `sim.x = v` drives a net, `advance_by` and `advance_until` let time pass, and times carry units:
 
 ```{julia}
+#| output: false
 out = @run sim begin
   sim.en = false
-  advance_by(3us)
+  advance_by(3µs)
   sim.en = true
   advance_until(sim.led)                # a condition, looked at every slot
-  advance_until(20us)                   # or an absolute time
-  advance_until(!sim.led; timeout=50us)
+  advance_until(20µs)                   # or an absolute time
+  advance_until(!sim.led; timeout=50µs)
 end
 ```
 
-`@run` returns what the body returned, or the capture when the body returns nothing. Outside a macro, `using QuartzHDL.Units` gives `ms`, `us`, `MHz` and so on.
+`@run` returns what the body returned, or the capture when the body returns nothing. Outside a macro, `using QuartzHDL.Units` gives `ms`, `µs`, `MHz` and so on.
 
 `advance_until` with a condition is a breakpoint: the simulation runs until the condition is true, or the timeout passes, which is an error.
 
@@ -82,11 +84,11 @@ A `@task` inside a `@run` body runs alongside it and ends with it. Given on its 
 ```{julia}
 t = @run sim @task begin
   while true
-    advance_by(7us)
+    advance_by(7µs)
     sim.en = !sim.en
   end
 end
-@run sim advance_by(30us)
+@run sim advance_by(30µs)
 stop!(sim, t)
 float(time(sim))
 ```
@@ -98,13 +100,14 @@ This is how a background model — a clock source, a device answering a bus — 
 A stimulus that will be used more than once is a function. `@stimulus` makes a function whose body is a `@run` body; an argument declared `::Net` names a net by its path. It is called from inside a `@run`, or as one:
 
 ```{julia}
+#| output: false
 @stimulus function pulse(sim, pin::Net, width)
   pin = true
   advance_by(width)
   pin = false
 end
 
-@run sim pulse(sim, "en", 10us)
+@run sim pulse(sim, "en", 10µs)
 ```
 
 ## The capture
@@ -113,7 +116,7 @@ The capture — what `@run` returned above, or `capture(sim)` at any time — ho
 
 ```{julia}
 out = capture(sim)
-out.led[5us]                      # its value at 5 us
+out.led[5µs]                      # its value at 5 µs
 ```
 
 ```{julia}
@@ -121,7 +124,7 @@ changes(out.led)[1:4]             # when it changed, and to what
 ```
 
 ```{julia}
-out["n"][12us]
+out["n"][12µs]
 ```
 
 An encoded register gives its state's *name* rather than a number. `sampled(signal)` gives one value per clock, for signal-processing packages; `slots(signal)` the raw slot indices.
@@ -138,7 +141,7 @@ sim 0s> advance_by(1ms)
 sim 1.0ms> advance_until(led)
 sim 1.0ms> n
 0x0008
-sim 1.0ms> @task pulse(sim, "en", 10us)
+sim 1.0ms> @task pulse(sim, "en", 10µs)
 ```
 
 Backspace on an empty line returns to Julia. This is the fastest way to find out what a design does: poke it, look, poke again.
@@ -159,10 +162,10 @@ end
 end
 
 sim = Simulation(Talker(); clocks=(clk=1MHz,))
-@run sim advance_by(40us)
+@run sim advance_by(40µs)
 ```
 
-A message is part of the design's meaning and stays in the code; what to *show* right now is chosen from outside and never touches the design: `showlogs!(sim; from=10us, to=12us, modules=[:Talker], when=() -> sim.n > 3)` narrows what is printed, and `showlogs!(sim)` shows everything again.
+A message is part of the design's meaning and stays in the code; what to *show* right now is chosen from outside and never touches the design: `showlogs!(sim; from=10µs, to=12µs, modules=[:Talker], when=() -> sim.n > 3)` narrows what is printed, and `showlogs!(sim)` shows everything again.
 
 `@check cond` is the design's own assumption: a simulation stops where it fails, with the time and the module in the error.
 

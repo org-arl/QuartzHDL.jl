@@ -430,6 +430,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <p><strong>The <code>@quartz struct</code>: what a module is made of</strong></p>
 <p>A module is a struct. Its fields are the registers; its ports say what crosses the boundary. This chapter is about the declaration — the types you can use, what a default means, and how ports are named and documented.</p>
+<div class="callout callout-style-default callout-important callout-titled" title="If you know Julia">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>If you know Julia
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>A QuartzHDL <em>module</em> is a <code>@quartz struct</code> together with its blocks — the thing Verilog calls a <code>module</code>, and the word this manual uses throughout. It is not a Julia <code>module</code>. A Julia module, or a package, is where you define your QuartzHDL modules, and can hold as many of them as you like; when the manual means Julia’s, it says <em>Julia module</em>.</p>
+</div>
+</div>
 <section id="registers" class="level2">
 <h2 class="anchored" data-anchor-id="registers">Registers</h2>
 <div id="4" class="cell" data-execution_count="1">
@@ -440,9 +453,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  armed<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span>     <span class="co"># one bit</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  buffer<span class="op">::</span><span class="dt">Bits{64}        </span><span class="co"># no default: powers up at zero, and a reset leaves it alone</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Regs</code></pre>
-</div>
 </div>
 <p>Every field is a register unless the declaration says otherwise. Its type gives the width, its default gives the power-up value — and the default is also what a reset restores. A field <em>without</em> a default powers up at zero and is not touched by a reset, which is how data registers in an FPGA usually behave: you rarely want the reset network fanned out to a 64-bit buffer that the logic will fill before anyone reads it.</p>
 <p>The value types are:</p>
@@ -468,7 +478,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
-<p>plus the special registers of later chapters — <code>Pulse</code>, <code>Timeout{N}</code>, <code>Edge</code>, <code>MetaGuard{K}</code>, <code>Pipeline{K,T}</code>, <code>Multicycle{K,T}</code>, <code>Pad{N}</code> — and other <code>@quartz</code> modules, which make an instance.</p>
+<p>plus the special registers of later chapters — <code>Pulse</code>, <code>Timeout{N}</code>, <code>Step</code>, <code>Edge</code>, <code>MetaGuard{K}</code>, <code>Pipeline{K,T}</code>, <code>Multicycle{K,T}</code>, <code>Pad{N}</code> — and other <code>@quartz</code> modules, which make an instance.</p>
+<p>The 128-bit cap is a limit of the implementation, which keeps every value in one machine word, and not of the language; wider data — a sample window, a packet buffer — is several registers or a <a href="./library.html"><code>RAM</code></a>.</p>
 <div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -487,65 +498,65 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="values-and-widths">Values and widths</h2>
 <p><code>Bits</code> and <code>SBits</code> are ordinary Julia values outside a block too, which is handy for building test data:</p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>a <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">200</span>)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">100</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>a <span class="op">+</span> b            <span class="co"># wraps at 8 bits</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>a <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">200</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">100</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>a <span class="op">+</span> b            <span class="co"># wraps at 8 bits</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{8}(2ch)</code></pre>
+<pre><code>Bits{8}(0x2c)</code></pre>
 </div>
 </div>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">200</span>) <span class="op">+</span> <span class="fu">Bits</span><span class="dt">{12}</span>(<span class="fl">100</span>)   <span class="co"># mixed widths: the result takes the wider one</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">200</span>) <span class="op">+</span> <span class="fu">Bits</span><span class="dt">{12}</span>(<span class="fl">100</span>)   <span class="co"># mixed widths: the result takes the wider one</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{12}(12ch)</code></pre>
+<pre><code>Bits{12}(0x12c)</code></pre>
 </div>
 </div>
 <p>The width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.</p>
-<p>What QuartzHDL will <em>not</em> do silently is throw bits away. Narrowing has to be written down:</p>
+<p>Bits are never dropped silently; narrowing is written down:</p>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>wide <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="bn">0x1234</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">trunc</span>(Bits{<span class="fl">8</span>}, wide)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>wide <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="bn">0x1234</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">trunc</span>(Bits{<span class="fl">8</span>}, wide)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{8}(34h)</code></pre>
+<pre><code>Bits{8}(0x34)</code></pre>
 </div>
 </div>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Bits</span><span class="dt">{8}</span>(wide)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Bits</span><span class="dt">{8}</span>(wide)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-error">
 <div class="ansi-escaped-output">
 <pre>ArgumentError: QuartzHDL.Bits{8}(...) would drop bits from a 16-bit value; write trunc(QuartzHDL.Bits{8}, x) if that is what you mean
 Stacktrace:
  [1] <span class="ansi-bold">_checkwiden</span><span class="ansi-bold">(</span>::Type<span class="ansi-bright-black-fg">{Bits{8}}</span>, <span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:607</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:626</span>
  [2] <span class="ansi-bold">Bits{8}</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:55</span>
  [3] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">modules.qmd:70</span></pre>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">modules.qmd:77</span></pre>
 </div>
 </div>
 </div>
 <p>The same goes for mixing signed and unsigned: convert explicitly, so a reader can see where the sign is decided.</p>
 <p>A plain integer is accepted wherever a <code>Bits</code> is expected, and checked against the width:</p>
 <div id="14" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> TooBig</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">20</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> TooBig</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">20</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-error">
 <div class="ansi-escaped-output">
 <pre>InexactError: convert(Bits{4}, 20)
 Stacktrace:
  [1] <span class="ansi-bold">_lift</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:627</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:646</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [2] <span class="ansi-bold">convert</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:172</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [3] <span class="ansi-bold">TooBig</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">&lt;missing&gt;:-1</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [4] <span class="ansi-bold">TooBig</span><span class="ansi-bold">(</span>; <span class="ansi-bright-black-fg">n</span>::Int64, <span class="ansi-bright-black-fg">#inputs</span>::@NamedTuple<span class="ansi-bright-black-fg">{}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:348</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:347</span>
  [5] <span class="ansi-bold">_validate</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{TooBig}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:540</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:547</span>
  [6] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:379</span></pre>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:378</span></pre>
 </div>
 </div>
 </div>
@@ -554,17 +565,17 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="bit-indexing">Bit indexing</h2>
 <p>Bits are numbered from 0, the least significant, and a range is <code>lo:hi</code>:</p>
 <div id="16" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>w <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="bn">0xabcd</span>)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>w[<span class="fl">0</span>], w[<span class="fl">15</span>], w[<span class="fl">4</span><span class="op">:</span><span class="fl">7</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>w <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="bn">0xabcd</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>w[<span class="fl">0</span>], w[<span class="fl">15</span>], w[<span class="fl">4</span><span class="op">:</span><span class="fl">7</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>(true, true, Bits{4}(ch))</code></pre>
+<pre><code>(true, true, Bits{4}(0xc))</code></pre>
 </div>
 </div>
-<p><code>w[part(i, Bits{8})]</code> picks part number <code>i</code> of a word made of equal fields — byte <code>i</code>, here — and <code>w[base .+ (0:7)]</code> picks eight bits from a computed base:</p>
+<p><code>w[part(i, Bits{8})]</code> picks part number <code>i</code> of a word made of equal fields — byte <code>i</code>, here. Parts are numbered like bits: from 0, at the least significant end, so <code>part(0, Bits{8})</code> is bits <code>0:7</code> and <code>part(1, Bits{8})</code> is bits <code>8:15</code>. <code>w[base .+ (0:7)]</code> picks eight bits from a computed base:</p>
 <div id="18" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>w[<span class="fu">part</span>(<span class="fl">1</span>, Bits{<span class="fl">8</span>})]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>w[<span class="fu">part</span>(<span class="fl">0</span>, Bits{<span class="fl">8</span>})], w[<span class="fu">part</span>(<span class="fl">1</span>, Bits{<span class="fl">8</span>})]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{8}(abh)</code></pre>
+<pre><code>(Bits{8}(0xcd), Bits{8}(0xab))</code></pre>
 </div>
 </div>
 <p>Both forms work on the left of a register write too, to write part of a register; the <a href="./clocked.html">clocked logic chapter</a> has the details. A base that would run off the end of the word is an error rather than something Julia and Verilog might read differently.</p>
@@ -573,16 +584,18 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="joining-and-splitting">Joining and splitting</h2>
 <p><code>bits(hi, ..., lo)</code> concatenates, most significant first, and so does the operator <code>⊞</code> (type <code>\boxplus</code>). <code>split</code> takes a word apart by widths:</p>
 <div id="20" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{4}</span>(<span class="bn">0xa</span>); tag <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{4}</span>(<span class="bn">0x5</span>); payload <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="bn">0x33</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>word <span class="op">=</span> id <span class="op">⊞</span> tag <span class="op">⊞</span> payload</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{4}</span>(<span class="bn">0xa</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>tag <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{4}</span>(<span class="bn">0x5</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>payload <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="bn">0x33</span>)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>word <span class="op">=</span> id <span class="op">⊞</span> tag <span class="op">⊞</span> payload</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{16}(a533h)</code></pre>
+<pre><code>Bits{16}(0xa533)</code></pre>
 </div>
 </div>
 <div id="22" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span>(word, <span class="fl">4</span>, <span class="fl">4</span>, <span class="fl">8</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span>(word, <span class="fl">4</span>, <span class="fl">4</span>, <span class="fl">8</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>(Bits{4}(ah), Bits{4}(5h), Bits{8}(33h))</code></pre>
+<pre><code>(Bits{4}(0xa), Bits{4}(0x5), Bits{8}(0x33))</code></pre>
 </div>
 </div>
 <p><code>⊞</code> binds like <code>+</code>, so a piece that is itself arithmetic wants parentheses: <code>a ⊞ (b - 1)</code>.</p>
@@ -604,17 +617,14 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="the-interface">The interface</h2>
 <p>What crosses the module’s boundary is declared, not inferred from a name:</p>
 <div id="24" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Uart</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool</span>, baud<span class="op">::</span><span class="dt">Bits{16}</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span>  active<span class="op">=:</span>low</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> busy<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1}  </span>ext_pull<span class="op">=:</span>up</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  state<span class="op">::</span><span class="dt">Bits{3}          </span><span class="co"># not declared: an internal register</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Uart</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Uart</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool</span>, baud<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span>  active<span class="op">=:</span>low</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> busy<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span><span class="dt">{1}</span>(<span class="op">:</span>pullup)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  state<span class="op">::</span><span class="dt">Bits{3}          </span><span class="co"># not declared: an internal register</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <ul>
 <li><code>@in</code> declares an <strong>input</strong>. An input has no storage; a block reads it by name. With a default it is optional at <code>step</code>; without one, every <code>step</code> must supply it. Several inputs of the same kind can share a line.</li>
@@ -630,13 +640,10 @@ Stacktrace:
 <h3 class="anchored" data-anchor-id="pin-names">Pin names</h3>
 <p>The Verilog port is named after the Julia port with its direction on the end: <code>rx_i</code>, <code>tx_o</code>, <code>sda_io</code>, and <code>rst_ni</code> for an input asserted low. <code>verilog="..."</code> names the pin something else entirely:</p>
 <div id="26" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Named</span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  go<span class="op">::</span><span class="dt">Bool  </span>verilog<span class="op">=</span><span class="st">"START_N"</span>  active<span class="op">=:</span>low</span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Named</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Named</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  go<span class="op">::</span><span class="dt">Bool  </span>verilog<span class="op">=</span><span class="st">"START_N"</span>  active<span class="op">=:</span>low</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The suffixes are an option of the emission, on by default; <code>Verilog(; suffix=false)</code> turns them off, as <a href="./compiling.html">Verilog output</a> describes.</p>
 </section>
@@ -644,13 +651,13 @@ Stacktrace:
 <h3 class="anchored" data-anchor-id="documenting-ports">Documenting ports</h3>
 <p>A string before a port or a field documents it. <code>portdoc</code> reads the documentation back, and the emitted Verilog carries it as a comment on the port:</p>
 <div id="28" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Documented</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"clocks per bit, less one"</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  divisor<span class="op">::</span><span class="dt">Bits{16}</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"true for one cycle per received byte"</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> ready<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="fu">portdoc</span>(Documented, <span class="op">:</span>divisor)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Documented</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"clocks per bit, less one"</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  divisor<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"true for one cycle per received byte"</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> ready<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="fu">portdoc</span>(Documented, <span class="op">:</span>divisor)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>"clocks per bit, less one"</code></pre>
 </div>
@@ -662,13 +669,10 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="static-values">Static values</h2>
 <p>Some registers hold a value that must be right <em>before</em> the first reset — the reset generator itself, or a configuration word the bitstream delivers. Declare those with <code>static</code>:</p>
 <div id="30" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> PowerUp</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  ready<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="fu">static</span>(<span class="cn">false</span>)</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  timer<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fu">static</span>(<span class="fl">15</span>)</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>PowerUp</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> PowerUp</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  ready<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="fu">static</span>(<span class="cn">false</span>)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  timer<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fu">static</span>(<span class="fl">15</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A <code>static</code> field powers up at its value and <code>@reset</code> leaves it alone. In the emitted Verilog it is the one kind of field that gets an initializer, since the synthesiser then guarantees the power-up value.</p>
 <div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
@@ -689,20 +693,20 @@ Stacktrace:
 <h2 class="anchored" data-anchor-id="parametric-modules">Parametric modules</h2>
 <p>A module may take type parameters, the way a Verilog module takes <code>parameter</code>s:</p>
 <div id="32" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Shift{N}</span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  sr<span class="op">::</span><span class="dt">Bits{N} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Shift{N} <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>  sr <span class="op">←</span> sr <span class="op">&lt;&lt;</span> <span class="fl">1</span> <span class="op">|</span> x</span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  y <span class="op">←</span> sr[N <span class="op">-</span> <span class="fl">1</span>]</span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(<span class="fu">Shift</span><span class="dt">{4}</span>(); x<span class="op">=</span><span class="cn">true</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Shift{N}</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  sr<span class="op">::</span><span class="dt">Bits{N} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Shift{N} <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>  sr <span class="op">←</span> sr <span class="op">&lt;&lt;</span> <span class="fl">1</span> <span class="op">|</span> x</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>  y <span class="op">←</span> sr[N <span class="op">-</span> <span class="fl">1</span>]</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(<span class="fu">Shift</span><span class="dt">{4}</span>(); x<span class="op">=</span><span class="cn">true</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Shift{4}(false, Bits{4}(1h), (x = false,))</code></pre>
+<pre><code>Shift{4}(false, Bits{4}(0x1), (x = true,))</code></pre>
 </div>
 </div>
 <p>The parameters the block body uses are named on the <code>@on</code> line. Each concrete instantiation — <code>Shift{4}</code>, <code>Shift{16}</code> — is emitted as its own Verilog module.</p>

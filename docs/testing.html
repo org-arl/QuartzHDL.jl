@@ -446,7 +446,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-stdout">
 <div class="ansi-escaped-output">
 <pre><span class="ansi-bold">Test Summary: | </span><span class="ansi-green-fg ansi-bold">Pass  </span><span class="ansi-cyan-fg ansi-bold">Total  </span><span class="ansi-bold">Time</span>
-gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.3s
+gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.4s
 </pre>
 </div>
 </div>
@@ -516,22 +516,23 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <p>The reference is the same dot product in ordinary integers, over a window that starts empty. Bury the code in noise and run both on the same samples:</p>
 <div id="10" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Random</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">4</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>code <span class="op">=</span> [BARKER[k] ? <span class="fl">1</span> <span class="op">:</span> <span class="op">-</span><span class="fl">1</span> for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>]</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> [<span class="fu">rand</span>(<span class="op">-</span><span class="fl">20</span><span class="op">:</span><span class="fl">20</span>) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">60</span>]</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>xs[<span class="fl">31</span><span class="op">:</span><span class="fl">43</span>] <span class="op">.+=</span> <span class="fl">100</span> <span class="op">.*</span> <span class="fu">reverse</span>(code)                      <span class="co"># the code, oldest chip first</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="dt">Int</span>[]</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Correlator</span>()</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> x <span class="kw">in</span> xs</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">SBits</span><span class="dt">{8}</span>(x))</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    m.valid <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(out, <span class="fu">Int</span>(m.mf))</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>pad <span class="op">=</span> [<span class="fu">zeros</span>(<span class="dt">Int</span>, TAPS); xs]</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>ref <span class="op">=</span> [<span class="fu">sum</span>(pad[n <span class="op">-</span> k] <span class="op">*</span> code[k <span class="op">+</span> <span class="fl">1</span>] for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>) for n <span class="kw">in</span> TAPS<span class="op">+</span><span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(pad)]</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>out[<span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">==</span> ref[<span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(out)<span class="op">-</span><span class="fl">1</span>], <span class="fu">argmax</span>(out), <span class="fu">maximum</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">4</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>code <span class="op">=</span> [BARKER[k] ? <span class="fl">1</span> <span class="op">:</span> <span class="op">-</span><span class="fl">1</span> for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>]</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> [<span class="fu">rand</span>(<span class="op">-</span><span class="fl">20</span><span class="op">:</span><span class="fl">20</span>) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">60</span>]</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>xs[<span class="fl">31</span><span class="op">:</span><span class="fl">43</span>] <span class="op">.+=</span> <span class="fl">100</span> <span class="op">.*</span> <span class="fu">reverse</span>(code)                      <span class="co"># the code, oldest chip first</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="dt">Int</span>[]</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Correlator</span>()</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> x <span class="kw">in</span> xs</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">SBits</span><span class="dt">{8}</span>(x))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    m.valid <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(out, <span class="fu">Int</span>(m.mf))</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>pad <span class="op">=</span> [<span class="fu">zeros</span>(<span class="dt">Int</span>, TAPS); xs]</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>ref <span class="op">=</span> [<span class="fu">sum</span>(pad[n <span class="op">-</span> k] <span class="op">*</span> code[k <span class="op">+</span> <span class="fl">1</span>] for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>) for n <span class="kw">in</span> TAPS<span class="op">+</span><span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(pad)]</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>out[<span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">==</span> ref[<span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(out)<span class="op">-</span><span class="fl">1</span>], <span class="fu">argmax</span>(out), <span class="fu">maximum</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>(true, 44, 1311)</code></pre>
 </div>

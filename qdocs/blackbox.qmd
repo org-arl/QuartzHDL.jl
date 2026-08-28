@@ -17,6 +17,7 @@ A vendor PLL, a block RAM, an oscillator: the design has to instantiate them, bu
 ## Declaring a part
 
 ```{julia}
+#| output: false
 @blackbox PLL48 begin
   "the 48 MHz PLL, from the vendor's clock wizard"
   clock(CLKI)
@@ -42,6 +43,7 @@ The declaration transcribes the datasheet. Port names keep the vendor's spelling
 A black box is wired like a submodule: clock inputs to nets, data inputs to values, and clock outputs *the other way round*, naming the net they drive:
 
 ```{julia}
+#| output: false
 @quartz struct Top
   @in  sleep::Bool = false
   pll::PLL48 = PLL48()
@@ -71,7 +73,7 @@ The design above has two clocks derived from one pin. A [`Simulation`](simulatin
 ```{julia}
 sim = Simulation(Top(); clocks=(clk_48MHz=48MHz,), watch="*")
 out = @run sim begin
-  advance_by(10us)
+  advance_by(10µs)
 end
 Int(sim.fast), Int(sim.slow)
 ```
@@ -84,13 +86,14 @@ simmodels(stdout, Top);
 
 A `clockout` with no `from` — an oscillator, say — is a port and nothing more: it never ticks in simulation.
 
-`clocklevel(this, :clk_1MHz)` reads a clock net as data from inside a block, for the rare design that samples a slow reference.
+`clocklevel(:clk_1MHz)` reads a clock net as data from inside a block, for the rare design that samples a slow reference.
 
 ## Parts with data outputs: stand-ins
 
 A part with outputs that are not clocks — a RAM — needs something to say what those outputs do. That is a *stand-in*, and it belongs to the test harness, not the design:
 
 ```{julia}
+#| output: false
 @blackbox RAM256 begin
   input(WrAddress::Bits{8}, RdAddress::Bits{8}, Data::Bits{16}, WE::Bool)
   clock(WrClock, RdClock)

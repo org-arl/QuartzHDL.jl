@@ -453,7 +453,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>A new one is a type and its methods, in your own package if you like. This chapter shows one of each.</p>
 <section id="a-new-format" class="level2">
 <h2 class="anchored" data-anchor-id="a-new-format">A new format</h2>
-<p>A format is a struct that subtypes <code>QuartzHDL.Format</code>, and a <code>Base.write</code> method that takes it. Let’s write a port list as CSV — the kind of thing a board designer asks for:</p>
+<p>A format is a struct that subtypes <code>QuartzHDL.Format</code>, and a <code>Base.write</code> method that takes it. As an example, a port list as CSV:</p>
 <div id="4" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> PortCSV <span class="op">&lt;:</span><span class="dt"> QuartzHDL.Format </span><span class="kw">end</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -488,7 +488,7 @@ tx,out,Bool,""</code></pre>
 <h3 class="anchored" data-anchor-id="what-a-format-can-read">What a format can read</h3>
 <p>The declarations are all reachable through ordinary functions:</p>
 <ul>
-<li><code>interface(T)</code> — every port with its name, direction, type expression, default and attributes (<code>active</code>, <code>verilog</code>, <code>ext_pull</code>).</li>
+<li><code>interface(T)</code> — every port with its name, direction, type expression, default and attributes (<code>active</code>, <code>verilog</code>).</li>
 <li><code>portdoc(T, name)</code> — a port’s documentation.</li>
 <li><code>fieldnames(T)</code> and <code>fieldtypes(T)</code> — the registers, with the hardware types telling you widths (<code>bitwidth</code>), signedness and which are instances, pads, pipelines and so on.</li>
 <li><code>QuartzHDL.blocks(T)</code> — the <code>@on</code> and <code>@wire</code> blocks: their clock, edge, the fields they own, and their reset and enable conditions.</li>
@@ -516,7 +516,7 @@ tx,out,Bool,""</code></pre>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Ctr <span class="fu">posedge</span>(clk) n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Ctr</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">4</span>us)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">4</span>µs)</span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="fu">view</span>(<span class="fu">TextView</span>(<span class="cn">stdout</span>), out);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>$timescale 1ns $end
@@ -570,7 +570,7 @@ b00 !
 </section>
 <section id="what-to-keep-in-mind" class="level2">
 <h2 class="anchored" data-anchor-id="what-to-keep-in-mind">What to keep in mind</h2>
-<p>Whatever you emit is a second statement of the design, and the whole package is built on the idea that a second statement will one day drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design <em>does</em> — a simulation model, a different HDL — needs a co-simulation test that proves it does.</p>
+<p>Whatever you emit is a second statement of the design, and a second statement can drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design <em>does</em> — a simulation model, a different HDL — needs a co-simulation test that proves it does.</p>
 
 
 </section>

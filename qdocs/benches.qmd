@@ -17,6 +17,7 @@ A `Simulation` is built on a `Bench`: the design plus *stubs* — models of the 
 ## `@clocks`: the plan
 
 ```{julia}
+#| output: false
 plan = @clocks begin
   clk   = 48MHz
   slow  = 1MHz
@@ -35,10 +36,11 @@ A simple plan needs no macro: a named tuple of rates says the same thing, so a o
 ## `@wiring`: connections to the outside
 
 ```{julia}
+#| output: false
 @quartz struct Dut
   @in  rx::Bool = true
   @out tx::Bool
-  @io  sda::Pad{1}  ext_pull=:up
+  @io  sda::Pad{1} = Pad{1}(:pullup)
   n::Bits{8} = 0
 end
 
@@ -66,6 +68,7 @@ A pad of the design names its net. Wired *to*, it takes what the outside drives 
 A stub is any value with a `step` method — including another `@quartz` module, which is often the easiest way to write one:
 
 ```{julia}
+#| output: false
 @quartz struct Echo
   @in  rx::Bool = false
   @in  sda::Bool = true

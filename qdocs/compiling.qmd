@@ -43,12 +43,16 @@ The options:
 
 Submodules and black boxes are written along with the module that instantiates them, one Verilog module each. Black boxes are instantiated, not defined: their definitions come from the vendor.
 
+::: {.callout-note title="Other outputs"}
+`Verilog` is one `Format` among several — `VCD` and `LPF` are others — and a new one, for another HDL, a netlist or a report, is a `write` method of its own. [Custom emitters](emitters.qmd) shows how to write one.
+:::
+
 ## What the Verilog looks like
 
 The output is meant to be read. Ports carry their documentation as comments; encodings become `localparam`s and `@fsm` chains become `case`; a pipeline is a set of stage registers with a valid bit; a `Multicycle` is an `assign` with a settle counter; pads are tristate `assign`s. Names are the Julia names, so a synthesis report or a timing path reads back to the source without a mapping table.
 
 ::: {.callout-tip title="If you know Verilog"}
-Two things you may be used to doing by hand are done for you and are worth knowing about. Every port asserted low is bridged at the boundary (`assign rst = !rst_ni;`) and used asserted inside, so the module body never mentions `_n`. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops' enable and clear pins free; only `static` fields carry `initial` values.
+Two things are done at the boundary that would otherwise be written by hand. Every port asserted low is bridged at the boundary (`assign rst = !rst_ni;`) and used asserted inside, so the module body never mentions `_n`. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops' enable and clear pins free; only `static` fields carry `initial` values.
 :::
 
 ## The command line

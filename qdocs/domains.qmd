@@ -17,6 +17,7 @@ using QuartzHDL.Units
 A signal that comes from outside the clock domain — a button, a pin from another chip, a flag from a block on another clock — must be resynchronised before the logic looks at it, or metastability will eventually bite. The standard cure is a chain of K flip-flops. A `MetaGuard{K}` is that chain:
 
 ```{julia}
+#| output: false
 @quartz struct Sampler
   @in  async_in::Bool
   @out safe::Bool
@@ -44,7 +45,7 @@ safes
 A guard can also be fed by hand, `g ← v`, when the bit does not come from an input of the same name. A reset flushes it.
 
 ::: {.callout-tip title="If you know Verilog"}
-The emitted code is the two-flop chain you would write, `sync0 <= pin; sync1 <= sync0;`, with the block reading `sync1`. What you get on top is a declaration that says *this input is asynchronous*, in one place, which is the fact a reviewer wants to know.
+The emitted code is the two-flop chain `sync0 <= pin; sync1 <= sync0;`, with the block reading `sync1`. The declaration also records, in one place, that the input is asynchronous.
 :::
 
 ## Modules with several clocks
@@ -52,6 +53,7 @@ The emitted code is the two-flop chain you would write, `sync0 <= pin; sync1 <= 
 A module may have blocks on different clocks. Each `@on` names its own:
 
 ```{julia}
+#| output: false
 @quartz struct TwoClocks
   @in  x::Bits{8}
   @out y::Bits{8}
@@ -80,7 +82,7 @@ m.slow
 
 The keywords of `step` are the union of every block's inputs; a block only reads the ones it names. Several blocks on the same clock behave like Verilog's concurrent `always` blocks: all read the old state, all write together.
 
-For a design with several clocks, stepping by hand quickly gets tedious. A [`Bench` or `Simulation`](benches.qmd) takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.
+For a design with several clocks, stepping by hand means advancing each clock in the right ratio. A [`Bench` or `Simulation`](benches.qmd) takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.
 
 ## Crossing safely
 
@@ -104,4 +106,4 @@ A `Multicycle` wire, in a [later chapter](multicycle.qmd), is the tool for a wid
 
 ## Next
 
-[Pipelines](pipelines.qmd): arithmetic that takes several cycles, cut into stages for you.
+[Pipelines](pipelines.qmd): arithmetic that takes several cycles, cut into stages by the compiler.

@@ -24,7 +24,7 @@ A new one is a type and its methods, in your own package if you like. This chapt
 
 ## A new format
 
-A format is a struct that subtypes `QuartzHDL.Format`, and a `Base.write` method that takes it. Let's write a port list as CSV — the kind of thing a board designer asks for:
+A format is a struct that subtypes `QuartzHDL.Format`, and a `Base.write` method that takes it. As an example, a port list as CSV:
 
 ```{julia}
 struct PortCSV <: QuartzHDL.Format end
@@ -59,7 +59,7 @@ QuartzHDL.extension(::PortCSV) = "csv"
 
 The declarations are all reachable through ordinary functions:
 
-- `interface(T)` — every port with its name, direction, type expression, default and attributes (`active`, `verilog`, `ext_pull`).
+- `interface(T)` — every port with its name, direction, type expression, default and attributes (`active`, `verilog`).
 - `portdoc(T, name)` — a port's documentation.
 - `fieldnames(T)` and `fieldtypes(T)` — the registers, with the hardware types telling you widths (`bitwidth`), signedness and which are instances, pads, pipelines and so on.
 - `QuartzHDL.blocks(T)` — the `@on` and `@wire` blocks: their clock, edge, the fields they own, and their reset and enable conditions.
@@ -87,7 +87,7 @@ end
 @on Ctr posedge(clk) n ← n + 1
 
 sim = Simulation(Ctr(); clocks=(clk=1MHz,), watch="*")
-out = @run sim advance_by(4us)
+out = @run sim advance_by(4µs)
 view(TextView(stdout), out);
 ```
 
@@ -110,4 +110,4 @@ The Icarus implementation in `src/emitters/icarus.jl` is written in stages that 
 
 ## What to keep in mind
 
-Whatever you emit is a second statement of the design, and the whole package is built on the idea that a second statement will one day drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design *does* — a simulation model, a different HDL — needs a co-simulation test that proves it does.
+Whatever you emit is a second statement of the design, and a second statement can drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design *does* — a simulation model, a different HDL — needs a co-simulation test that proves it does.

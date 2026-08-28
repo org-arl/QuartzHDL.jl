@@ -455,7 +455,7 @@ ul.task-list li input[type="checkbox"] {
 <td>it is a net inside the emitted module</td>
 </tr>
 <tr class="odd">
-<td>a port attribute must be one of <code>verilog</code>, <code>active</code>, <code>ext_pull</code></td>
+<td>a port attribute must be one of <code>verilog</code>, <code>active</code></td>
 <td>a misspelt attribute that was ignored would leave a pin the wrong way round</td>
 </tr>
 <tr class="even">
@@ -513,14 +513,14 @@ ul.task-list li input[type="checkbox"] {
 </tr>
 <tr class="even">
 <td>no local assignment inside <code>if</code></td>
-<td>both arms exist in hardware; use <code>ifelse</code></td>
+<td>a local is a wire, so compute it above the <code>if</code>; a value that differs by condition is an <code>ifelse</code></td>
 </tr>
 <tr class="odd">
 <td>a condition may not make Julia branch on a hardware value</td>
 <td>Julia would branch; the hardware cannot</td>
 </tr>
 <tr class="even">
-<td>a bare name must be a field, an input, a local, or defined in the module</td>
+<td>a bare name must be a field, an input, a local, or defined in the enclosing Julia module</td>
 <td>a typo would otherwise become a port nothing drives</td>
 </tr>
 <tr class="odd">
@@ -548,8 +548,8 @@ ul.task-list li input[type="checkbox"] {
 <td>it cannot hold a step it does not have room for</td>
 </tr>
 <tr class="odd">
-<td>a sequence divider is at the top level or in a <code>@repeat</code></td>
-<td>one under an <code>if</code> would be a guess</td>
+<td><code>@then</code>, <code>@when</code>, <code>@delay</code> and <code>@repeat</code> are at the top level of a sequence or a <code>@repeat</code></td>
+<td>a step boundary under an <code>if</code> would have no fixed meaning</td>
 </tr>
 <tr class="even">
 <td>a clock wire takes a bare net name</td>
@@ -573,7 +573,7 @@ ul.task-list li input[type="checkbox"] {
 </tr>
 <tr class="odd">
 <td>a <code>Multicycle</code> is not read before its K-th edge</td>
-<td>that is the promise the constraint makes</td>
+<td>the constraint assumes it</td>
 </tr>
 </tbody>
 </table>
@@ -594,7 +594,7 @@ ul.task-list li input[type="checkbox"] {
 <tbody>
 <tr class="odd">
 <td>every port has a pin, and every pin names a port</td>
-<td>a port with no site is a bug found in the lab</td>
+<td>a port with no site is only found on the board</td>
 </tr>
 <tr class="even">
 <td>one port per site</td>
@@ -605,7 +605,7 @@ ul.task-list li input[type="checkbox"] {
 <td>same</td>
 </tr>
 <tr class="even">
-<td>a pad’s <code>ext_pull</code> is provided by the board</td>
+<td>a pad that relies on a pull gets one from the board, <code>pull</code> or <code>ext_pull</code>, the same way round</td>
 <td>an open-drain bus with no pull never reads high</td>
 </tr>
 <tr class="odd">

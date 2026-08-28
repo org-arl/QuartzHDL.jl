@@ -12,7 +12,7 @@ using QuartzHDL
 using QuartzHDL.Units
 ```
 
-What sits on the board beside the design — a USB controller, a UART, an SPI flash, an I2C sensor, a block RAM — comes from the library. A component is bound to the design's nets by *role*, and then talked to the way a host would talk to the hardware.
+What sits on the board beside the design — a USB controller, a UART, an SPI flash, an I2C sensor, a block RAM — comes from the library as a *component*: a Julia model of the chip that attaches to a `Simulation` and drives and reads the design's nets as the chip would. A component is bound to the design's nets by *role*, and then talked to the way a host would talk to the hardware.
 
 A component needs no wiring and no entry in the clock plan: it reads and drives nets the way a stimulus does, from a task of its own or, for a bus it must watch every cycle, a hook run after every slot. Pins are asserted as `true`, as everywhere in the design; a pin declared `active=:low` is inverted at the pin, not here. `close(c)` takes a component off the bench.
 
@@ -21,6 +21,7 @@ A component needs no wiring and no entry in the clock plan: it reads and drives 
 Let's build a loopback and talk to it:
 
 ```{julia}
+#| output: false
 @quartz struct Loop
   @in  rx::Bool = true
   @out tx::Bool = true
@@ -65,15 +66,7 @@ m  = SPIMaster(sim; sclk="sclk", mosi="mosi", miso="miso", cs="cs", rate=2MHz, m
 sl = SPISlave(sim; sclk="sclk", mosi="mosi", miso="miso", cs="cs")
 ```
 
-A master is a transaction link: `transfer(m, bytes)` selects the chip, clocks the bytes out and returns the bytes that came back. A slave answers each byte with a closure:
-
-```julia
-on(sl) do b
-  b .+ 0x40                   # what to send next, given what just arrived
-end
-```
-
-`mode` is the usual 0–3 (clock polarity and phase).
+A master is a transaction link: `transfer(m, bytes)` selects the chip, clocks the bytes out and returns the bytes that came back. A slave collects what the master sends, or answers each byte through `on` ([below](#receiving-take-or-on)). `mode` is the usual 0–3 (clock polarity and phase).
 
 ## I2C
 
@@ -82,16 +75,9 @@ i   = I2CMaster(sim; scl="scl", sda="sda", rate=400kHz)
 rtc = I2CSlave(sim; scl="scl", sda="sda", address=0x51)
 ```
 
-The master's verbs are `write(i, address, bytes)` and `read(i, address, n)`. A slave answers a transaction with a closure, the way a device would — here, a register file:
+The master's verbs are `write(i, address, bytes)` and `read(i, address, n)`. A slave collects each transaction the master writes, or answers it through `on` ([below](#receiving-take-or-on)).
 
-```julia
-registers = collect(0x00:0x0f)
-on(rtc) do bytes              # what the master wrote: here, a register address
-  registers[bytes[1] + 1:end] # what the next read will return
-end
-```
-
-The bus is open-drain, so the design's `scl` and `sda` are pads with `ext_pull=:up`. Clock stretching is not modelled.
+The bus is open-drain, so the design's `scl` and `sda` are pads declared `Pad{1}(:pullup)`. Clock stretching is not modelled.
 
 ::: {.callout-warning title="One outside driver per net"}
 A simulation keeps one drive per net from outside the design, so a pad can carry one library component: a slave on the bus the design's master runs, or a master on the bus a design's slave listens to. Two library components on the same pad — two slaves on one bus, or a library master and a library slave with no design between them — overwrite each other's drive, and the transaction fails. A second device on a shared bus has to be a module of the design for now.
@@ -102,7 +88,7 @@ A simulation keeps one drive per net from outside the design, so a pad can carry
 A pulse train on a net — a clock, a strobe, a gated burst:
 
 ```julia
-p = PWM(sim; out="ext_clk", rate=1MHz, duty=0.5)      # a clock
+p = PWM(sim; out="ext_clk", rate=1MHz, duty=0.5)             # a clock
 p = PWM(sim; out="trigger", rate=10kHz, duty=0.1, count=3)   # three pulses
 p.duty = 0.25                                                # changed while running
 ```
@@ -122,9 +108,55 @@ fill!(ram, 0)
 
 A read port holds the word its address named before the edge, and a read of the address being written sees the old word. The storage is changed in place, and `reset!` does not clear it.
 
-## Answering with a closure
+## Receiving: `take!` or `on`
 
-The pattern is the same across the library: `on(component) do unit ... end` is called with each unit as it arrives — a transaction for I2C, a byte or a configured frame for an SPI slave or a stream — and what it returns is queued to send. A unit given to a closure is not kept for `take!`. A slave with nothing queued sends `0xff`.
+What a component receives from the design — bytes on a UART, bytes on an SPI slave, a transaction on an I2C slave — can be collected in two ways.
+
+**Pull it.** Nothing is done with it until you ask: `take!(c)` gives what has arrived so far, `read(c, n)` waits for `n` bytes, `readline(c)` waits for a line.
+
+```julia
+write(u, "AT\r\n")             # the design gets a command
+readline(u)                   # ...and this is what it sent back
+```
+
+**Answer it.** `on(c) do unit ... end` registers a function that is called with each unit as it arrives, and what the function returns is queued to send back. A unit answered this way is not kept for `take!`. The unit is whatever the component frames: for a UART or the USB FIFO, each byte — or each frame, when `frame` is set; for an SPI slave, each byte; for an I2C slave, one transaction, the bytes the master wrote. The return value is bytes, a string, or `nothing` to send nothing.
+
+An echo, to test a design's receive path against its transmit path:
+
+```julia
+on(u) do bytes
+  bytes                       # send back what came in
+end
+```
+
+A monitor that only records:
+
+```julia
+seen = UInt8[]
+on(u) do bytes
+  append!(seen, bytes)
+  nothing
+end
+```
+
+An SPI device that answers every command byte with a status byte:
+
+```julia
+on(sl) do b
+  b .+ 0x40
+end
+```
+
+An I2C register file, where a write selects the register and the next read returns from there:
+
+```julia
+registers = collect(0x00:0x0f)
+on(rtc) do bytes
+  registers[bytes[1] + 1:end]
+end
+```
+
+`on(nothing, c)` removes the function, and what arrives is queued again. An SPI slave with nothing queued sends its `idle` byte, `0xff` unless set.
 
 ## Next
 

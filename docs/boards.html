@@ -428,7 +428,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Top</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span>  active<span class="op">=:</span>low</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> led<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1}  </span>ext_pull<span class="op">=:</span>up</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span><span class="dt">{1}</span>(<span class="op">:</span>pullup)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{26} </span><span class="op">=</span> <span class="fl">0</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
@@ -445,23 +445,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  device  <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  io      <span class="op">=</span> <span class="op">:</span>LVCMOS33                  <span class="co"># every pin below, unless it says otherwise</span></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)     <span class="co"># a rate belongs with the pin it arrives on</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)         <span class="co"># a rate belongs with the pin it arrives on</span></span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"R1"</span>, pull<span class="op">=:</span>up)</span>
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"T2"</span>, drive<span class="op">=</span><span class="fl">8</span>, ext_pull<span class="op">=:</span>up)</span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="st">"A9"</span>, <span class="st">"B9"</span>, <span class="st">"A10"</span>, <span class="st">"B10"</span>], io<span class="op">=:</span>LVCMOS25)</span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Main.Notebook.Rev2</code></pre>
-</div>
 </div>
 <p>Every line is either a setting — <code>key = value</code> — or a binding of a port to its pin. Ports are named as the design names them; the constraint file names the pins as the emitted Verilog does. A port of an instance is addressed by path, <code>uart.tx</code>. A site is written the way the datasheet writes it: <code>"G2"</code> on a BGA, <code>pin = 27</code> on a numbered package.</p>
-<p>A setting that is a pin attribute (<code>io</code>, <code>pull</code>, <code>drive</code>, <code>ext_pull</code>) applies to every binding; a binding overrides it, <code>nothing</code> included — <code>(pin=27, io=nothing)</code> says “left to the tool, on purpose”. <code>pins=[...]</code> takes <code>nothing</code> for a bit with no pin, and an attribute may vary by bit: <code>pull=(0:2 =&gt; :down,)</code>.</p>
+<p>A setting that is a pin attribute (<code>io</code>, <code>pull</code>, <code>ext_pull</code>, <code>drive</code>) applies to every binding; a binding overrides it, <code>nothing</code> included — <code>(pin=27, io=nothing)</code> says “left to the tool, on purpose”. <code>pins=[...]</code> takes <code>nothing</code> for a bit with no pin, and an attribute may vary by bit: <code>pull=(0:2 =&gt; :down,)</code>.</p>
+<p>Two of those are pulls, and they say who provides one. <code>pull</code> is the FPGA’s own weak pull, configured in the bitstream, so it goes into the constraint file. <code>ext_pull</code> is a resistor on the board: it goes nowhere, but it is how the board says a net is pulled without the FPGA’s help. A pad that relies on a pull — <code>Pad{1}(:pullup)</code> in the design, which is what its <a href="./wires.html">simulation</a> models — must get one from the board, either way; that is checked when the constraint file is written.</p>
 <p>Attribute names are a closed set, checked where they are written, since a misspelt one that was quietly ignored would leave a pin with the wrong buffer. A string at the top documents the board; one before a binding documents the pin.</p>
 </section>
 <section id="lpf-the-constraint-file" class="level2">
 <h2 class="anchored" data-anchor-id="lpf-the-constraint-file"><code>LPF</code>: the constraint file</h2>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, Top, <span class="fu">LPF</span>(Rev2));</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, Top, <span class="fu">LPF</span>(Rev2));</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>// generated by QuartzHDL for Top on Rev2 (LFE5U-25F-6BG381C)
 LOCATE COMP "clk_i" SITE "G2" ;
@@ -483,7 +481,7 @@ FREQUENCY NET "clk_i" 12.000000 MHz ;</code></pre>
 </div>
 <p><code>LPF</code> writes the Lattice constraint file: pin sites, buffer settings, the frequency of every clock (from the oscillators and the clock tree, through every black box), the nets that want a global buffer, and the timing exceptions — one for every source and sink of a <a href="./multicycle.html"><code>Multicycle</code></a> wire, and any declared by hand with <code>@multicycle</code>.</p>
 <p>Which clocks ride the chip’s global distribution is a choice about the design, made once on the top module:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@primary</span> Top clk, clk_fast</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@primary</span> Top clk, clk_fast</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Each name must be a clock the design has, and <code>LPF</code> writes a <code>USE PRIMARY NET</code> line for each. A design that says nothing leaves the choice to the tool.</p>
 </section>
 <section id="what-it-refuses" class="level2">
@@ -493,22 +491,22 @@ FREQUENCY NET "clk_i" 12.000000 MHz ;</code></pre>
 <li>a port has no pin, or a pin names a port that does not exist;</li>
 <li>two ports sit on one site;</li>
 <li>a port’s width does not match its pin count;</li>
-<li>the design declares <code>ext_pull</code> on a pad and the board does not provide it.</li>
+<li>a pad relies on a pull and the board provides none, neither <code>pull</code> nor <code>ext_pull</code>, or pulls the other way.</li>
 </ul>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Wrong <span class="cf">begin</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"R1"</span>)</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="st">"A9"</span>, <span class="st">"B9"</span>, <span class="st">"A10"</span>])   <span class="co"># three pins for a 4-bit port</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"T2"</span>)                   <span class="co"># and no pull-up for an open-drain pad</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">devnull</span>, Top, <span class="fu">LPF</span>(Wrong))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Wrong <span class="cf">begin</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"R1"</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="st">"A9"</span>, <span class="st">"B9"</span>, <span class="st">"A10"</span>])   <span class="co"># three pins for a 4-bit port</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"T2"</span>)                   <span class="co"># and no pull-up for an open-drain pad</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">devnull</span>, Top, <span class="fu">LPF</span>(Wrong))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-error">
 <div class="ansi-escaped-output">
 <pre>Wrong and Top do not agree:
   led is 4 bits and Wrong gives it 3 pin(s)
-  sda needs an external pull-up and Wrong gives none
+  sda relies on a pull-up and Wrong provides none, neither its own (pull) nor one on the board (ext_pull)
 Stacktrace:
  [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
@@ -517,11 +515,11 @@ Stacktrace:
  [3] <span class="ansi-bold">write</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">io</span>::Base.DevNull, <span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{Top}</span>, <span class="ansi-bright-black-fg">f</span>::LPF<span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/emitters/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">lpf.jl:6</span>
  [4] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:87</span></pre>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:90</span></pre>
 </div>
 </div>
 </div>
-<p>Each of those is a bug that would otherwise be found in the lab, with a scope.</p>
+<p>Each of those would otherwise be found only on the board.</p>
 <div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">

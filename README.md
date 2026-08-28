@@ -16,15 +16,15 @@ QuartzHDL is not a Julia-to-hardware compiler and not a replacement for Verilog.
 
 ## Features at a glance
 
-- **Hardware description** as a Julia `struct`, with fields as interface wires and registers, and methods as behavior.
-- **Primitive data types** – `Bool` (active high/low polarity), `Bits{N}` and `SBits{N}`.
-- **Board level I/O** – `Pads` with tri-state machinery, pull-ups / pull-downs, voltage definitions and pin bindings.
-- **Hierarchical designs** – constructed by wiring up submodules, clock domains, power-gated pads, and vendor black boxes.
-- **Hardware idioms** as foundational building blocks – metaguards, self-clearing pulses, countdown timers, edge detectors, finite state machines, multi-step sequences, multi-cycle settling combinatorial logic, etc.
+- **Hardware description** as a Julia `struct`, with fields as interface wires and registers, and `@on` blocks as behavior.
+- **Primitive data types** – `Bool`, `Bits{N}` and `SBits{N}`; any port may be declared active low and is read as asserted.
+- **Board level I/O** – `Pad{N}` with tri-state drive and release, on-chip and board pull-ups / pull-downs, and pin bindings with I/O standard and drive strength.
+- **Hierarchical designs** – constructed by wiring up submodules, clock domains, gated clock outputs, and vendor black boxes.
+- **Hardware idioms** as foundational building blocks – metaguards, self-clearing pulses, countdown timers, edge detectors, finite state machines, multi-step sequences, pipelines, and multicycle paths with their timing constraints.
 - **Runs as plain Julia** — one function call per clock edge, tested with `@test` and debugged at the REPL.
-- **Simulation** with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C and RAM, stand-ins for black boxes, live waveforms in Surfer or `Plots`, and a `sim>` custom REPL.
+- **Simulation** with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C, PWM and RAM, stand-ins for black boxes, live waveforms in Surfer or `Plots`, and a `sim>` custom REPL.
 - **Compiles to Verilog** – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.
-- **Board to bitstream** — `@board` describes the pins, and the constraint file and a Lattice Diamond workspace are generated from it
+- **Board to bitstream** — `@board` describes the pins, and the constraint file and a Lattice Diamond workspace, with a Makefile that builds the bitstream, are generated from it.
 
 ## Installation
 

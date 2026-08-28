@@ -481,14 +481,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="a-simulation">A <code>Simulation</code></h2>
 <div id="6" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Blinker</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Simulation(Blinker, 4 nets, 4 watched, t = 0s)</code></pre>
-</div>
 </div>
 <p><code>clocks</code> gives every pin clock a rate — a named tuple is enough for a simple plan, and <code>@clocks</code> handles several clocks (<a href="./benches.html">benches</a> has the details); <code>wiring</code> connects the design to models around it, and is left out when there is nothing to connect, as here; <code>watch</code> says which nets to record. Any stubs — models of chips on the board — come as further keywords.</p>
 <p>Every register, pad, input and clock is a <em>net</em>, named by its path:</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">nets</span>(sim)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">nets</span>(sim)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>4-element Vector{QuartzHDL.Net}:
  Net(en::input[1])
@@ -503,33 +500,30 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="run-a-stimulus"><code>@run</code>: a stimulus</h2>
 <p>A stimulus is a <code>@run</code> body. Inside it, <code>sim.x = v</code> drives a net, <code>advance_by</code> and <code>advance_until</code> let time pass, and times carry units:</p>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  sim.en <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">3</span>us)</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  sim.en <span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(sim.led)                <span class="co"># a condition, looked at every slot</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(<span class="fl">20</span>us)                   <span class="co"># or an absolute time</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(!sim.led; timeout<span class="op">=</span><span class="fl">50</span>us)</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Capture(4 signals, 20.0µs)</code></pre>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  sim.en <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">3</span>µs)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  sim.en <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(sim.led)                <span class="co"># a condition, looked at every slot</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(<span class="fl">20</span>µs)                   <span class="co"># or an absolute time</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(!sim.led; timeout<span class="op">=</span><span class="fl">50</span>µs)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-</div>
-<p><code>@run</code> returns what the body returned, or the capture when the body returns nothing. Outside a macro, <code>using QuartzHDL.Units</code> gives <code>ms</code>, <code>us</code>, <code>MHz</code> and so on.</p>
+<p><code>@run</code> returns what the body returned, or the capture when the body returns nothing. Outside a macro, <code>using QuartzHDL.Units</code> gives <code>ms</code>, <code>µs</code>, <code>MHz</code> and so on.</p>
 <p><code>advance_until</code> with a condition is a breakpoint: the simulation runs until the condition is true, or the timeout passes, which is an error.</p>
 <section id="tasks" class="level3">
 <h3 class="anchored" data-anchor-id="tasks">Tasks</h3>
 <p>A <code>@task</code> inside a <code>@run</code> body runs alongside it and ends with it. Given on its own, <code>@run sim @task ... end</code> keeps running until <code>stop!(sim, task)</code>:</p>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> <span class="pp">@run</span> sim <span class="pp">@task</span> <span class="cf">begin</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> <span class="cn">true</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">advance_by</span>(<span class="fl">7</span>us)</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    sim.en <span class="op">=</span> !sim.en</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">30</span>us)</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="fu">stop!</span>(sim, t)</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">float</span>(<span class="fu">time</span>(sim))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> <span class="pp">@run</span> sim <span class="pp">@task</span> <span class="cf">begin</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> <span class="cn">true</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">advance_by</span>(<span class="fl">7</span>µs)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    sim.en <span class="op">=</span> !sim.en</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">30</span>µs)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="fu">stop!</span>(sim, t)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="fu">float</span>(<span class="fu">time</span>(sim))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>5.0e-5</code></pre>
 </div>
@@ -540,16 +534,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="reusable-stimuli">Reusable stimuli</h3>
 <p>A stimulus that will be used more than once is a function. <code>@stimulus</code> makes a function whose body is a <code>@run</code> body; an argument declared <code>::Net</code> names a net by its path. It is called from inside a <code>@run</code>, or as one:</p>
 <div id="14" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@stimulus</span> <span class="kw">function</span> <span class="fu">pulse</span>(sim, pin<span class="op">::</span><span class="dt">Net</span>, width)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  pin <span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(width)</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  pin <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">pulse</span>(sim, <span class="st">"en"</span>, <span class="fl">10</span>us)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>false</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@stimulus</span> <span class="kw">function</span> <span class="fu">pulse</span>(sim, pin<span class="op">::</span><span class="dt">Net</span>, width)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  pin <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(width)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  pin <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">pulse</span>(sim, <span class="st">"en"</span>, <span class="fl">10</span>µs)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 </section>
@@ -557,14 +548,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="the-capture">The capture</h2>
 <p>The capture — what <code>@run</code> returned above, or <code>capture(sim)</code> at any time — holds every watched net’s history, as values: a pin asserted low reads <code>true</code> while asserted, as the design sees it, and <a href="./visualizing.html">plots and VCDs</a> show the wires. Query it by name or path, and by time:</p>
 <div id="16" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">capture</span>(sim)</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>out.led[<span class="fl">5</span>us]                      <span class="co"># its value at 5 us</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">capture</span>(sim)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>out.led[<span class="fl">5</span>µs]                      <span class="co"># its value at 5 µs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>false</code></pre>
 </div>
 </div>
 <div id="18" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">changes</span>(out.led)[<span class="fl">1</span><span class="op">:</span><span class="fl">4</span>]             <span class="co"># when it changed, and to what</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">changes</span>(out.led)[<span class="fl">1</span><span class="op">:</span><span class="fl">4</span>]             <span class="co"># when it changed, and to what</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>4-element Vector{Pair{Float64, Union{Missing, Bool}}}:
     0.0 =&gt; 0
@@ -574,9 +565,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <div id="20" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>out[<span class="st">"n"</span>][<span class="fl">12</span>us]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>out[<span class="st">"n"</span>][<span class="fl">12</span>µs]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{4}(9h)</code></pre>
+<pre><code>Bits{4}(0x9)</code></pre>
 </div>
 </div>
 <p>An encoded register gives its state’s <em>name</em> rather than a number. <code>sampled(signal)</code> gives one value per clock, for signal-processing packages; <code>slots(signal)</code> the raw slot indices.</p>
@@ -590,33 +581,33 @@ sim 0s&gt; advance_by(1ms)
 sim 1.0ms&gt; advance_until(led)
 sim 1.0ms&gt; n
 0x0008
-sim 1.0ms&gt; @task pulse(sim, "en", 10us)</code></pre>
+sim 1.0ms&gt; @task pulse(sim, "en", 10µs)</code></pre>
 <p>Backspace on an empty line returns to Julia. This is the fastest way to find out what a design does: poke it, look, poke again.</p>
 </section>
 <section id="logging" class="level2">
 <h2 class="anchored" data-anchor-id="logging">Logging</h2>
 <p><code>@info</code>, <code>@debug</code>, <code>@warn</code> and <code>@error</code> work inside a block, with the simulation time and the module’s name added to each message:</p>
 <div id="22" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Talker</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Talker <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  n <span class="op">==</span> <span class="fl">15</span> <span class="op">&amp;&amp;</span> <span class="pp">@info</span> <span class="st">"wrapping"</span> n</span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@check</span> n <span class="op">≤</span> <span class="fl">15</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Talker</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,))</span>
-<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">40</span>us)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Talker</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Talker <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  n <span class="op">==</span> <span class="fl">15</span> <span class="op">&amp;&amp;</span> <span class="pp">@info</span> <span class="st">"wrapping"</span> n</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@check</span> n <span class="op">≤</span> <span class="fl">15</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Talker</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,))</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">40</span>µs)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <div class="ansi-escaped-output">
 <pre><span class="ansi-cyan-fg ansi-bold">┌ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>wrapping
 <span class="ansi-cyan-fg ansi-bold">│ </span>  time = "15.0µs"
-<span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(fh)
+<span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(0xf)
 <span class="ansi-cyan-fg ansi-bold">┌ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>wrapping
 <span class="ansi-cyan-fg ansi-bold">│ </span>  time = "31.0µs"
-<span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(fh)
+<span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(0xf)
 </pre>
 </div>
 </div>
@@ -624,7 +615,7 @@ sim 1.0ms&gt; @task pulse(sim, "en", 10us)</code></pre>
 <pre><code>Capture(0 signals, 40.0µs)</code></pre>
 </div>
 </div>
-<p>A message is part of the design’s meaning and stays in the code; what to <em>show</em> right now is chosen from outside and never touches the design: <code>showlogs!(sim; from=10us, to=12us, modules=[:Talker], when=() -&gt; sim.n &gt; 3)</code> narrows what is printed, and <code>showlogs!(sim)</code> shows everything again.</p>
+<p>A message is part of the design’s meaning and stays in the code; what to <em>show</em> right now is chosen from outside and never touches the design: <code>showlogs!(sim; from=10µs, to=12µs, modules=[:Talker], when=() -&gt; sim.n &gt; 3)</code> narrows what is printed, and <code>showlogs!(sim)</code> shows everything again.</p>
 <p><code>@check cond</code> is the design’s own assumption: a simulation stops where it fails, with the time and the module in the error.</p>
 <p>None of this reaches the Verilog unless asked for. <code>Verilog(; debug=true)</code> and <code>cosim(T, stim; debug=true)</code> emit messages as <code>$display</code> and a failed check as <code>$error</code>, for simulation-only builds; synthesis output is untouched.</p>
 </section>

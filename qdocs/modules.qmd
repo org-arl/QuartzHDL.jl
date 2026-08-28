@@ -7,6 +7,10 @@ engine: julia
 
 A module is a struct. Its fields are the registers; its ports say what crosses the boundary. This chapter is about the declaration — the types you can use, what a default means, and how ports are named and documented.
 
+::: {.callout-important title="If you know Julia"}
+A QuartzHDL *module* is a `@quartz struct` together with its blocks — the thing Verilog calls a `module`, and the word this manual uses throughout. It is not a Julia `module`. A Julia module, or a package, is where you define your QuartzHDL modules, and can hold as many of them as you like; when the manual means Julia's, it says *Julia module*.
+:::
+
 ```{julia}
 #| echo: false
 #| output: false
@@ -17,6 +21,7 @@ using QuartzHDL.Units
 ## Registers
 
 ```{julia}
+#| output: false
 @quartz struct Regs
   n::Bits{8} = 0          # 8 bits, unsigned, reset to 0
   limit::Bits{8} = 200    # a plain integer default, checked against the width
@@ -38,6 +43,8 @@ The value types are:
 
 plus the special registers of later chapters — `Pulse`, `Timeout{N}`, `Step`, `Edge`, `MetaGuard{K}`, `Pipeline{K,T}`, `Multicycle{K,T}`, `Pad{N}` — and other `@quartz` modules, which make an instance.
 
+The 128-bit cap is a limit of the implementation, which keeps every value in one machine word, and not of the language; wider data — a sample window, a packet buffer — is several registers or a [`RAM`](library.qmd).
+
 ::: {.callout-tip title="If you know Verilog"}
 `reg [7:0] n;` is `n::Bits{8}`. There is no `wire` type in the struct: a wire is a local variable inside a block, or an output driven by `@wire`, as the [wires chapter](wires.qmd) shows. Signedness is part of the type rather than a property you attach later, so `SBits{12}` arithmetic is signed everywhere it appears.
 :::
@@ -58,7 +65,7 @@ Bits{8}(200) + Bits{12}(100)   # mixed widths: the result takes the wider one
 
 The width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.
 
-What QuartzHDL will *not* do silently is throw bits away. Narrowing has to be written down:
+Bits are never dropped silently; narrowing is written down:
 
 ```{julia}
 wide = Bits{16}(0x1234)
@@ -90,10 +97,10 @@ w = Bits{16}(0xabcd)
 w[0], w[15], w[4:7]
 ```
 
-`w[part(i, Bits{8})]` picks part number `i` of a word made of equal fields — byte `i`, here — and `w[base .+ (0:7)]` picks eight bits from a computed base:
+`w[part(i, Bits{8})]` picks part number `i` of a word made of equal fields — byte `i`, here. Parts are numbered like bits: from 0, at the least significant end, so `part(0, Bits{8})` is bits `0:7` and `part(1, Bits{8})` is bits `8:15`. `w[base .+ (0:7)]` picks eight bits from a computed base:
 
 ```{julia}
-w[part(1, Bits{8})]
+w[part(0, Bits{8})], w[part(1, Bits{8})]
 ```
 
 Both forms work on the left of a register write too, to write part of a register; the [clocked logic chapter](clocked.qmd) has the details. A base that would run off the end of the word is an error rather than something Julia and Verilog might read differently.
@@ -103,7 +110,9 @@ Both forms work on the left of a register write too, to write part of a register
 `bits(hi, ..., lo)` concatenates, most significant first, and so does the operator `⊞` (type `\boxplus`). `split` takes a word apart by widths:
 
 ```{julia}
-id = Bits{4}(0xa); tag = Bits{4}(0x5); payload = Bits{8}(0x33)
+id = Bits{4}(0xa)
+tag = Bits{4}(0x5)
+payload = Bits{8}(0x33)
 word = id ⊞ tag ⊞ payload
 ```
 
@@ -122,12 +131,13 @@ split(word, 4, 4, 8)
 What crosses the module's boundary is declared, not inferred from a name:
 
 ```{julia}
+#| output: false
 @quartz struct Uart
   @in  rx::Bool, baud::Bits{16}
   @in  rst::Bool = false  active=:low
   @out tx::Bool
   @out busy::Bool
-  @io  sda::Pad{1}  ext_pull=:up
+  @io  sda::Pad{1} = Pad{1}(:pullup)
   state::Bits{3}          # not declared: an internal register
 end
 ```
@@ -147,6 +157,7 @@ A [capture](simulating.qmd) holds values as well, so `out.rst[t]` agrees with `r
 The Verilog port is named after the Julia port with its direction on the end: `rx_i`, `tx_o`, `sda_io`, and `rst_ni` for an input asserted low. `verilog="..."` names the pin something else entirely:
 
 ```{julia}
+#| output: false
 @quartz struct Named
   @in  go::Bool  verilog="START_N"  active=:low
   @out y::Bool
@@ -176,6 +187,7 @@ portdoc(Documented, :divisor)
 Some registers hold a value that must be right *before* the first reset — the reset generator itself, or a configuration word the bitstream delivers. Declare those with `static`:
 
 ```{julia}
+#| output: false
 @quartz struct PowerUp
   ready::Bool = static(false)
   timer::Bits{4} = static(15)

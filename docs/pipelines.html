@@ -443,15 +443,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Mac</span>()</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; a<span class="op">=</span><span class="fu">Bits</span><span class="dt">{16}</span>(i), b<span class="op">=</span><span class="fu">Bits</span><span class="dt">{16}</span>(<span class="fl">10</span>), c<span class="op">=</span><span class="fu">Bits</span><span class="dt">{16}</span>(<span class="fl">1</span>), d<span class="op">=</span><span class="fu">Bits</span><span class="dt">{16}</span>(i))</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"edge </span><span class="sc">$</span>i<span class="st">: y = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.y))<span class="st">, valid = </span><span class="sc">$</span>(m.valid)<span class="st">"</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@info</span> <span class="st">"edge </span><span class="sc">$</span>i<span class="st">: y = </span><span class="sc">$</span>(<span class="fu">Int</span>(m.y))<span class="st">, valid = </span><span class="sc">$</span>(m.valid)<span class="st">"</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>edge 1: y = 0, valid = false
-edge 2: y = 0, valid = false
-edge 3: y = 0, valid = false
-edge 4: y = 11, valid = true
-edge 5: y = 22, valid = true</code></pre>
+<div class="ansi-escaped-output">
+<pre><span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 1: y = 0, valid = false
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 2: y = 0, valid = false
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 3: y = 0, valid = false
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 4: y = 11, valid = true
+<span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>edge 5: y = 22, valid = true
+</pre>
+</div>
 </div>
 </div>
 </section>
@@ -468,7 +471,7 @@ edge 5: y = 22, valid = true</code></pre>
 <h2 class="anchored" data-anchor-id="seeing-the-cuts">Seeing the cuts</h2>
 <p><code>stages</code> shows what the compiler did:</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stages</span>(Mac, <span class="op">:</span>p)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stages</span>(Mac, <span class="op">:</span>p)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>Pipeline p :: Pipeline{2,Bits{33}} of Mac     path cost 99, cut into 2 stages
 
@@ -492,14 +495,14 @@ total   99 + 37 = 136 flops</code></pre>
 <p>Each stage lists what it takes in, what it computes, what it registers, and the cost of its longest path; the last line is what the whole pipeline costs in registers. <code>stages(Mac)</code> reports every pipeline in the module.</p>
 <p>A single operation cannot be split. If K is larger than the computation can use, the extra stages only delay, the report says so, and writing the Verilog warns:</p>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> TooDeep</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  a<span class="op">::</span><span class="dt">Bits{8}</span>, b<span class="op">::</span><span class="dt">Bits{8}</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  s<span class="op">::</span><span class="dt">Pipeline{3,Bits{9}}</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> TooDeep <span class="fu">posedge</span>(clk) s <span class="op">←</span> <span class="fu">Bits</span><span class="dt">{9}</span>(a) <span class="op">+</span> b</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">stages</span>(TooDeep, <span class="op">:</span>s)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> TooDeep</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  a<span class="op">::</span><span class="dt">Bits{8}</span>, b<span class="op">::</span><span class="dt">Bits{8}</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  s<span class="op">::</span><span class="dt">Pipeline{3,Bits{9}}</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> TooDeep <span class="fu">posedge</span>(clk) s <span class="op">←</span> <span class="fu">Bits</span><span class="dt">{9}</span>(a) <span class="op">+</span> b</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">stages</span>(TooDeep, <span class="op">:</span>s)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>Pipeline s :: Pipeline{3,Bits{9}} of TooDeep     path cost 9, cut into 3 stages
 
@@ -533,7 +536,7 @@ warning: pipeline s of TooDeep: stage 2 of 3 computes nothing; 3 stages is more 
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The Verilog contains the stage registers and an <code>always</code> block per stage, plus a valid bit that travels with the data — the same code you would write, except the cuts were chosen by measuring the logic rather than by eye. Change the expression and the cuts move with it.</p>
+<p>The Verilog contains the stage registers and an <code>always</code> block per stage, plus a valid bit that travels with the data — with the cuts chosen by measuring the depth of the logic. Change the expression and the cuts move with it.</p>
 </div>
 </div>
 </section>

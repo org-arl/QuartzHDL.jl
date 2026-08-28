@@ -26,6 +26,7 @@ Most components are tasks. Reach for a hook only when a task's `advance_until` w
 Here is a component that models a sensor with a "data ready" line: it pulses `drdy` at a fixed rate, and holds a sample on a bus that the design reads:
 
 ```{julia}
+#| output: false
 @quartz struct Reader
   @in  drdy::Bool = false
   @in  data::Bits{12} = 0
@@ -109,7 +110,7 @@ h = let was_wr = false
     was_wr = wr
   end)
 end
-@run sim advance_by(2us)
+@run sim advance_by(2µs)
 unhook!(sim, h)
 received
 ```

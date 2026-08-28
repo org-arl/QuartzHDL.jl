@@ -12,12 +12,13 @@ using QuartzHDL
 using QuartzHDL.Units
 using Plots
 using SignalAnalysis
-default(size=(650, 300))
+default(size=(650, 300), bottom_margin=3Plots.mm, right_margin=5Plots.mm)
 ```
 
 Let's make a capture to look at:
 
 ```{julia}
+#| output: false
 @encoding Phase begin IDLE; WARM; RUN end
 
 @quartz struct Heater
@@ -43,11 +44,11 @@ end
 
 sim = Simulation(Heater(); clocks=(clk=1MHz,), watch="*")
 out = @run sim begin
-  advance_by(5us)
+  advance_by(5µs)
   sim.go = true
-  advance_by(1us)
+  advance_by(1µs)
   sim.go = false
-  advance_by(80us)
+  advance_by(80µs)
 end
 ```
 
@@ -80,6 +81,8 @@ view(out)             # open the capture in Surfer
 view(sim)             # a live view: refreshed after every @run, and during long ones
 ```
 
+![The `Heater` capture in Surfer: the clock, `go`, the phase by state name, `temp`, and `on`.](images/surfer.png)
+
 `view(Surfer(), x)` names the viewer explicitly. A viewer is an `IO`, so `write(Surfer(), out, VCD())` is the same thing, and `close(v)` closes it. The live view keeps its zoom and the signals you have added across refreshes, so a typical debugging loop is: open the view, `@run` a bit, look, `@run` a bit more.
 
 ## Signals as signals
@@ -88,6 +91,7 @@ view(sim)             # a live view: refreshed after every @run, and during long
 
 ```{julia}
 using SignalAnalysis
+
 x = sampled(out.temp)
 framerate(x), length(x)
 ```

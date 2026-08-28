@@ -13,12 +13,13 @@ Let's build something small but real: a pulse-width modulator. It takes an 8-bit
 using QuartzHDL
 using QuartzHDL.Units
 using Plots
-default(size=(650, 250))
+default(size=(650, 250), bottom_margin=3Plots.mm, right_margin=5Plots.mm)
 ```
 
 ## Describe it
 
 ```{julia}
+#| output: false
 using QuartzHDL
 
 @quartz struct Pwm
@@ -70,19 +71,21 @@ let m = Pwm(), highs = 0
 end
 ```
 
-64 of 256, as promised. `step` is all you need for a unit test — we will see a nicer way to drive a longer run next.
+64 of 256. `step` is enough for a unit test; a `Simulation`, next, drives a longer run.
 
 ## Simulate it
 
 For anything longer than a few cycles, a `Simulation` wraps the module with a clock and a recorder. We give the clock a real rate, and say which nets to watch (`"*"` means all of them):
 
 ```{julia}
+#| output: false
 sim = Simulation(Pwm(); clocks=(clk=1MHz,), watch="*")
 ```
 
 Then we drive it with a `@run` block. Inside, `sim.duty = v` drives an input, and `advance_by` lets time pass:
 
 ```{julia}
+#| output: false
 out = @run sim begin
   sim.duty = 64
   advance_by(1ms)
@@ -94,25 +97,33 @@ end
 What comes back is a capture of every watched net. Ask it what a net was at some time, or list its changes:
 
 ```{julia}
-out.pwm[0.5ms], out.pwm[1.5ms]
+out.pwm[100µs]
 ```
 
 ```{julia}
 changes(out.pwm)[1:6]
 ```
 
-And with `Plots` loaded, plot it:
+`pwm` goes high at the start of each 256-clock period and low again `duty` clocks later. To check the duty cycle, take the signal as one value per clock — 1000 per millisecond at 1 MHz — and see how much of each millisecond it was high:
+
+```{julia}
+frames = sampled(out.pwm)
+sum(frames[1:1000]) / 1000, sum(frames[1001:2000]) / 1000
+```
+
+About 25% for the first millisecond and 75% for the second, which is what we asked for. And with `Plots` loaded, plot it — a couple of periods on either side of the change at 1 ms:
 
 ```{julia}
 using Plots
-plot(out, "pwm"; xlims=(0.9ms, 1.1ms))
+
+plot(out, "pwm"; xlims=(0.5ms, 1.5ms))
 ```
 
-The duty steps from 25% to 75% at 1 ms, which is what we asked for. [Simulation](simulating.qmd) covers the rest of this: watching specific nets, waiting on conditions, running tasks alongside the stimulus, and a REPL prompt for interactive poking.
+The high pulses are narrow before 1 ms and wide after it. [Simulation](simulating.qmd) covers the rest of this: watching specific nets, waiting on conditions, running tasks alongside the stimulus, and a REPL prompt for interactive poking.
 
 ## Check it against the Verilog
 
-Now the part that makes all of this trustworthy. `cosim` writes the Verilog for the module, runs it under Icarus Verilog with the same inputs as the Julia model, and compares every output after every clock:
+`cosim` checks that the two agree. It writes the Verilog for the module, runs it under Icarus Verilog with the same inputs as the Julia model, and compares every output after every clock:
 
 ```{julia}
 stimulus = [(duty=Bits{8}(i < 300 ? 64 : 192),) for i in 1:600]
@@ -120,7 +131,7 @@ r = cosim(Pwm, stimulus)
 r.ok
 ```
 
-If `r.ok` were `false`, `r.mismatches` would list the first cycles where the two disagreed. Because the two came from one source, a mismatch means a bug in QuartzHDL rather than in your design — and that is the kind of bug that gets fixed first.
+If `r.ok` were `false`, `r.mismatches` would list the first cycles where the two disagreed. Because the two came from one source, a mismatch means a bug in QuartzHDL rather than in your design.
 
 ::: {.callout-note}
 `cosim` needs `iverilog` and `vvp` on your path. On a Mac, `brew install icarus-verilog`.

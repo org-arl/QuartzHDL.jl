@@ -464,7 +464,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The emitted code is the two-flop chain you would write, <code>sync0 &lt;= pin; sync1 &lt;= sync0;</code>, with the block reading <code>sync1</code>. What you get on top is a declaration that says <em>this input is asynchronous</em>, in one place, which is the fact a reviewer wants to know.</p>
+<p>The emitted code is the two-flop chain <code>sync0 &lt;= pin; sync1 &lt;= sync0;</code>, with the block reading <code>sync1</code>. The declaration also records, in one place, that the input is asynchronous.</p>
 </div>
 </div>
 </section>
@@ -495,11 +495,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(m, <span class="op">:</span>clk_slow; x<span class="op">=</span><span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">7</span>))</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>m.slow</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{8}(07h)</code></pre>
+<pre><code>Bits{8}(0x07)</code></pre>
 </div>
 </div>
 <p>The keywords of <code>step</code> are the union of every block’s inputs; a block only reads the ones it names. Several blocks on the same clock behave like Verilog’s concurrent <code>always</code> blocks: all read the old state, all write together.</p>
-<p>For a design with several clocks, stepping by hand quickly gets tedious. A <a href="./benches.html"><code>Bench</code> or <code>Simulation</code></a> takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.</p>
+<p>For a design with several clocks, stepping by hand means advancing each clock in the right ratio. A <a href="./benches.html"><code>Bench</code> or <code>Simulation</code></a> takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.</p>
 </section>
 <section id="crossing-safely" class="level2">
 <h2 class="anchored" data-anchor-id="crossing-safely">Crossing safely</h2>
@@ -519,7 +519,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="next" class="level2">
 <h2 class="anchored" data-anchor-id="next">Next</h2>
-<p><a href="./pipelines.html">Pipelines</a>: arithmetic that takes several cycles, cut into stages for you.</p>
+<p><a href="./pipelines.html">Pipelines</a>: arithmetic that takes several cycles, cut into stages by the compiler.</p>
 
 
 </section>

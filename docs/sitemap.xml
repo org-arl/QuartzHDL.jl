@@ -2,102 +2,102 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/composing.html</loc>
-    <lastmod>2026-08-28T16:10:07.489Z</lastmod>
+    <lastmod>2026-08-28T16:48:55.541Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/quickstart.html</loc>
-    <lastmod>2026-08-28T16:10:56.171Z</lastmod>
+    <lastmod>2026-08-28T20:48:33.575Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/wires.html</loc>
-    <lastmod>2026-08-28T16:08:34.025Z</lastmod>
+    <lastmod>2026-08-28T19:22:50.062Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/clocked.html</loc>
-    <lastmod>2026-08-28T16:08:57.361Z</lastmod>
+    <lastmod>2026-08-28T20:11:22.025Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/compiling.html</loc>
-    <lastmod>2026-08-28T16:08:34.024Z</lastmod>
+    <lastmod>2026-08-28T20:49:24.665Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/internals.html</loc>
-    <lastmod>2026-08-28T15:58:50.817Z</lastmod>
+    <lastmod>2026-08-28T17:59:47.592Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/index.html</loc>
-    <lastmod>2026-08-28T16:10:56.144Z</lastmod>
+    <lastmod>2026-08-28T19:28:06.887Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/verilog.html</loc>
-    <lastmod>2026-08-28T16:11:12.035Z</lastmod>
+    <lastmod>2026-08-28T16:48:55.555Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/blackbox.html</loc>
-    <lastmod>2026-08-28T16:09:10.969Z</lastmod>
+    <lastmod>2026-08-28T18:49:55.766Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/testing.html</loc>
-    <lastmod>2026-08-28T16:09:41.169Z</lastmod>
+    <lastmod>2026-08-28T20:46:53.180Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/benches.html</loc>
-    <lastmod>2026-08-28T16:09:10.960Z</lastmod>
+    <lastmod>2026-08-28T19:22:50.057Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/multicycle.html</loc>
-    <lastmod>2026-08-28T16:10:07.490Z</lastmod>
+    <lastmod>2026-08-28T20:20:27.202Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/library.html</loc>
-    <lastmod>2026-08-28T16:09:10.977Z</lastmod>
+    <lastmod>2026-08-28T20:44:24.148Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/boards.html</loc>
-    <lastmod>2026-08-28T16:09:10.966Z</lastmod>
+    <lastmod>2026-08-28T19:59:26.278Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/fsm.html</loc>
-    <lastmod>2026-08-28T16:10:07.490Z</lastmod>
+    <lastmod>2026-08-28T20:12:47.085Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/reference.html</loc>
-    <lastmod>2026-08-28T16:08:57.356Z</lastmod>
+    <lastmod>2026-08-28T19:28:06.889Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/rules.html</loc>
-    <lastmod>2026-08-27T17:28:30.000Z</lastmod>
+    <lastmod>2026-08-28T20:12:47.086Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/domains.html</loc>
-    <lastmod>2026-08-28T16:09:41.169Z</lastmod>
+    <lastmod>2026-08-28T19:59:26.281Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/emitters.html</loc>
-    <lastmod>2026-08-28T16:08:57.358Z</lastmod>
+    <lastmod>2026-08-28T19:59:26.281Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/visualizing.html</loc>
-    <lastmod>2026-08-28T16:08:57.359Z</lastmod>
+    <lastmod>2026-08-28T20:48:33.575Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/timekeeping.html</loc>
-    <lastmod>2026-08-28T16:11:12.063Z</lastmod>
+    <lastmod>2026-08-28T20:02:28.428Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/simulating.html</loc>
-    <lastmod>2026-08-28T16:09:41.170Z</lastmod>
+    <lastmod>2026-08-28T17:26:36.982Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/pipelines.html</loc>
-    <lastmod>2026-08-28T16:10:07.490Z</lastmod>
+    <lastmod>2026-08-28T20:02:28.429Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/components.html</loc>
-    <lastmod>2026-08-28T16:09:41.170Z</lastmod>
+    <lastmod>2026-08-28T17:26:36.983Z</lastmod>
   </url>
   <url>
     <loc>https://org-arl.github.io/QuartzHDL.jl/modules.html</loc>
-    <lastmod>2026-08-28T16:08:57.362Z</lastmod>
+    <lastmod>2026-08-28T19:59:26.282Z</lastmod>
   </url>
 </urlset>

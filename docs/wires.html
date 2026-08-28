@@ -475,7 +475,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div id="6" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> I2CPin</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  pulling<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1}  </span>ext_pull<span class="op">=:</span>up</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span>  sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span><span class="dt">{1}</span>(<span class="op">:</span>pullup)</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  seen<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
@@ -488,7 +488,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <ul>
 <li><code>drive(v)</code> holds the pin at <code>v</code>; <code>drive(v, en)</code> holds only the bits <code>en</code> selects; <code>release()</code> lets go. <code>sda ← v</code> is shorthand for <code>drive(v)</code>.</li>
 <li>Read bare, <code>sda</code> is the <em>resolved</em> net — what the pin actually sees, given the module’s own drive, whatever the outside is driving, and the pull. <code>bus[3]</code> and <code>bus[0:3]</code> index a wider pad.</li>
-<li><code>ext_pull=:up</code> says the board provides a pull-up, which is what makes an open-drain bus read high when nobody is holding it low. A pad may also declare an internal pull with its default: <code>Pad{1}(:pulldown)</code>.</li>
+<li><code>Pad{1}(:pullup)</code> says the net is pulled up, which is what makes an open-drain bus read high when nobody is holding it low; <code>Pad{1}(:pulldown)</code> is the mirror, and <code>Pad{1}()</code> is push-pull, where every bit must have exactly one driver. The pull is part of the design because the design relies on it: simulation and co-simulation resolve the net with it. Whether the FPGA’s own pull or a resistor on the board provides it is the <a href="./boards.html">board’s</a> business.</li>
 </ul>
 <p>A pad keeps what it drives through a reset — it is a pin, not a register.</p>
 <section id="polarity-on-a-pad" class="level3">
@@ -521,7 +521,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="reading-a-clock-as-data" class="level2">
 <h2 class="anchored" data-anchor-id="reading-a-clock-as-data">Reading a clock as data</h2>
-<p>Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. <code>clocklevel(this, :clk_1MHz)</code> reads a clock net’s current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block’s own.</p>
+<p>Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. <code>clocklevel(:clk_1MHz)</code> reads a clock net’s current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block’s own.</p>
 </section>
 <section id="next" class="level2">
 <h2 class="anchored" data-anchor-id="next">Next</h2>

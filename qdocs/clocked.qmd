@@ -3,7 +3,7 @@ title: "Clocked logic"
 engine: julia
 ---
 
-**The `@on` block: what registers become on a clock edge**
+**The `@on` block: how registers behave at a clock edge**
 
 ```{julia}
 #| echo: false
@@ -15,6 +15,7 @@ using QuartzHDL.Units
 ## The block
 
 ```{julia}
+#| output: false
 @quartz struct Acc
   @in  x::Bits{8}
   @in  rst::Bool = false
@@ -33,7 +34,7 @@ end
 
 The module type comes first, then the clock: `posedge(name)` or `negedge(name)`. Any name will do — it becomes a clock port of the module. A parametric module names the parameters its body uses: `@on Ctr{N} posedge(clk)`.
 
-Inside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever `@in` ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing module — is an error, so a typo cannot quietly become a port that nothing drives.
+Inside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever `@in` ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing Julia module — is an error, so a typo cannot quietly become a port that nothing drives.
 
 A block with one statement needs no `begin ... end`:
 
@@ -72,7 +73,7 @@ step(Swap())
 One register has one writer: two `@on` blocks may not write the same field.
 
 ::: {.callout-tip title="If you know Verilog"}
-`←` is the non-blocking assignment `<=`, and the only kind of register write there is. You may write `<=` if you prefer; `←` is there because `<=` also means "less than or equal", and a compiler that has to guess is a compiler that will one day guess wrong. Type it as `\leftarrow` at the Julia REPL or in an editor with Julia support.
+`←` is the non-blocking assignment `<=`, and the only kind of register write there is. You may write `<=` if you prefer; `←` is there because `<=` also means "less than or equal", and the two would otherwise have to be told apart by context. Type it as `\leftarrow` at the Julia REPL or in an editor with Julia support.
 :::
 
 ## Locals are wires
@@ -91,9 +92,10 @@ A local that shadows a field or an input is an error rather than a silent shadow
 
 ## Choosing
 
-`if`, `elseif` and `else` work as you would expect, on any condition the hardware can compute:
+`if`, `elseif` and `else` work as in Julia, on any condition the hardware can compute:
 
 ```{julia}
+#| output: false
 @quartz struct Sat
   @in  x::Bits{8}
   @in  limit::Bits{8} = 200
@@ -111,13 +113,13 @@ end
 end
 ```
 
-Both arms of an `if` exist in hardware, so a local may not be assigned inside one — the value would be undefined on the other path. Use `ifelse` for a value that depends on a condition:
+A local is assigned at the top level of the block, never inside an `if`. Compute it above the `if` and use it under the condition: it is a wire either way, and a wire that a branch does not use costs nothing. A value that must *differ* by condition is an `ifelse`, which is a mux:
 
 ```julia
-big = ifelse(a > b, a, b)     # a mux
+big = ifelse(a > b, a, b)
 ```
 
-Julia's `&&` and `||` short-circuit, which is a branch Julia takes and hardware cannot; on hardware values use `&` and `|` instead, which are plain gates.
+`&&` and `||` on hardware values are gates, the same as `&` and `|`: both sides are always computed, as hardware computes them, and nothing on either side has a side effect for the short-circuit to skip. That rewrite happens inside a block; a plain helper function is ordinary Julia, where `&&` short-circuits, so a helper uses `&` and `|`.
 
 ### One-line conditionals
 
@@ -125,11 +127,11 @@ A single write under a condition can be written the way Julia writes it:
 
 ```julia
 count == limit && (count ← 0)      # if count == limit
-tx_rd || (tx_rq ← true)           # unless tx_rd
+tx_rd || (tx_rq ← true)            # unless tx_rd
 a && b && (x ← v)                  # both conditions
 ```
 
-This is exactly the `if` spelled differently. Only a statement may sit on the right — a write, a log macro (`cond && @info "seen" x`), or a `@check`: something that computes a value and throws it away is still a mistake, and still warns.
+This is the `if` spelled differently. Only a statement may sit on the right — a write, a log macro (`cond && @info "seen" x`), or a `@check`: something that computes a value and throws it away is still a mistake, and still warns.
 
 ### Case
 
@@ -139,7 +141,7 @@ A chain of `if`/`elseif` that tests one register against distinct constants is e
 
 ```julia
 w[8:15] ← byte                     # bits 8 to 15
-w[part(i, Bits{8})] ← byte          # byte number i, counting from zero
+w[part(i, Bits{8})] ← byte         # byte number i, counting from zero
 w[base .+ (0:7)] ← byte            # eight bits from a computed base
 ```
 
@@ -161,9 +163,9 @@ Shifting left by the value's own width or more leaves nothing behind, which is a
 wide = Bits{16}(narrow) << 8
 ```
 
-## Helper functions are just Julia
+## Helper functions are ordinary Julia
 
-Anything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types:
+Anything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types. A helper is a pure function: it takes values and returns one, and it cannot write a register — only a block can do that.
 
 ```{julia}
 parity(x) = count_ones(x)[0]
@@ -185,7 +187,7 @@ write(stdout, Uses, Verilog());
 
 This is how an algorithm moves from Julia to hardware a step at a time: the reference implementation and the hardware share helper functions, and each helper is checked in both worlds.
 
-Hardware has a few operations Julia does not, and the package supplies them:
+A few bit-level operations are common in hardware. Some are Julia functions that work on `Bits` as they do on any integer; the rest the package supplies:
 
 | function | gives |
 |---|---|
@@ -196,33 +198,57 @@ Hardware has a few operations Julia does not, and the package supplies them:
 | `bitwidth(x)` | the width of a value or type |
 | `bits(a, b, ...)`, `a ⊞ b`, `split(x, w...)` | join and take apart |
 
-A helper that needs the whole state takes it as an argument — inside a block the state is reachable as `this`:
-
-```julia
-in_reset(m) = !m.timer[7]
-...
-in_reset(this) && (y ← 0)
-```
-
 ## Methods
 
-A helper written *as if inside the module* — bare field names, inputs, register writes — is a method:
+A helper computes a value, and that is all it can do. Take a module that sends a byte when it is free to:
 
 ```{julia}
+#| output: false
 @quartz struct Sender
   @in  busy::Bool
   tx_tag::Bits{4} = 0
   tx_data::Bits{8} = 0
   tx_rq::Bool = false
 end
+```
+
+The helpers we would like to write are these:
+
+```julia
+ready() = !tx_rq && !busy
+
+function send(tag, payload)
+  tx_tag ← tag
+  tx_data ← payload
+  tx_rq ← true
+end
+```
+
+Neither is possible as a plain function. `ready` names fields and an input, which a function outside the block knows nothing about; and `send` writes registers, which a pure function cannot. The closest a helper can get is to be handed the state — inside a block it is reachable as `this`, with the registers and the inputs as its properties — and read through it; `send` cannot be a helper at all, so its writes stay in the block:
+
+```julia
+ready(m) = !m.tx_rq & !m.busy
+
+@on Sender posedge(clk) begin
+  if ready(this)
+    tx_tag ← 3
+    tx_data ← 0x55
+    tx_rq ← true
+  end
+end
+```
+
+A *method* is the helper we wanted, as written — bare field names, inputs, register writes, nothing passed in:
+
+```{julia}
+#| output: false
+@method ready() = !tx_rq && !busy
 
 @method function send(tag, payload)
   tx_tag ← tag
   tx_data ← payload
   tx_rq ← true
 end
-
-@method ready() = !tx_rq && !busy
 
 @on Sender posedge(clk) begin
   ready() && send(3, 0x55)

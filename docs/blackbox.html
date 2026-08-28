@@ -433,9 +433,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clockout</span>(CLKOP, from<span class="op">=</span>CLKI, divide<span class="op">=</span><span class="fl">1</span>,  enable<span class="op">=</span>!stdby)</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clockout</span>(CLKOS, from<span class="op">=</span>CLKI, divide<span class="op">=</span><span class="fl">48</span>, enable<span class="op">=</span>!stdby)</span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>PLL48</code></pre>
-</div>
 </div>
 <p>The declaration transcribes the datasheet. Port names keep the vendor’s spelling in the emitted Verilog (<code>.CLKI(...)</code>) and appear in Julia as their lowercase (<code>pll.clki</code>). A string at the top documents the part; one before a port documents the port. The clauses:</p>
 <ul>
@@ -451,22 +448,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="wiring-a-part">Wiring a part</h2>
 <p>A black box is wired like a submodule: clock inputs to nets, data inputs to values, and clock outputs <em>the other way round</em>, naming the net they drive:</p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Top</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  sleep<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  pll<span class="op">::</span><span class="dt">PLL48 </span><span class="op">=</span> <span class="fu">PLL48</span>()</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  fast<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  slow<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Top <span class="cf">begin</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  pll.clki  <span class="op">←</span> clk_48MHz          <span class="co"># a clock input, on a net</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  clk       <span class="op">←</span> pll.clkop          <span class="co"># a clock output, naming the net it drives</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  clk_1MHz  <span class="op">←</span> pll.clkos</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  pll.stdby <span class="op">←</span> sleep              <span class="co"># a data input, given a value</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk) fast <span class="op">←</span> fast <span class="op">+</span> <span class="fl">1</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk_1MHz) slow <span class="op">←</span> slow <span class="op">+</span> <span class="fl">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Top</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  sleep<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  pll<span class="op">::</span><span class="dt">PLL48 </span><span class="op">=</span> <span class="fu">PLL48</span>()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  fast<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  slow<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Top <span class="cf">begin</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  pll.clki  <span class="op">←</span> clk_48MHz          <span class="co"># a clock input, on a net</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  clk       <span class="op">←</span> pll.clkop          <span class="co"># a clock output, naming the net it drives</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  clk_1MHz  <span class="op">←</span> pll.clkos</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  pll.stdby <span class="op">←</span> sleep              <span class="co"># a data input, given a value</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk) fast <span class="op">←</span> fast <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk_1MHz) slow <span class="op">←</span> slow <span class="op">+</span> <span class="fl">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>An input left unwired is an error. A wire to a part cannot sit under an <code>if</code>: the part sees its pin every cycle, so put the condition in the value.</p>
 </section>
@@ -475,18 +472,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>In simulation the <code>clockout</code> recipes <em>are</em> the behaviour of the part. Every derived clock — source, divider, phase, enable — is computed from them, and nothing else. A clock that divides holds its counter while gated, as the hardware does. A mux is a part that declares one output twice, once per source, with complementary enables. Switching it is not an edge: the output follows the newly selected source when that is low, and otherwise holds until that source’s own next edge, so a switch never adds or loses a cycle in either model.</p>
 <p>The design above has two clocks derived from one pin. A <a href="./simulating.html"><code>Simulation</code></a> needs the rate of the pin clock only; the rest follows:</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Top</span>(); clocks<span class="op">=</span>(clk_48MHz<span class="op">=</span><span class="fl">48</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">10</span>us)</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(sim.fast), <span class="fu">Int</span>(sim.slow)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Top</span>(); clocks<span class="op">=</span>(clk_48MHz<span class="op">=</span><span class="fl">48</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">10</span>µs)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(sim.fast), <span class="fu">Int</span>(sim.slow)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>(224, 10)</code></pre>
 </div>
 </div>
 <p>In the Verilog the instance is wired to the vendor module. For co-simulation, <code>simmodels</code> generates a behavioural Verilog module for each part from the same recipes, so the Verilog testbench and the Julia model cannot disagree about the clock tree:</p>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">simmodels</span>(<span class="cn">stdout</span>, Top);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">simmodels</span>(<span class="cn">stdout</span>, Top);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>// generated by QuartzHDL from the clockout declarations of PLL48
 `timescale 1ns/1ns
@@ -522,31 +519,31 @@ endmodule</code></pre>
 </div>
 </div>
 <p>A <code>clockout</code> with no <code>from</code> — an oscillator, say — is a port and nothing more: it never ticks in simulation.</p>
-<p><code>clocklevel(this, :clk_1MHz)</code> reads a clock net as data from inside a block, for the rare design that samples a slow reference.</p>
+<p><code>clocklevel(:clk_1MHz)</code> reads a clock net as data from inside a block, for the rare design that samples a slow reference.</p>
 </section>
 <section id="parts-with-data-outputs-stand-ins" class="level2">
 <h2 class="anchored" data-anchor-id="parts-with-data-outputs-stand-ins">Parts with data outputs: stand-ins</h2>
 <p>A part with outputs that are not clocks — a RAM — needs something to say what those outputs do. That is a <em>stand-in</em>, and it belongs to the test harness, not the design:</p>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@blackbox</span> RAM256 <span class="cf">begin</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">input</span>(WrAddress<span class="op">::</span><span class="dt">Bits{8}</span>, RdAddress<span class="op">::</span><span class="dt">Bits{8}</span>, Data<span class="op">::</span><span class="dt">Bits{16}</span>, WE<span class="op">::</span><span class="dt">Bool</span>)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clock</span>(WrClock, RdClock)</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">output</span>(Q<span class="op">::</span><span class="dt">Bits{16}</span>)</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Ram256Model</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  mem<span class="op">::</span><span class="dt">Vector{UInt16}</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  q<span class="op">::</span><span class="dt">Bits{16}</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>QuartzHDL.<span class="fu">standin</span>(<span class="op">::</span><span class="dt">Type{RAM256}</span>) <span class="op">=</span> <span class="fu">Ram256Model</span>(<span class="fu">zeros</span>(<span class="dt">UInt16</span>, <span class="fl">256</span>), <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="fl">0</span>))</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="bu">Base</span>.<span class="fu">step</span>(r<span class="op">::</span><span class="dt">Ram256Model</span>, clock<span class="op">::</span><span class="dt">Symbol</span>; wraddress, rdaddress, data, we)</span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  clock <span class="op">===</span> <span class="op">:</span>rdclock <span class="op">&amp;&amp;</span> <span class="cf">return</span> <span class="fu">Ram256Model</span>(r.mem, <span class="fu">Bits</span><span class="dt">{16}</span>(r.mem[<span class="fu">Int</span>(rdaddress) <span class="op">+</span> <span class="fl">1</span>]))</span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  we <span class="op">||</span> <span class="cf">return</span> r</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  mem <span class="op">=</span> <span class="fu">copy</span>(r.mem); mem[<span class="fu">Int</span>(wraddress) <span class="op">+</span> <span class="fl">1</span>] <span class="op">=</span> <span class="fu">UInt16</span>(<span class="fu">Int</span>(data))</span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Ram256Model</span>(mem, r.q)</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@blackbox</span> RAM256 <span class="cf">begin</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">input</span>(WrAddress<span class="op">::</span><span class="dt">Bits{8}</span>, RdAddress<span class="op">::</span><span class="dt">Bits{8}</span>, Data<span class="op">::</span><span class="dt">Bits{16}</span>, WE<span class="op">::</span><span class="dt">Bool</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clock</span>(WrClock, RdClock)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">output</span>(Q<span class="op">::</span><span class="dt">Bits{16}</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Ram256Model</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  mem<span class="op">::</span><span class="dt">Vector{UInt16}</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  q<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>QuartzHDL.<span class="fu">standin</span>(<span class="op">::</span><span class="dt">Type{RAM256}</span>) <span class="op">=</span> <span class="fu">Ram256Model</span>(<span class="fu">zeros</span>(<span class="dt">UInt16</span>, <span class="fl">256</span>), <span class="fu">Bits</span><span class="dt">{16}</span>(<span class="fl">0</span>))</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="bu">Base</span>.<span class="fu">step</span>(r<span class="op">::</span><span class="dt">Ram256Model</span>, clock<span class="op">::</span><span class="dt">Symbol</span>; wraddress, rdaddress, data, we)</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  clock <span class="op">===</span> <span class="op">:</span>rdclock <span class="op">&amp;&amp;</span> <span class="cf">return</span> <span class="fu">Ram256Model</span>(r.mem, <span class="fu">Bits</span><span class="dt">{16}</span>(r.mem[<span class="fu">Int</span>(rdaddress) <span class="op">+</span> <span class="fl">1</span>]))</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  we <span class="op">||</span> <span class="cf">return</span> r</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  mem <span class="op">=</span> <span class="fu">copy</span>(r.mem); mem[<span class="fu">Int</span>(wraddress) <span class="op">+</span> <span class="fl">1</span>] <span class="op">=</span> <span class="fu">UInt16</span>(<span class="fu">Int</span>(data))</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Ram256Model</span>(mem, r.q)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p><code>standin</code> is called when the part is constructed, so the harness loads before the design is instantiated. The simulator calls <code>step(model, :port; inputs...)</code> on each edge of each clock input — in declaration order when two share a net — and reads an output as the model’s field of the same name. Without a stand-in the outputs read as zero. The Verilog needs none: there the vendor’s netlist does the work.</p>
 <p>For the common case, the library’s <a href="./library.html#ram"><code>RAM</code></a> is a ready-made stand-in with ports named by role, so a block RAM needs no model of its own.</p>

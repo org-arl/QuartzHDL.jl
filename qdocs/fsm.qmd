@@ -10,6 +10,8 @@ engine: julia
 #| output: false
 using QuartzHDL
 using QuartzHDL.Units
+using Plots
+default(size=(650, 300), bottom_margin=3Plots.mm, right_margin=5Plots.mm)
 ```
 
 ## Encodings
@@ -17,6 +19,7 @@ using QuartzHDL.Units
 An `@encoding` names a set of values over a `Bits{N}`:
 
 ```{julia}
+#| output: false
 @encoding Phase begin
   IDLE = 0
   RUN  = 1
@@ -33,13 +36,14 @@ end
 Lamp.AMBER
 ```
 
-Outside a module, a value of the encoding is written with its name, `Phase.RUN`, since there it is a number. `encname(Phase, v)` gives a value's name back, and a state may carry a docstring that `statedoc` reads.
+Outside a block, a value of the encoding is a number, written `Phase.RUN`. `encname(Phase, v)` gives the name of a value, for printing it, and a state may carry a docstring that `statedoc` reads.
 
 ## State machines
 
 A register declared with an encoding as its type is a `Bits` of the encoding's width that knows its encoding. Inside a block, a bare state name then means the state wherever it meets that register — assigned to it, compared with it, as its default, in a `@state` label:
 
 ```{julia}
+#| output: false
 @quartz struct Machine
   @in  go::Bool
   @out y::Bits{8}
@@ -61,16 +65,16 @@ end
 end
 ```
 
-`@fsm` expands to the `if`/`elseif` chain you would otherwise write, so nothing about simulation or emission changes. What it adds is the checking: every state must have a branch or there must be an `@otherwise`; no state may appear twice; a name the encoding does not define is an error. The Verilog gets a `case` over `localparam`s, so the state machine reads by name there too.
+`@fsm` expands to an `if`/`elseif` chain over the states, so nothing about simulation or emission changes. What it adds is the checking: every state must have a branch or there must be an `@otherwise`; no state may appear twice; a name the encoding does not define is an error. The Verilog gets a `case` over `localparam`s, so the state machine reads by name there too.
 
-Let's run it:
+Six clocks after `go`, the machine has counted to five and moved on:
 
 ```{julia}
 let m = step(Machine(); go=true)
   for _ in 1:6
     m = step(m; go=false)
   end
-  encname(Phase, m.state), m.y
+  m.state == Phase.DONE, m.y
 end
 ```
 
@@ -85,6 +89,7 @@ An `@encoding` is a set of `localparam`s and a `@fsm` is a `case` statement, wit
 Logic that does one thing after another over several cycles — a bus transaction, a handshake, a conversion — is a state machine whose states are steps. `@sequence` writes it as the steps:
 
 ```{julia}
+#| output: false
 @quartz struct Writer
   @in  go::Bool
   @in  nack::Bool
@@ -113,7 +118,7 @@ end
 end
 ```
 
-`step` is a `Step` register the struct declares, and the only register the sequence uses: it starts at `START`, goes back to `START` on a `@reset`, is sixteen bits in the Julia model, and is emitted as wide as the steps need. A `Bits{N}` field serves as well, when it is wide enough. The statements between dividers are one step: one cycle, all writes in parallel, then on to the next.
+`step` is a `Step` register the struct declares, and the only register the sequence uses: it starts at `START`, goes back to `START` on a `@reset`, is sixteen bits in the Julia model, and is emitted as wide as the steps need. A `Bits{N}` field serves as well, when it is wide enough. A step ends where `@then`, `@delay` or `@repeat` starts the next; the statements between are one step: one cycle, all writes in parallel, then on to the next.
 
 - `@then` starts the next step; `@then NAME` names it. The first step is always `START`.
 - `@when cond` at the head of a step holds there until `cond` is true, and runs the step's body on that cycle. `@then NAME @when cond` on one line is the same as on two.
@@ -122,37 +127,42 @@ end
 - `@goto NAME` in a body goes to that step, guard and all.
 - After the last step the sequence goes back to `START`, so a leading `@when go` re-arms it.
 
-`Xfer` is an `@encoding` of the steps, made by the block: `Xfer.START`, `Xfer.SEND`, and `Xfer.step_2`… for the unnamed ones. Inside the body a label is bare; outside it — in another block, or in a test — it is written with the sequence's name:
+`Xfer` is an `@encoding` of the steps, made by the block: `Xfer.START`, `Xfer.SEND`, and `Xfer.step_2`… for the unnamed ones. Inside the body a label is bare; outside it — in another block, or in a test — it is written with the sequence's name. Two clocks after `go`, the sequence is at `SEND`:
 
 ```{julia}
-m = Writer()
-m = step(m; go=true, nack=false, z=Bits{8}(9))
-m = step(m; go=false, nack=false, z=Bits{8}(9))
-encname(Xfer, m.step), m.busy
+let m = step(Writer(); go=true, nack=false, z=Bits{8}(9))
+  m = step(m; go=false, nack=false, z=Bits{8}(9))
+  m.step == Xfer.SEND, m.busy
+end
 ```
 
 The trace shows the step by name, and the Verilog is a `case` over `localparam`s with a `default` that returns to `START`, so a register value that is no step recovers.
 
 ## A UART transmitter
 
-`Writer` shows every divider once; here is the same construct with a purpose. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time. The bit time is a [`Timeout`](timekeeping.qmd), reloaded at every step, so the sequence waits on `expired` rather than counting; and `send` is sampled into an [`Edge`](timekeeping.qmd), so a rising edge sends one frame rather than a held level sending frames back to back:
+The transmitter from the [introduction](index.qmd) is a sequence. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time. The bit time is a [`Timeout`](timekeeping.qmd), reloaded at every step, so the sequence waits on `expired` rather than counting; and `send` is sampled into an [`Edge`](timekeeping.qmd), so a rising edge sends one frame rather than a held level sending frames back to back:
 
 ```{julia}
-const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 1 MHz
+#| output: false
+const BIT_TIME = 9                   # clocks per bit, less one: 100 kbaud from 1 MHz
 
 @quartz struct UartTx
-  @in  send::Bool = false
-  @in  data::Bits{8} = 0
-  @out tx::Bool = true
-  @out busy::Bool
-  send_e::Edge
-  step::Step
-  shift::Bits{8} = 0
-  parity::Bool = false
-  baud_timer::Timeout{7}
+  # interface wires
+  @in  data::Bits{8}                 # 8-bit data to transmit
+  @in  send::Bool                    # on rising edge of send
+  @in  rst::Bool active=:low         # reset signal, asserted low
+  @out tx::Bool = true               # TX pin of the UART
+  @out busy::Bool active=:low        # busy signal, asserted low
+  # internal state
+  step::Step                         # state machine step
+  send_e::Edge                       # edge detector for send input
+  shift::Bits{8}                     # transmit shift register
+  parity::Bool                       # parity bit
+  baud_timer::Timeout{7}             # timer to control baud rate
 end
 
 @on UartTx posedge(clk) begin
+  @reset(rst)                        # reset module when rst is asserted
   send_e ← send
   @sequence Frame step begin
     @when rose(send_e)               # wait for a send strobe, then
@@ -167,7 +177,7 @@ end
       baud_timer ← BIT_TIME
     end
     @then @when expired(baud_timer)
-    tx ← parity                      # even parity
+    tx ← parity                      # transmit parity bit
     baud_timer ← BIT_TIME
     @then @when expired(baud_timer)
     tx ← true                        # stop bit
@@ -181,19 +191,21 @@ end
 The `@repeat 8` unrolls into eight steps, one per data bit — twelve in all, so the emitted `step` register is four bits wide. Run it at its real rate in a [simulation](simulating.qmd) and the frame is on the pin:
 
 ```{julia}
-using Plots
 sim = Simulation(UartTx(); clocks=(clk=1MHz,), watch="tx")
 out = @run sim begin
   sim.data = Bits{8}('A')
+  advance_by(5µs)
   sim.send = true
-  advance_by(1.2ms)
+  advance_by(5µs)
+  sim.send = false
+  advance_by(120µs)
 end
-plot(out.tx; legend=false)
+plot(out.tx)
 ```
 
 Start bit low, `'A'` is `0x41` sent LSB first, an even parity of `0`, then the stop bit high.
 
-`@sequence` is `@fsm` with the bookkeeping done for you, so nothing about simulation or emission changes. Dividers belong at the top level of the sequence or of a `@repeat` body; one inside an `if` is an error rather than a guess.
+`@sequence` expands to an `@fsm` over its steps, so nothing about simulation or emission changes. `@then`, `@when`, `@delay` and `@repeat` belong at the top level of the sequence or of a `@repeat` body; one inside an `if` is an error.
 
 ## Next
 

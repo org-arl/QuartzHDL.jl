@@ -17,10 +17,11 @@ The design says nothing about pins, and the board says nothing about logic. A `@
 ## `@board`
 
 ```{julia}
+#| output: false
 @quartz struct Top
   @in  rst::Bool = false  active=:low
   @out led::Bits{4} = 0
-  @io  sda::Pad{1}  ext_pull=:up
+  @io  sda::Pad{1} = Pad{1}(:pullup)
   n::Bits{26} = 0
 end
 
@@ -37,7 +38,7 @@ end
   device  = "LFE5U-25F-6BG381C"
   io      = :LVCMOS33                  # every pin below, unless it says otherwise
 
-  clk => (pin="G2", osc=12MHz)     # a rate belongs with the pin it arrives on
+  clk => (pin="G2", osc=12MHz)         # a rate belongs with the pin it arrives on
   rst => (pin="R1", pull=:up)
   sda => (pin="T2", drive=8, ext_pull=:up)
   led => (pins=["A9", "B9", "A10", "B10"], io=:LVCMOS25)
@@ -46,7 +47,9 @@ end
 
 Every line is either a setting — `key = value` — or a binding of a port to its pin. Ports are named as the design names them; the constraint file names the pins as the emitted Verilog does. A port of an instance is addressed by path, `uart.tx`. A site is written the way the datasheet writes it: `"G2"` on a BGA, `pin = 27` on a numbered package.
 
-A setting that is a pin attribute (`io`, `pull`, `drive`, `ext_pull`) applies to every binding; a binding overrides it, `nothing` included — `(pin=27, io=nothing)` says "left to the tool, on purpose". `pins=[...]` takes `nothing` for a bit with no pin, and an attribute may vary by bit: `pull=(0:2 => :down,)`.
+A setting that is a pin attribute (`io`, `pull`, `ext_pull`, `drive`) applies to every binding; a binding overrides it, `nothing` included — `(pin=27, io=nothing)` says "left to the tool, on purpose". `pins=[...]` takes `nothing` for a bit with no pin, and an attribute may vary by bit: `pull=(0:2 => :down,)`.
+
+Two of those are pulls, and they say who provides one. `pull` is the FPGA's own weak pull, configured in the bitstream, so it goes into the constraint file. `ext_pull` is a resistor on the board: it goes nowhere, but it is how the board says a net is pulled without the FPGA's help. A pad that relies on a pull — `Pad{1}(:pullup)` in the design, which is what its [simulation](wires.qmd) models — must get one from the board, either way; that is checked when the constraint file is written.
 
 Attribute names are a closed set, checked where they are written, since a misspelt one that was quietly ignored would leave a pin with the wrong buffer. A string at the top documents the board; one before a binding documents the pin.
 
@@ -73,7 +76,7 @@ The constraint writer checks the design against the board and refuses to write a
 - a port has no pin, or a pin names a port that does not exist;
 - two ports sit on one site;
 - a port's width does not match its pin count;
-- the design declares `ext_pull` on a pad and the board does not provide it.
+- a pad relies on a pull and the board provides none, neither `pull` nor `ext_pull`, or pulls the other way.
 
 ```{julia}
 #| error: true
@@ -87,7 +90,7 @@ end
 write(devnull, Top, LPF(Wrong))
 ```
 
-Each of those is a bug that would otherwise be found in the lab, with a scope.
+Each of those would otherwise be found only on the board.
 
 ::: {.callout-tip title="If you know Verilog"}
 `@board` plus `LPF` replaces the hand-maintained `.lpf` and keeps it in step with the design: rename a port, and the constraint line follows; add a `Multicycle` wire, and its exception appears. Only Lattice's format is written today; the `@board` description itself holds nothing vendor-specific except the device name.

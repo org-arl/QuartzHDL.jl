@@ -14,11 +14,12 @@ using QuartzHDL.Units
 
 Sometimes the logic is slow but its inputs are slower. A correlation over a long shift register that only shifts once per symbol has no need of pipeline stages, only of time: if the register holds still for sixteen clocks, the logic may take sixteen clocks to settle. Telling the vendor tools so is a *multicycle path* constraint, and it is the kind of constraint that is easy to write wrongly, because it names registers by hand and nothing checks it.
 
-A `Multicycle{K,T}` is a wire allowed K cycles to settle, on the promise that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator's check from the same traced logic.
+A `Multicycle{K,T}` is a wire allowed K cycles to settle, on the condition that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator's check from the same traced logic.
 
 ## Declaring one
 
 ```{julia}
+#| output: false
 @quartz struct Corr
   @in  x::Bool
   @in  sample::Bool
@@ -48,7 +49,7 @@ From that one reading it produces three things:
 
 ## Reading one
 
-`isready(m)` says the promise has been kept since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with `sample`, needs no `isready` — the simulator checks the timing for it, and complains if `sample` ever comes too soon:
+`isready(m)` says the condition has held since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with `sample`, needs no `isready` — the simulator checks the timing for it, and complains if `sample` ever comes too soon:
 
 ```{julia}
 let m = Corr()
@@ -70,7 +71,7 @@ end
 
 ## Constraints by hand
 
-A path that is not a wire's — a slow transfer between two registers, say — can still be declared for the constraint file, once per module:
+A multicycle path between two registers, with no `Multicycle` wire on it — a slow transfer from one to the other, say — can still be declared for the constraint file, once per module:
 
 ```julia
 @multicycle Sys 15 a => b
@@ -85,7 +86,7 @@ The Verilog for a `Multicycle` is an `assign` for the wire, a small counter, and
 ## Pipeline or multicycle?
 
 - The inputs change every cycle and you need a result every cycle: a [`Pipeline`](pipelines.qmd). It costs registers and adds latency, and it is always safe.
-- The inputs hold still for K cycles at a time: a `Multicycle`. It costs nothing but a counter, and the promise is checked in simulation and stated to the tools.
+- The inputs hold still for K cycles at a time: a `Multicycle`. It costs a counter, and the condition is checked in simulation and stated to the tools.
 
 ## Next
 
