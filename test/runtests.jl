@@ -208,7 +208,8 @@ end
   @test cosim(Correlator, stim).ok skip=!HAVE_IVERILOG
 end
 
-@testset "app mode" begin
+VERSION >= v"1.12" || @warn "Julia $VERSION has no -m option: the app is not tested"
+VERSION >= v"1.12" && @testset "app mode" begin
   dir = mktempdir()
   design = joinpath(dir, "design.jl")
   write(design, """
