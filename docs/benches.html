@@ -437,7 +437,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>What <code>@clocks</code> makes is a <code>ClockPlan</code>. Every clock that arrives on a pin gets a rate here, and so does every stub that is stepped at a rate of its own. Rates are absolute, so a run reports the time it covered in seconds, and a capture has a real time axis.</p>
 <p>One <em>slot</em> is the finest grid every rate divides. A clock that does not divide the grid the others make can be marked <code>dithered</code>: it then ticks on the nearest slot, with its mean rate exactly as asked and up to one slot of jitter. An unmarked clock that does not fit is an error naming both ways out, because an exact common grid for two unrelated oscillators is usually an accident.</p>
 <p>Clocks a <a href="./blackbox.html">black box</a> derives are not listed: they follow from their sources.</p>
-<p>A simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is <code>clocks = (clk = 1MHz,)</code> (with <code>using QuartzHDL.Units</code> for the units). A dithered clock is <code>(rate, :dithered)</code>, and <code>grid</code> sets the slot rate, as in the block.</p>
+<p>A simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is <code>clocks=(clk=1MHz,)</code> (with <code>using QuartzHDL.Units</code> for the units). A dithered clock is <code>(rate, :dithered)</code>, and <code>grid</code> sets the slot rate, as in the block.</p>
 </section>
 <section id="wiring-connections-to-the-outside" class="level2">
 <h2 class="anchored" data-anchor-id="wiring-connections-to-the-outside"><code>@wiring</code>: connections to the outside</h2>
@@ -463,7 +463,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  echo.sda  <span class="op">←</span> dut.sda                  <span class="co"># and the level that net resolves to</span></span>
 <span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Wiring{var"#9#10", 2}(var"#9#10"(), (:rx, :sda))</code></pre>
+<pre><code>Wiring{var"#3#4", 2}(var"#3#4"(), (:rx, :sda))</code></pre>
 </div>
 </div>
 <p>The arrow is the design’s own: the left side is an input, the right side a value from the others’ outputs. Every stub sees the state at the start of the slot, so a combinational path out through a peripheral and back arrives a slot later, as it would on a board.</p>
@@ -496,7 +496,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  echo <span class="op">=</span> <span class="fl">48</span>MHz         <span class="co"># a stub is stepped at a rate, like a clock</span></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bench</span>(<span class="fu">Dut</span>(); clocks <span class="op">=</span> plan, wiring, echo <span class="op">=</span> <span class="fu">Echo</span>())</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bench</span>(<span class="fu">Dut</span>(); clocks<span class="op">=</span>plan, wiring, echo<span class="op">=</span><span class="fu">Echo</span>())</span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">step</span>(b, <span class="fl">1000</span>)</span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">float</span>(<span class="fu">time</span>(b))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">

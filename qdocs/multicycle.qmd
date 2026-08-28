@@ -22,10 +22,10 @@ A `Multicycle{K,T}` is a wire allowed K cycles to settle, on the promise that th
 @quartz struct Corr
   @in  x::Bool
   @in  sample::Bool
+  @out mfo::Bits{6}
   seq::Bits{31} = 0x2f5a2c07
   bb::Bits{31} = 0
   xcorr::Multicycle{8,Bits{6}}
-  @out mfo::Bits{6}
 end
 
 @wire Corr xcorr ← Bits{6}(count_ones(bb ⊻ seq))
@@ -51,18 +51,20 @@ From that one reading it produces three things:
 `isready(m)` says the promise has been kept since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with `sample`, needs no `isready` — the simulator checks the timing for it, and complains if `sample` ever comes too soon:
 
 ```{julia}
-m = Corr()
-for i in 1:40
-  m = step(m; x = isodd(i), sample = i % 8 == 0)
+let m = Corr()
+  for i in 1:40
+    m = step(m; x=isodd(i), sample=i % 8 == 0)
+  end
+  Int(m.mfo)
 end
-Int(m.mfo)
 ```
 
 ```{julia}
 #| error: true
-m = Corr()
-for i in 1:6
-  m = step(m; x = true, sample = true)   # every cycle: far too soon
+let m = Corr()
+  for i in 1:6
+    m = step(m; x=true, sample=true)   # every cycle: far too soon
+  end
 end
 ```
 

@@ -58,7 +58,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
 <script src="site_libs/quarto-nav/headroom.min.js"></script>
 <script src="site_libs/clipboard/clipboard.min.js"></script>
 <script src="site_libs/quarto-search/autocomplete.umd.js"></script>
@@ -103,6 +103,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
 
 
 <link rel="stylesheet" href="styles.css">
@@ -390,10 +393,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#what-quartzhdl-is" id="toc-what-quartzhdl-is" class="nav-link active" data-scroll-target="#what-quartzhdl-is">What QuartzHDL is</a></li>
-  <li><a href="#why-you-might-want-it" id="toc-why-you-might-want-it" class="nav-link" data-scroll-target="#why-you-might-want-it">Why you might want it</a></li>
-  <li><a href="#a-first-look" id="toc-a-first-look" class="nav-link" data-scroll-target="#a-first-look">A first look</a></li>
+  <li><a href="#why-another-hdl" id="toc-why-another-hdl" class="nav-link active" data-scroll-target="#why-another-hdl">Why another HDL?</a></li>
+  <li><a href="#features-at-a-glance" id="toc-features-at-a-glance" class="nav-link" data-scroll-target="#features-at-a-glance">Features at a glance</a></li>
   <li><a href="#installation" id="toc-installation" class="nav-link" data-scroll-target="#installation">Installation</a></li>
+  <li><a href="#an-example" id="toc-an-example" class="nav-link" data-scroll-target="#an-example">An example</a></li>
   <li><a href="#where-to-go-next" id="toc-where-to-go-next" class="nav-link" data-scroll-target="#where-to-go-next">Where to go next</a></li>
   </ul>
 </nav>
@@ -420,15 +423,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong>Write FPGA logic in Julia, simulate it in Julia, compile it to Verilog.</strong></p>
-<section id="what-quartzhdl-is" class="level2">
-<h2 class="anchored" data-anchor-id="what-quartzhdl-is">What QuartzHDL is</h2>
-<p>QuartzHDL is a small language for describing synchronous digital hardware, embedded in Julia. You write a module as a <code>struct</code> whose fields are the registers, and a block that says what those registers become on each clock edge. The same source then does two things:</p>
-<ul>
-<li>it <strong>runs as ordinary Julia</strong>, one function call per clock edge, so you can poke at it, print it, plot it and test it like any other Julia code; and</li>
-<li>it <strong>compiles to Verilog</strong>, ready for your FPGA vendor’s tools.</li>
-</ul>
-<p>And because both come from one source, QuartzHDL can drive the Julia model and the generated Verilog with the same stimulus and check, cycle by cycle, that they agree.</p>
+<p><strong>Write FPGA logic in Julia, run it in Julia, compile it to Verilog.</strong></p>
+<section id="why-another-hdl" class="level2">
+<h2 class="anchored" data-anchor-id="why-another-hdl">Why another HDL?</h2>
+<p>Algorithmic logic in an FPGA often is a port from an implementation in Julia or Python or MATLAB, rewritten as hardware. Porting and testing can be tricky, and debugging the Verilog implementation can be painful. Wouldn’t it be nice if we could just write the hardware description in Julia, pass it inputs and compare the outputs directly from Julia, and poke at various wires in the hardware description from a Julia REPL?</p>
+<p>That’s what QuartzHDL allows you to do!</p>
+<p>QuartzHDL keeps the design in the language the reference is written in. A module is a <code>struct</code> whose fields are the registers, with a block that says how those registers behave at every clock edge. The same source runs as ordinary Julia — one function call per clock, values you can inspect and test — and compiles to Verilog. A co-simulation drives both versions with the same stimulus and checks that they agree, cycle for cycle, so that the compiled Verilog is tested to be a faithful port of the Julia version.</p>
 <div class="callout callout-style-default callout-note callout-titled" title="What QuartzHDL is not">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -439,101 +439,304 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>QuartzHDL does not turn arbitrary Julia code into hardware, and it is not a replacement for Verilog or VHDL. It is a hardware description language that happens to be written in Julia, with the restrictions that hardware needs. If you know how to write an <code>always @(posedge clk)</code> block, you already know most of what QuartzHDL lets you say.</p>
+<p>QuartzHDL is not a Julia-to-hardware compiler and not a replacement for Verilog. It is Verilog’s subset of synchronous logic, written in a language with types, a REPL, a test framework and a plotting library, so that a design can be debugged like software, ported from a reference one step at a time, tested against models of the chips around it, and checked on every push. If you know how to write an <code>always @(posedge clk)</code> block, you already know most of what QuartzHDL lets you say.</p>
 </div>
 </div>
+<p>It also provides higher level design patterns — finite state machines, metaguards, pipelined computations, multicycle logic and the like — that form a foundation for many designs, but are painful to implement by hand in Verilog.</p>
 </section>
-<section id="why-you-might-want-it" class="level2">
-<h2 class="anchored" data-anchor-id="why-you-might-want-it">Why you might want it</h2>
-<p><strong>It reads like the design, not like the wiring.</strong> Registers are typed fields with defaults, ports are declared with their direction and polarity, a state machine is a <code>@fsm</code>, a multi-step transaction is a <code>@sequence</code>, a handshake bit is a <code>Pulse</code>. Each of these is one line where Verilog needs several, and each is checked at the declaration rather than found in the lab.</p>
-<p><strong>You debug it in Julia.</strong> A module is a value. Step it, inspect a field, set a breakpoint on a condition, log from inside a block with <code>@info</code>, and look at waveforms in a viewer or in a plot. There is a REPL prompt for talking to a running simulation. None of this needs a simulator licence or a testbench in another language.</p>
-<p><strong>Porting a signal-processing algorithm becomes a sequence of small steps.</strong> If the reference implementation is Julia — a filter, a correlator, a demodulator — you can move it into fixed-width hardware one piece at a time, running the hardware model and the floating-point reference side by side on the same data and comparing the two at every stage. The helper functions you write along the way are plain Julia, traced into the Verilog without annotations.</p>
-<p><strong>The surrounding chips are in the library.</strong> A UART, a USB FIFO, SPI and I2C masters and slaves, a PWM source and a block RAM come as ready-made models that attach to your design’s pins, so a system test talks to the design the way a host would: <code>write(uart, "AT\r\n")</code>, <code>readline(uart)</code>.</p>
-<p><strong>Testing and CI are just Julia testing and CI.</strong> A hardware test is a <code>@testset</code>. The Verilog co-simulation runs under Icarus Verilog on any CI machine. A pull request that changes a module runs the whole system test before anyone looks at it.</p>
+<section id="features-at-a-glance" class="level2">
+<h2 class="anchored" data-anchor-id="features-at-a-glance">Features at a glance</h2>
+<ul>
+<li><strong>Hardware description</strong> as a Julia <code>struct</code>, with fields as interface wires and registers, and methods as behavior.</li>
+<li><strong>Primitive data types</strong> – <code>Bool</code> (active high/low polarity), <code>Bits{N}</code> and <code>SBits{N}</code>.</li>
+<li><strong>Board level I/O</strong> – <code>Pads</code> with tri-state machinery, pull-ups / pull-downs, voltage definitions and pin bindings.</li>
+<li><strong>Hierarchical designs</strong> – constructed by wiring up submodules, clock domains, power-gated pads, and vendor black boxes.</li>
+<li><strong>Hardware idioms</strong> as foundational building blocks – metaguards, self-clearing pulses, countdown timers, edge detectors, finite state machines, multi-step sequences, multi-cycle settling combinatorial logic, etc.</li>
+<li><strong>Runs as plain Julia</strong> — one function call per clock edge, tested with <code>@test</code> and debugged at the REPL.</li>
+<li><strong>Simulation</strong> with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C and RAM, stand-ins for black boxes, live waveforms in Surfer or <code>Plots</code>, and a <code>sim&gt;</code> custom REPL.</li>
+<li><strong>Compiles to Verilog</strong> – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.</li>
+<li><strong>Board to bitstream</strong> — <code>@board</code> describes the pins, and the constraint file and a Lattice Diamond workspace are generated from it.</li>
+</ul>
 </section>
-<section id="a-first-look" class="level2">
-<h2 class="anchored" data-anchor-id="a-first-look">A first look</h2>
-<p>Here is a complete module: an 8-bit counter with an enable input and a <code>tick</code> output that fires when it wraps around.</p>
+<section id="installation" class="level2">
+<h2 class="anchored" data-anchor-id="installation">Installation</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"QuartzHDL"</span>)           <span class="co"># Julia 1.11 or later</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.Apps.<span class="fu">add</span>(<span class="st">"QuartzHDL"</span>)      <span class="co"># the `quartz` command; Julia 1.12 or later</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Some features need tools on your path, and the manual says so where it uses them: <a href="https://steveicarus.github.io/iverilog/">Icarus Verilog</a> (<code>iverilog</code>, <code>vvp</code>) for co-simulation, and <a href="https://surfer-project.org">Surfer</a> for live waveforms. On a Mac with Homebrew, <code>brew install icarus-verilog surfer</code> gets both.</p>
+</section>
+<section id="an-example" class="level2">
+<h2 class="anchored" data-anchor-id="an-example">An example</h2>
+<p>A UART transmitter: a byte in, a serial frame out with a parity bit. The frame is a sequence of steps, each one clock; the bit timing is a countdown register and the start strobe is an edge detector, each doing its own bookkeeping.</p>
 <div id="2" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">QuartzHDL</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Counter</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  en<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  count<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tick<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Counter <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@reset</span>(rst)</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> en</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    count <span class="op">←</span> count <span class="op">+</span> <span class="fl">1</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    tick <span class="op">←</span> count <span class="op">==</span> <span class="fl">255</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    tick <span class="op">←</span> <span class="cn">false</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">QuartzHDL</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BIT_TIME <span class="op">=</span> <span class="fl">9</span>                   <span class="co"># clocks per bit, less one: 100 kbaud from 1 MHz</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> UartTx</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># interface wires</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  data<span class="op">::</span><span class="dt">Bits{8}                 </span><span class="co"># 8-bit data to transmit</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  send<span class="op">::</span><span class="dt">Bool                    </span><span class="co"># on rising edge of send</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span>active<span class="op">=:</span>low         <span class="co"># reset signal, asserted low</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span>               <span class="co"># TX pin of the UART</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> busy<span class="op">::</span><span class="dt">Bool </span>active<span class="op">=:</span>low        <span class="co"># busy signal, asserted low</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># internal state</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  step<span class="op">::</span><span class="dt">Bits{5} </span><span class="op">=</span> <span class="fl">0</span>                  <span class="co"># state machine step counter</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  send_e<span class="op">::</span><span class="dt">Edge                       </span><span class="co"># edge detector for send input</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  shift<span class="op">::</span><span class="dt">Bits{8}                     </span><span class="co"># transmit shift register</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  parity<span class="op">::</span><span class="dt">Bool                       </span><span class="co"># parity bit</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  baud_timer<span class="op">::</span><span class="dt">Timeout{7}             </span><span class="co"># timer to control baud rate</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> UartTx <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@reset</span>(rst)                        <span class="co"># reset module when rst is asserted</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  send_e <span class="op">←</span> send</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@sequence</span> Frame step <span class="cf">begin</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@when</span> <span class="fu">rose</span>(send_e)               <span class="co"># wait for a send strobe, then</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    shift <span class="op">←</span> data</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    parity <span class="op">←</span> <span class="fu">isodd</span>(<span class="fu">popcount</span>(data))   <span class="co"># a Julia function, computed in hardware</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> <span class="cn">false</span>                       <span class="co"># start bit</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@repeat</span> <span class="fl">8</span> <span class="cf">begin</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>      <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)      <span class="co"># one bit time later</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>      tx <span class="op">←</span> shift[<span class="fl">0</span>]                  <span class="co"># a data bit, LSB first</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>      shift <span class="op">←</span> shift <span class="op">&gt;&gt;</span> <span class="fl">1</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>      baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> parity                      <span class="co"># transmit parity bit</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> <span class="cn">true</span>                        <span class="co"># stop bit</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)  <span class="co"># hold it, then back to waiting for send</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>  busy <span class="op">←</span> step <span class="op">!=</span> Frame.START</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>The <code>@quartz struct</code> declares the registers and ports. <code>@on</code> says what happens on each rising edge of <code>clk</code>: <code>←</code> is a register write that lands at the end of the cycle, exactly like Verilog’s <code>&lt;=</code>. To simulate, we make a module and step it:</p>
+<p>The <code>@quartz struct</code> declares the ports and the registers. <code>@on</code> says what happens on each rising edge of <code>clk</code>: <code>←</code> is a register write that lands at the end of the cycle, exactly like Verilog’s <code>&lt;=</code>.</p>
+<p>It is ordinary Julia, so it runs as such. A simulation clocks it at a real rate, records the pins you ask for, and hands back signals you can index by time, test, and plot:</p>
 <div id="4" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Counter</span>()</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">300</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  m <span class="op">=</span> <span class="fu">step</span>(m; en <span class="op">=</span> <span class="cn">true</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  m.tick <span class="op">&amp;&amp;</span> <span class="fu">println</span>(<span class="st">"wrapped after </span><span class="sc">$</span>i<span class="st"> clocks"</span>)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>m.count</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>wrapped after 256 clocks</code></pre>
-</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">QuartzHDL.Units</span>, <span class="bu">Plots</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">UartTx</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  sim.data <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="ch">'A'</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">5</span>µs)                   <span class="co"># a few clocks in, strobe send</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  sim.send <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">5</span>µs)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  sim.send <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">120</span>µs)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(out, <span class="st">"clk"</span>, <span class="st">"send"</span>, <span class="st">"tx"</span>, <span class="st">"busy"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Bits{8}(2ch)</code></pre>
+<img src="data:image/png;base64,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EUJOnTqVk5PTt29foevkyZOEkIqKipMnTwqZSUtLc3R0fOGFF956663U1FQxVqLGrFmzpqKiori4uLi42Nvbe+/evePHj7exsRG+6RJCEhMTr127NmjQIGF6IRtqtfr48eOmbDg4OAwfPvydd965ceOGiOvy3w0fPvzKlSvCX6tbt24NCgpydnbu0qULpVQ4hbxu3bq2bduaRhbhrHBaWtrff/+t1+s1Gk12draXl9eECRNefPHF+r5ttGzZ8sSJE8LoefToUeFuloEDB6ampgqnAH/88cehQ4cKx+S1Wm1CQgIh5MKFC3l5eXq9vry8vKCgwNfX98033xw6dGh90YfLEgAAIABJREFU3zZMevXqVVZWJlw2vGbNmu7du7u7uzs4OAwePFjYZc6dO5eeni5cckHu7DIqlSouLs60yzRp0mTEiBEzZsyo72kRDjHOmjVrzJgxpkZ/f//WrVsLf379+eefCoWiY8eOQpewyxQUFMTHx5uy4erqOmbMmNdee62u7DJWu1Tsk08+cXd39/X1HTJkiEqlEgaa4ODgjh07hoeHv/TSS76+vuPHj4+JifH29u7SpUtgYOCoUaOES+kagPXr1zuZadu2rdB+9erV1q1bBwYGenp67tixQ2js0KHDoEGD2rRpExgYGB0d3aRJk5SUlMjIyKCgoG7dugUGBpquPG8AwsPDTZfN37hxIywsLDAw0MPD47fffhMae/bsOWDAgIiIiICAgIkTJ9rb21+8eLFPnz6BgYHdunULCAjYv3+/eOHXjLVr1zZt2jQ8PLx169bnz58XGg8cONC0adOgoCB/f//ExEShUSaTDRs2rE2bNu3btx82bJiHh0dBQUGrVq0iIiI6derUrl27GzduiLceNaC4uHjgwIHe3t6tW7cODg6Oj48X2rds2eLh4REYGBgWFnb9+nVKaUlJiVwuHzp0aJs2bbp169avX7+wsLAbN240b968Xbt27du379q1a25urqhr82/odDrzsSIqKkpo3717t5eXV1BQUGBg4JUrV4TGlJSUkJAQYQDZtm2b0BgZGTlw4MCIiIjAwMDXXnvNwcEhKSmpR48epgFEuIOjXsjMzDTPRnR0NKV0yZIl5o19+vQRJj5//nyLFi2CgoK8vb2PHDkiNPr5+QkbSUhIyKhRo1xcXHJzc4OCgkJCQrp06RISEmK6qUdc1ivG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">
 </div>
 </div>
-<p>And to get Verilog, we write the module type out:</p>
+<p>The same file compiles to Verilog from the command line — a <code>case</code> over the sequence’s steps, the state machine you would have written by hand:</p>
+<pre><code>$ quartz uart.jl --top UartTx -o uart.v</code></pre>
+<p>Or from Julia, writing the module type out:</p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, Counter, <span class="fu">Verilog</span>());</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, UartTx, <span class="fu">Verilog</span>());</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>module Counter (
+<pre><code>module UartTx (
   input wire clk_i,
-  input wire en_i,
-  input wire rst_i,
-  output wire tick_o
+  input wire send_i,
+  input wire [7:0] data_i,
+  input wire rst_ni,
+  output wire tx_o,
+  output wire busy_no
 );
 
-  wire clk = clk_i;
-  wire en = en_i;
-  wire rst = rst_i;
-  reg [7:0] count;
-  reg tick;
+  localparam [4:0] Frame_START = 5'h0;
+  localparam [4:0] Frame_step_1 = 5'h1;
+  localparam [4:0] Frame_step_2 = 5'h2;
+  localparam [4:0] Frame_step_3 = 5'h3;
+  localparam [4:0] Frame_step_4 = 5'h4;
+  localparam [4:0] Frame_step_5 = 5'h5;
+  localparam [4:0] Frame_step_6 = 5'h6;
+  localparam [4:0] Frame_step_7 = 5'h7;
+  localparam [4:0] Frame_step_8 = 5'h8;
+  localparam [4:0] Frame_step_9 = 5'h9;
+  localparam [4:0] Frame_step_10 = 5'ha;
+  localparam [4:0] Frame_step_11 = 5'hb;
 
-  wire [7:0] w6 = count + 8'h1;
-  wire w8 = count == 8'hff;
+  wire clk = clk_i;
+  wire send = send_i;
+  wire [7:0] data = data_i;
+  wire rst = ~rst_ni;
+  reg tx;
+  reg busy;
+  reg [4:0] step;
+  reg send_e;
+  reg send_e_prev;
+  reg [7:0] shift;
+  reg parity;
+  reg [6:0] baud_timer;
+
+  wire w11 = baud_timer == 7'h0;
+  wire [6:0] w13 = baud_timer - 7'h1;
+  wire [6:0] w14 = w11 ? baud_timer : w13;
+  wire w16 = step == Frame_START;
+  wire w19 = ~send_e_prev;
+  wire w20 = send_e &amp; w19;
+  wire [3:0] w21 = data[0] + data[1] + data[2] + data[3] + data[4] + data[5] + data[6] + data[7];
+  wire w22 = w21[0];
+  wire w24 = step == Frame_step_1;
+  wire w26 = baud_timer == 7'h0;
+  wire w27 = shift[0];
+  wire [7:0] w28 = shift &gt;&gt; 1;
+  wire w30 = step == Frame_step_2;
+  wire w32 = baud_timer == 7'h0;
+  wire w33 = shift[0];
+  wire [7:0] w34 = shift &gt;&gt; 1;
+  wire w36 = step == Frame_step_3;
+  wire w38 = baud_timer == 7'h0;
+  wire w39 = shift[0];
+  wire [7:0] w40 = shift &gt;&gt; 1;
+  wire w42 = step == Frame_step_4;
+  wire w44 = baud_timer == 7'h0;
+  wire w45 = shift[0];
+  wire [7:0] w46 = shift &gt;&gt; 1;
+  wire w48 = step == Frame_step_5;
+  wire w50 = baud_timer == 7'h0;
+  wire w51 = shift[0];
+  wire [7:0] w52 = shift &gt;&gt; 1;
+  wire w54 = step == Frame_step_6;
+  wire w56 = baud_timer == 7'h0;
+  wire w57 = shift[0];
+  wire [7:0] w58 = shift &gt;&gt; 1;
+  wire w60 = step == Frame_step_7;
+  wire w62 = baud_timer == 7'h0;
+  wire w63 = shift[0];
+  wire [7:0] w64 = shift &gt;&gt; 1;
+  wire w66 = step == Frame_step_8;
+  wire w68 = baud_timer == 7'h0;
+  wire w69 = shift[0];
+  wire [7:0] w70 = shift &gt;&gt; 1;
+  wire w72 = step == Frame_step_9;
+  wire w74 = baud_timer == 7'h0;
+  wire w76 = step == Frame_step_10;
+  wire w78 = baud_timer == 7'h0;
+  wire w80 = step == Frame_step_11;
+  wire w82 = baud_timer == 7'h0;
+  wire w84 = step != Frame_START;
 
   always @(posedge clk_i) begin
     if (rst) begin
-      count &lt;= 8'h0;
+      tx &lt;= 1'h1;
+      step &lt;= Frame_START;
     end else begin
-      if (en) begin
-        count &lt;= w6;
-        tick &lt;= w8;
-      end else begin
-        tick &lt;= 1'h0;
-      end
+      send_e_prev &lt;= send_e;
+      baud_timer &lt;= w14;
+      send_e &lt;= send;
+      case (step)
+        Frame_START: begin
+          if (w20) begin
+            step &lt;= Frame_step_1;
+            shift &lt;= data;
+            parity &lt;= w22;
+            tx &lt;= 1'h0;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_1: begin
+          if (w26) begin
+            step &lt;= Frame_step_2;
+            tx &lt;= w27;
+            shift &lt;= w28;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_2: begin
+          if (w32) begin
+            step &lt;= Frame_step_3;
+            tx &lt;= w33;
+            shift &lt;= w34;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_3: begin
+          if (w38) begin
+            step &lt;= Frame_step_4;
+            tx &lt;= w39;
+            shift &lt;= w40;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_4: begin
+          if (w44) begin
+            step &lt;= Frame_step_5;
+            tx &lt;= w45;
+            shift &lt;= w46;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_5: begin
+          if (w50) begin
+            step &lt;= Frame_step_6;
+            tx &lt;= w51;
+            shift &lt;= w52;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_6: begin
+          if (w56) begin
+            step &lt;= Frame_step_7;
+            tx &lt;= w57;
+            shift &lt;= w58;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_7: begin
+          if (w62) begin
+            step &lt;= Frame_step_8;
+            tx &lt;= w63;
+            shift &lt;= w64;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_8: begin
+          if (w68) begin
+            step &lt;= Frame_step_9;
+            tx &lt;= w69;
+            shift &lt;= w70;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_9: begin
+          if (w74) begin
+            step &lt;= Frame_step_10;
+            tx &lt;= parity;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_10: begin
+          if (w78) begin
+            step &lt;= Frame_step_11;
+            tx &lt;= 1'h1;
+            baud_timer &lt;= 7'h9;
+          end
+        end
+        Frame_step_11: begin
+          if (w82) begin
+            step &lt;= Frame_START;
+          end
+        end
+        default: begin
+          step &lt;= Frame_START;
+        end
+      endcase
+      busy &lt;= w84;
     end
   end
 
-  assign tick_o = tick;
+  assign tx_o = tx;
+  assign busy_no = ~busy;
 endmodule</code></pre>
 </div>
 </div>
 <p>That is the whole loop: describe, simulate, compile. The rest of this manual walks through it slowly.</p>
-</section>
-<section id="installation" class="level2">
-<h2 class="anchored" data-anchor-id="installation">Installation</h2>
-<p>QuartzHDL needs Julia 1.10 or later.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"QuartzHDL"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Some features need tools on your path, and the manual says so where it uses them: <a href="https://steveicarus.github.io/iverilog/">Icarus Verilog</a> (<code>iverilog</code>, <code>vvp</code>) for co-simulation, and <a href="https://surfer-project.org">Surfer</a> for live waveforms. On a Mac with Homebrew, <code>brew install icarus-verilog surfer</code> gets both.</p>
 </section>
 <section id="where-to-go-next" class="level2">
 <h2 class="anchored" data-anchor-id="where-to-go-next">Where to go next</h2>

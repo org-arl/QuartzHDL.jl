@@ -445,7 +445,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="odd">
 <td><code>Tool</code></td>
-<td><code>cosim(T, stim; tool = ::Tool)</code></td>
+<td><code>cosim(T, stim; tool=::Tool)</code></td>
 <td><code>Icarus</code></td>
 </tr>
 </tbody>
@@ -515,7 +515,7 @@ tx,out,Bool,""</code></pre>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Ctr <span class="fu">posedge</span>(clk) n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Ctr</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">1</span>MHz,), watch <span class="op">=</span> <span class="st">"*"</span>)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Ctr</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">4</span>us)</span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="fu">view</span>(<span class="fu">TextView</span>(<span class="cn">stdout</span>), out);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">

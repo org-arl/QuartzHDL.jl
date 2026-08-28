@@ -30,7 +30,7 @@ One *slot* is the finest grid every rate divides. A clock that does not divide t
 
 Clocks a [black box](blackbox.qmd) derives are not listed: they follow from their sources.
 
-A simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is `clocks = (clk = 1MHz,)` (with `using QuartzHDL.Units` for the units). A dithered clock is `(rate, :dithered)`, and `grid` sets the slot rate, as in the block.
+A simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is `clocks=(clk=1MHz,)` (with `using QuartzHDL.Units` for the units). A dithered clock is `(rate, :dithered)`, and `grid` sets the slot rate, as in the block.
 
 ## `@wiring`: connections to the outside
 
@@ -90,7 +90,7 @@ plan = @clocks begin
   echo = 48MHz         # a stub is stepped at a rate, like a clock
 end
 
-b = Bench(Dut(); clocks = plan, wiring, echo = Echo())
+b = Bench(Dut(); clocks=plan, wiring, echo=Echo())
 b = step(b, 1000)
 float(time(b))
 ```

@@ -28,11 +28,12 @@ end
   go && (fire ← true)
 end
 
-m = Strobe()
 fires = Bool[]
-for i in 1:5
-  global m = step(m; go = i == 2)
-  push!(fires, m.fire)
+let m = Strobe()
+  for i in 1:5
+    m = step(m; go=i == 2)
+    push!(fires, m.fire)
+  end
 end
 fires
 ```
@@ -46,10 +47,10 @@ A `Timeout{N}` is a `Bits{N}` that counts down to zero and holds there. Write a 
 ```{julia}
 @quartz struct Divider
   @in  period::Bits{4} = 3
-  div::Timeout{4}
-  @out tick::Pulse
-  hold::Timeout{4}
   @in  arm::Bool = false
+  @out tick::Pulse
+  div::Timeout{4}
+  hold::Timeout{4}
 end
 
 @on Divider posedge(clk) begin
@@ -60,10 +61,11 @@ end
   arm && (hold ← 5)        # a one-shot: runs down and stays expired
 end
 
-m = Divider()
-for i in 1:10
-  global m = step(m; arm = i == 5)
-  println("edge $i: div = $(Int(m.div))  tick = $(m.tick)  hold = $(Int(m.hold))")
+let m = Divider()
+  for i in 1:10
+    m = step(m; arm=i == 5)
+    println("edge $i: div = $(Int(m.div))  tick = $(m.tick)  hold = $(Int(m.hold))")
+  end
 end
 ```
 
@@ -80,9 +82,9 @@ An `Edge` is a `Bool` register that also remembers the value it held before, so 
 ```{julia}
 @quartz struct Detect
   @in  x::Bool = false
-  xe::Edge
   @out rises::Bits{8} = 0
   @out falls::Bits{8} = 0
+  xe::Edge
 end
 
 @on Detect posedge(clk) begin
@@ -91,11 +93,12 @@ end
   fell(xe) && (falls ← falls + 1)
 end
 
-m = Detect()
-for i in 1:12
-  m = step(m; x = 4 <= i <= 8)
+let m = Detect()
+  for i in 1:12
+    m = step(m; x=4 <= i <= 8)
+  end
+  m.rises, m.falls
 end
-m.rises, m.falls
 ```
 
 - `rose(e)` and `fell(e)` are the transition the *last* clock edge registered — exactly `x_q && !x_qq` — glitch-free, one cycle after the sample that made it, and true for exactly one cycle. On a cycle that leaves the edge unwritten the history settles by itself, so a gated feed (`en && (e ← x)`) cannot latch an event.

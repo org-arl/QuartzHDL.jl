@@ -2,25 +2,28 @@
 
 # QuartzHDL.jl
 
-**Write FPGA logic in Julia, simulate it in Julia, compile it to Verilog.**
+**Write FPGA logic in Julia, run it in Julia, compile it to Verilog.**
 
-## Why
+## Why another HDL?
 
-The logic in an instrument's FPGA is usually a port: an algorithm that already exists, in Julia or Python or MATLAB, rewritten as hardware. The port is where the bugs live, and Verilog gives you little to find them with — no types to speak of, no REPL, no test framework, no plots, and a simulator that tells you a waveform is wrong but not why.
+Algorithmic logic in an FPGA often is a port from an implementation in Julia or Python or MATLAB, rewritten as hardware. Porting and testing can be tricky, and debugging the Verilog implementation can be painful. Wouldn't it be nice if we could just write the hardware description in Julia, pass it inputs and compare the outputs directly from Julia, and poke at various wires in the hardware descriptions from a Julia REPL?
 
-QuartzHDL keeps the design in the language the reference is written in. A module is a `struct` whose fields are the registers, with a block that says what those registers become on each clock edge. The same source runs as ordinary Julia — one function call per clock, values you can inspect and test — and compiles to Verilog. A co-simulation drives both with the same stimulus and checks that they agree, cycle for cycle, so the Verilog is the design and not a second copy of it.
+That's what QuartzHDL allows you to do!
 
-It is not a Julia-to-hardware compiler and not a replacement for Verilog. It is Verilog's subset of synchronous logic, written in a language with types, a REPL, a test framework and a plotting library, so that a design can be debugged like software, ported from a reference one step at a time, tested against models of the chips around it, and checked on every push.
+QuartzHDL keeps the design in the language the reference is written in. A module is a `struct` whose fields are the registers, with a block that says how those registers behave at every clock edge. The same source runs as ordinary Julia — one function call per clock, values you can inspect and test — and compiles to Verilog. A co-simulation drives both versions with the same stimulus and checks that they agree, cycle for cycle, so that the compiled Verilog is tested to be a faithful port of the Julia version.
 
-## What is in the box
+QuartzHDL is not a Julia-to-hardware compiler and not a replacement for Verilog. It is Verilog's subset of synchronous logic, written in a language with types, a REPL, a test framework and a plotting library, so that a design can be debugged like software, ported from a reference one step at a time, tested against models of the chips around it, and checked on every push. It also provides higher level design patterns (like finite state machines, metaguards, pipelined computations, multicycle logic, etc) that form a foundation for many designs, but are painful to manually implement in Verilog.
 
-- **A design is a `struct`** — fields are registers, `@in`/`@out` are ports, with widths, signedness and polarity checked when the design is built
-- **Verilog's bit semantics** — `Bits{N}` and `SBits{N}` slice, concatenate and overflow the way the hardware will
-- **Hardware idioms as types and macros** — self-clearing pulses, countdowns, edge detectors, named state machines, multi-step sequences
-- **Hierarchy** — submodules, clock domains, power-gated pads, and vendor black boxes with Julia stand-ins
-- **Runs as plain Julia** — one function call per clock edge, so a design is tested with `@test` and debugged at the REPL
-- **Simulation with the chips around it** — real clock rates, models of a USB FIFO, UART, SPI, I2C and RAM, waveforms in Surfer or Plots, a `sim>` prompt
-- **Verilog out, and proof it matches** — co-simulation under Icarus Verilog compares Julia and Verilog cycle for cycle
+## Features at a glance
+
+- **Hardware description** as a Julia `struct`, with fields as interface wires and registers, and methods as behavior.
+- **Primitive data types** – `Bool` (active high/low polarity), `Bits{N}` and `SBits{N}`.
+- **Board level I/O** – `Pads` with tri-state machinery, pull-ups / pull-downs, voltage definitions and pin bindings.
+- **Hierarchical designs** – constructed by wiring up submodules, clock domains, power-gated pads, and vendor black boxes.
+- **Hardware idioms** as foundational building blocks – metaguards, self-clearing pulses, countdown timers, edge detectors, finite state machines, multi-step sequences, multi-cycle settling combinatorial logic, etc.
+- **Runs as plain Julia** — one function call per clock edge, tested with `@test` and debugged at the REPL.
+- **Simulation** with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C and RAM, stand-ins for black boxes, live waveforms in Surfer or `Plots`, and a `sim>` custom REPL.
+- **Compiles to Verilog** – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.
 - **Board to bitstream** — `@board` describes the pins, and the constraint file and a Lattice Diamond workspace are generated from it
 
 ## Installation
@@ -33,29 +36,35 @@ Pkg.Apps.add("QuartzHDL")      # the `quartz` command; Julia 1.12 or later
 
 Co-simulation needs [Icarus Verilog](https://steveicarus.github.io/iverilog/) on the path; live waveforms need [Surfer](https://surfer-project.org).
 
-## A taste
+## An example
 
-A UART transmitter: a byte in, a serial frame out with a parity bit. The frame is a sequence of steps, each one clock, and the bit timing is a countdown register that does its own bookkeeping.
+A UART transmitter: a byte in, a serial frame out with a parity bit. The frame is a sequence of steps, each one clock; the bit timing is a countdown register and the start strobe is an edge detector, each doing its own bookkeeping.
 
 ```julia
 using QuartzHDL
 
-const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 1 MHz
+const BIT_TIME = 5                   # clocks per bit, less one: 200 kbaud from 1 MHz
 
 @quartz struct UartTx
-  @in  send::Bool = false
-  @in  data::Bits{8} = 0
-  @out tx::Bool = true
-  @out busy::Bool
-  step::Bits{5} = 0
-  shift::Bits{8} = 0
-  parity::Bool = false
-  baud_timer::Timeout{7}
+  # interface wires
+  @in  data::Bits{8}                 # 8-bit data to transmit
+  @in  send::Bool                    # on rising edge of send
+  @in  rst::Bool active=:low         # reset signal, asserted low
+  @out tx::Bool = true               # TX pin of the UART
+  @out busy::Bool active=:low        # busy signal, asserted low
+  # internal state
+  step::Bits{5} = 0                  # 5-bit state machine step counter
+  send_e::Edge                       # edge detector for send input
+  shift::Bits{8}                     # 8-bit transmit shift register
+  parity::Bool                       # parity bit
+  baud_timer::Timeout{7}             # 7-bit timer to control baud rate
 end
 
 @on UartTx posedge(clk) begin
+  @reset(rst)                        # reset module when rst is asserted
+  send_e ← send
   @sequence Frame step begin
-    @when send                       # wait for send, then
+    @when rose(send_e)               # wait for a send strobe, then
     shift ← data
     parity ← isodd(popcount(data))   # a Julia function, computed in hardware
     tx ← false                       # start bit
@@ -67,7 +76,7 @@ end
       baud_timer ← BIT_TIME
     end
     @then @when expired(baud_timer)
-    tx ← parity                      # even parity
+    tx ← parity                      # transmit parity bit
     baud_timer ← BIT_TIME
     @then @when expired(baud_timer)
     tx ← true                        # stop bit
@@ -83,13 +92,16 @@ It is ordinary Julia, so it runs as such. A simulation clocks it at a real rate,
 ```julia
 using QuartzHDL.Units, Plots
 
-sim = Simulation(UartTx(); clocks = (clk = 1MHz,), watch = "tx")
+sim = Simulation(UartTx(); clocks=(clk=1MHz,), watch="*")
 out = @run sim begin
   sim.data = Bits{8}('A')
+  advance_by(5µs)                   # a few clocks in, strobe send
   sim.send = true
-  advance_by(1.2ms)
+  advance_by(5µs)
+  sim.send = false
+  advance_by(70µs)
 end
-plot(out.tx)
+plot(out, "clk", "send", "tx", "busy")
 ```
 
 <img src="assets/uart-tx.png" width="640">

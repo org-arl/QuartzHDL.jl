@@ -19,8 +19,8 @@ A field whose type is another `@quartz` module is an instance of it. Wire its in
 ```{julia}
 @quartz struct Counter
   @in  en::Bool = true
-  n::Bits{4} = 0
   @out wrap::Bool
+  n::Bits{4} = 0
 end
 
 @on Counter posedge(clk) begin
@@ -30,8 +30,8 @@ end
 
 @quartz struct Top
   @in  run::Bool = true
-  ctr::Counter = Counter()
   @out wraps::Bits{8} = 0
+  ctr::Counter = Counter()
 end
 
 @wire Top begin
@@ -43,11 +43,12 @@ end
   ctr.wrap && (wraps ← wraps + 1)
 end
 
-m = Top()
-for _ in 1:64
-  m = step(m; run = true)
+let m = Top()
+  for _ in 1:64
+    m = step(m; run=true)
+  end
+  Int(m.wraps)
 end
-Int(m.wraps)
 ```
 
 Three kinds of wire, all with the same arrow:

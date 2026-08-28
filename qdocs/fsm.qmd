@@ -42,9 +42,9 @@ A register declared with an encoding as its type is a `Bits` of the encoding's w
 ```{julia}
 @quartz struct Machine
   @in  go::Bool
+  @out y::Bits{8}
   state::Phase = IDLE
   n::Bits{8} = 0
-  @out y::Bits{8}
 end
 
 @on Machine posedge(clk) begin
@@ -66,12 +66,12 @@ end
 Let's run it:
 
 ```{julia}
-m = Machine()
-m = step(m; go = true)
-for _ in 1:6
-  m = step(m; go = false)
+let m = step(Machine(); go=true)
+  for _ in 1:6
+    m = step(m; go=false)
+  end
+  encname(Phase, m.state), m.y
 end
-encname(Phase, m.state), m.y
 ```
 
 A state name that is also a field, an input or a local is an error — a bare name may not mean two things. `state ← go ? RUN : IDLE` works; so does handing a state to a method that writes it straight into the register: `send(DONE)` for `@method send(s) = (state ← s)`.
@@ -89,10 +89,10 @@ Logic that does one thing after another over several cycles — a bus transactio
   @in  go::Bool
   @in  nack::Bool
   @in  z::Bits{8}
+  @out busy::Bool
   step::Bits{4} = 0
   x::Bits{8} = 0
   y::Bits{8} = 0
-  @out busy::Bool
 end
 
 @on Writer posedge(clk) begin
@@ -126,8 +126,8 @@ end
 
 ```{julia}
 m = Writer()
-m = step(m; go = true, nack = false, z = Bits{8}(9))
-m = step(m; go = false, nack = false, z = Bits{8}(9))
+m = step(m; go=true, nack=false, z=Bits{8}(9))
+m = step(m; go=false, nack=false, z=Bits{8}(9))
 encname(Xfer, m.step), m.busy
 ```
 
@@ -135,7 +135,7 @@ The trace shows the step by name, and the Verilog is a `case` over `localparam`s
 
 ## A UART transmitter
 
-`Writer` shows every divider once; here is the same construct with a purpose. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time — and the bit time is a [`Timeout`](timekeeping.qmd), reloaded at every step, so the sequence waits on `expired` rather than counting:
+`Writer` shows every divider once; here is the same construct with a purpose. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time. The bit time is a [`Timeout`](timekeeping.qmd), reloaded at every step, so the sequence waits on `expired` rather than counting; and `send` is sampled into an [`Edge`](timekeeping.qmd), so a rising edge sends one frame rather than a held level sending frames back to back:
 
 ```{julia}
 const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 1 MHz
@@ -145,6 +145,7 @@ const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 
   @in  data::Bits{8} = 0
   @out tx::Bool = true
   @out busy::Bool
+  send_e::Edge
   step::Bits{5} = 0
   shift::Bits{8} = 0
   parity::Bool = false
@@ -152,8 +153,9 @@ const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 
 end
 
 @on UartTx posedge(clk) begin
+  send_e ← send
   @sequence Frame step begin
-    @when send                       # wait for send, then
+    @when rose(send_e)               # wait for a send strobe, then
     shift ← data
     parity ← isodd(popcount(data))   # a Julia function, computed in hardware
     tx ← false                       # start bit
@@ -180,13 +182,13 @@ The `@repeat 8` unrolls into eight steps, one per data bit, so `step` needs five
 
 ```{julia}
 using Plots
-sim = Simulation(UartTx(); clocks = (clk = 1MHz,), watch = "tx")
+sim = Simulation(UartTx(); clocks=(clk=1MHz,), watch="tx")
 out = @run sim begin
   sim.data = Bits{8}('A')
   sim.send = true
   advance_by(1.2ms)
 end
-plot(out.tx; legend = false)
+plot(out.tx; legend=false)
 ```
 
 Start bit low, `'A'` is `0x41` sent LSB first, an even parity of `0`, then the stop bit high.

@@ -23,8 +23,8 @@ using QuartzHDL
 
 @quartz struct Pwm
   @in  duty::Bits{8} = 128
-  count::Bits{8} = 0
   @out pwm::Bool
+  count::Bits{8} = 0
 end
 
 @on Pwm posedge(clk) begin
@@ -39,6 +39,10 @@ Three things to notice:
 - A field with `@out` is an **output register**, and a field with neither is an internal register. `count::Bits{8} = 0` is an 8-bit unsigned register that powers up at zero.
 - `count ← count + 1` schedules the new value for the end of the cycle. `count + 1` wraps at 8 bits, as hardware does, so this counter runs from 0 to 255 and round again with no extra code.
 
+::: {.callout-note title="Typing `←`"}
+At the Julia REPL, and in editors with Julia support, type `\leftarrow` and press Tab to get `←`. If you would rather not, `count <= count + 1` means exactly the same thing; `←` is the manual's spelling because `<=` also reads as "less than or equal".
+:::
+
 ::: {.callout-tip title="If you know Verilog"}
 `@on Pwm posedge(clk) begin ... end` is `always @(posedge clk) begin ... end`, and `←` is `<=`. Every write in the block sees the register values from *before* the edge; the writes land together afterwards. There is no blocking assignment.
 :::
@@ -49,21 +53,21 @@ A module is a value. `step` takes one and returns the next, one clock edge later
 
 ```{julia}
 m = Pwm()
-m = step(m; duty = Bits{8}(3))
-m = step(m; duty = Bits{8}(3))
+m = step(m; duty=Bits{8}(3))
+m = step(m; duty=Bits{8}(3))
 m
 ```
 
 Let's run a full period and count the high cycles:
 
 ```{julia}
-m = Pwm()
-highs = 0
-for _ in 1:256
-  global m = step(m; duty = Bits{8}(64))
-  global highs += m.pwm
+let m = Pwm(), highs = 0
+  for _ in 1:256
+    m = step(m; duty=Bits{8}(64))
+    highs += m.pwm
+  end
+  highs
 end
-highs
 ```
 
 64 of 256, as promised. `step` is all you need for a unit test — we will see a nicer way to drive a longer run next.
@@ -73,7 +77,7 @@ highs
 For anything longer than a few cycles, a `Simulation` wraps the module with a clock and a recorder. We give the clock a real rate, and say which nets to watch (`"*"` means all of them):
 
 ```{julia}
-sim = Simulation(Pwm(); clocks = (clk = 1MHz,), watch = "*")
+sim = Simulation(Pwm(); clocks=(clk=1MHz,), watch="*")
 ```
 
 Then we drive it with a `@run` block. Inside, `sim.duty = v` drives an input, and `advance_by` lets time pass:
@@ -101,7 +105,7 @@ And with `Plots` loaded, plot it:
 
 ```{julia}
 using Plots
-plot(out, "pwm"; xlims = (0.9ms, 1.1ms))
+plot(out, "pwm"; xlims=(0.9ms, 1.1ms))
 ```
 
 The duty steps from 25% to 75% at 1 ms, which is what we asked for. [Simulation](simulating.qmd) covers the rest of this: watching specific nets, waiting on conditions, running tasks alongside the stimulus, and a REPL prompt for interactive poking.
@@ -111,7 +115,7 @@ The duty steps from 25% to 75% at 1 ms, which is what we asked for. [Simulation]
 Now the part that makes all of this trustworthy. `cosim` writes the Verilog for the module, runs it under Icarus Verilog with the same inputs as the Julia model, and compares every output after every clock:
 
 ```{julia}
-stimulus = [(duty = Bits{8}(i < 300 ? 64 : 192),) for i in 1:600]
+stimulus = [(duty=Bits{8}(i < 300 ? 64 : 192),) for i in 1:600]
 r = cosim(Pwm, stimulus)
 r.ok
 ```

@@ -19,8 +19,8 @@ A signal that comes from outside the clock domain — a button, a pin from anoth
 ```{julia}
 @quartz struct Sampler
   @in  async_in::Bool
-  async_in::MetaGuard{2}
   @out safe::Bool
+  async_in::MetaGuard{2}
 end
 
 @on Sampler posedge(clk) begin
@@ -31,11 +31,12 @@ end
 Declare a guard with the *same name as an input*, and it is fed by that input automatically, from the block that reads it, on that block's clock. Read bare, the guard is the synchronised bit — `async_in` inside the block means the output of the chain, two clocks behind the pin. Nothing else has to be said.
 
 ```{julia}
-m = Sampler()
 safes = Bool[]
-for i in 1:5
-  global m = step(m; async_in = i >= 2)
-  push!(safes, m.safe)
+let m = Sampler()
+  for i in 1:5
+    m = step(m; async_in=i >= 2)
+    push!(safes, m.safe)
+  end
 end
 safes
 ```
@@ -53,9 +54,9 @@ A module may have blocks on different clocks. Each `@on` names its own:
 ```{julia}
 @quartz struct TwoClocks
   @in  x::Bits{8}
+  @out y::Bits{8}
   fast::Bits{8} = 0
   slow::Bits{8} = 0
-  @out y::Bits{8}
 end
 
 @on TwoClocks posedge(clk) begin
@@ -72,8 +73,8 @@ Each clock becomes a clock port. `step` then takes the clock's name, and one cal
 
 ```{julia}
 m = TwoClocks()
-m = step(m, :clk; x = Bits{8}(7))
-m = step(m, :clk_slow; x = Bits{8}(7))
+m = step(m, :clk; x=Bits{8}(7))
+m = step(m, :clk_slow; x=Bits{8}(7))
 m.slow
 ```
 

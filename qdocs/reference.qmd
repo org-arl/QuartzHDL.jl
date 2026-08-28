@@ -78,7 +78,7 @@ jdoc(QuartzHDL, :fell)
 jdoc(QuartzHDL, :isrising)
 jdoc(QuartzHDL, :isfalling)
 jdoc(QuartzHDL, :isnew)
-jdoc(QuartzHDL, :isready; filt = s -> !occursin("Channel", s))   # ours, not Base's
+jdoc(QuartzHDL, :isready; filt=s -> !occursin("Channel", s))   # ours, not Base's
 ```
 
 ## Encodings, state machines and sequences
@@ -170,8 +170,8 @@ jdoc(QuartzHDL, :Diamond)
 jdoc(QuartzHDL, :Surfer)
 jdoc(QuartzHDL, :Icarus)
 jdoc(QuartzHDL, :cosim)
-jdoc(QuartzHDL, :write; filt = s -> occursin("Format", s) || occursin("format", s))
-jdoc(QuartzHDL, :view; filt = s -> occursin("Viewer", s) || occursin("viewer", s))
+jdoc(QuartzHDL, :write; filt=s -> occursin("Format", s) || occursin("format", s))
+jdoc(QuartzHDL, :view; filt=s -> occursin("Viewer", s) || occursin("viewer", s))
 ```
 
 ## Library

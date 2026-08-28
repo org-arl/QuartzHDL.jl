@@ -22,8 +22,8 @@ A vendor PLL, a block RAM, an oscillator: the design has to instantiate them, bu
   clock(CLKI)
   "high puts the PLL to sleep"
   input(STDBY::Bool)
-  clockout(CLKOP, from = CLKI, divide = 1,  enable = !stdby)
-  clockout(CLKOS, from = CLKI, divide = 48, enable = !stdby)
+  clockout(CLKOP, from=CLKI, divide=1,  enable=!stdby)
+  clockout(CLKOS, from=CLKI, divide=48, enable=!stdby)
 end
 ```
 
@@ -69,7 +69,7 @@ In simulation the `clockout` recipes *are* the behaviour of the part. Every deri
 The design above has two clocks derived from one pin. A [`Simulation`](simulating.qmd) needs the rate of the pin clock only; the rest follows:
 
 ```{julia}
-sim = Simulation(Top(); clocks = (clk_48MHz = 48MHz,), watch = "*")
+sim = Simulation(Top(); clocks=(clk_48MHz=48MHz,), watch="*")
 out = @run sim begin
   advance_by(10us)
 end

@@ -439,14 +439,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@testset</span> <span class="st">"gray code"</span> <span class="cf">begin</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  m <span class="op">=</span> <span class="fu">Gray</span>()</span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span><span class="fl">15</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{4}</span>(i))</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">Bits</span><span class="dt">{4}</span>(i))</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@test</span> <span class="fu">Int</span>(m.g) <span class="op">==</span> i <span class="op">⊻</span> (i <span class="op">&gt;&gt;</span> <span class="fl">1</span>)</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span>;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <div class="ansi-escaped-output">
 <pre><span class="ansi-bold">Test Summary: | </span><span class="ansi-green-fg ansi-bold">Pass  </span><span class="ansi-cyan-fg ansi-bold">Total  </span><span class="ansi-bold">Time</span>
-gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.2s
+gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.3s
 </pre>
 </div>
 </div>
@@ -461,8 +461,8 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> MovSum</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  h<span class="op">::</span><span class="dt">Bits{32} </span><span class="op">=</span> <span class="fl">0</span>            <span class="co"># the last four 8-bit samples</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bits{10}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bits{10}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  h<span class="op">::</span><span class="dt">Bits{32} </span><span class="op">=</span> <span class="fl">0</span>            <span class="co"># the last four 8-bit samples</span></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> MovSum <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
@@ -471,13 +471,14 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">255</span>, <span class="fl">50</span>)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">MovSum</span>()</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>ys <span class="op">=</span> <span class="dt">Int</span>[]</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> x <span class="kw">in</span> xs</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">global</span> m <span class="op">=</span> <span class="fu">step</span>(m; x <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(x))</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">push!</span>(ys, <span class="fu">Int</span>(m.y))</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>ys <span class="op">==</span> <span class="fu">reference</span>(xs)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>ys <span class="op">=</span> <span class="dt">Int</span>[]</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">MovSum</span>()</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> x <span class="kw">in</span> xs</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">Bits</span><span class="dt">{8}</span>(x))</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">push!</span>(ys, <span class="fu">Int</span>(m.y))</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>ys <span class="op">==</span> <span class="fu">reference</span>(xs)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>true</code></pre>
 </div>
@@ -520,16 +521,17 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> [<span class="fu">rand</span>(<span class="op">-</span><span class="fl">20</span><span class="op">:</span><span class="fl">20</span>) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">60</span>]</span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>xs[<span class="fl">31</span><span class="op">:</span><span class="fl">43</span>] <span class="op">.+=</span> <span class="fl">100</span> <span class="op">.*</span> <span class="fu">reverse</span>(code)                      <span class="co"># the code, oldest chip first</span></span>
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Correlator</span>()</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="dt">Int</span>[]</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> x <span class="kw">in</span> xs</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">global</span> m <span class="op">=</span> <span class="fu">step</span>(m; x <span class="op">=</span> <span class="fu">SBits</span><span class="dt">{8}</span>(x))</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  m.valid <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(out, <span class="fu">Int</span>(m.mf))</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>pad <span class="op">=</span> [<span class="fu">zeros</span>(<span class="dt">Int</span>, TAPS); xs]</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>ref <span class="op">=</span> [<span class="fu">sum</span>(pad[n <span class="op">-</span> k] <span class="op">*</span> code[k <span class="op">+</span> <span class="fl">1</span>] for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>) for n <span class="kw">in</span> TAPS<span class="op">+</span><span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(pad)]</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>out[<span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">==</span> ref[<span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(out)<span class="op">-</span><span class="fl">1</span>], <span class="fu">argmax</span>(out), <span class="fu">maximum</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="dt">Int</span>[]</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Correlator</span>()</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> x <span class="kw">in</span> xs</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">SBits</span><span class="dt">{8}</span>(x))</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    m.valid <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(out, <span class="fu">Int</span>(m.mf))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>pad <span class="op">=</span> [<span class="fu">zeros</span>(<span class="dt">Int</span>, TAPS); xs]</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>ref <span class="op">=</span> [<span class="fu">sum</span>(pad[n <span class="op">-</span> k] <span class="op">*</span> code[k <span class="op">+</span> <span class="fl">1</span>] for k <span class="kw">in</span> <span class="fl">0</span><span class="op">:</span>TAPS<span class="op">-</span><span class="fl">1</span>) for n <span class="kw">in</span> TAPS<span class="op">+</span><span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(pad)]</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>out[<span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">==</span> ref[<span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(out)<span class="op">-</span><span class="fl">1</span>], <span class="fu">argmax</span>(out), <span class="fu">maximum</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>(true, 44, 1311)</code></pre>
 </div>
@@ -541,7 +543,7 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <h2 class="anchored" data-anchor-id="co-simulation">Co-simulation</h2>
 <p><code>cosim</code> emits the Verilog for a module, writes a testbench, runs it under Icarus Verilog with the same stimulus as the Julia model, and compares every output and pad after every clock:</p>
 <div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>stim <span class="op">=</span> [(x <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fu">rand</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">255</span>)),) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">500</span>]</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>stim <span class="op">=</span> [(x<span class="op">=</span><span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fu">rand</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">255</span>)),) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">500</span>]</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">cosim</span>(MovSum, stim)</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>r.ok</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
@@ -553,8 +555,8 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <ul>
 <li><code>reference = "movsum.v"</code> compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.</li>
 <li><code>ref_init = ["state" =&gt; "3'd0"]</code> initializes registers of the reference that the Julia model powers up differently.</li>
-<li><code>clocks = (clk = 48MHz, clk_slow = 1MHz)</code> for a module with several clocks; the testbench then advances them in the right ratio.</li>
-<li><code>scale = (clk_slow = 10,)</code> runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.</li>
+<li><code>clocks = (clk=48MHz, clk_slow=1MHz)</code> for a module with several clocks; the testbench then advances them in the right ratio.</li>
+<li><code>scale = (clk_slow=10,)</code> runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.</li>
 <li><code>debug = true</code> emits <code>@info</code> messages and <code>@check</code> failures into the Verilog as <code>$display</code> and <code>$error</code>.</li>
 </ul>
 <p>Where a design uses a black box, <code>simmodels</code> writes behavioural Verilog for each part from its <code>clockout</code> recipes, and <code>cosim</code> includes it; a part with a stand-in needs a Verilog model of its own, passed with <code>extra_sources</code>.</p>
@@ -576,8 +578,8 @@ Note
 <h2 class="anchored" data-anchor-id="system-tests">System tests</h2>
 <p>A system test builds a <code>Simulation</code> with the library components around the design and talks to it as a host would. It reads like a description of the board:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@testset</span> <span class="st">"the device answers a version request"</span> <span class="cf">begin</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Top</span>(); clocks <span class="op">=</span> CLOCKS, wiring <span class="op">=</span> WIRING, flash <span class="op">=</span> <span class="fu">W25Q</span>())</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  host <span class="op">=</span> <span class="fu">UART</span>(sim; rx <span class="op">=</span> <span class="st">"tx"</span>, tx <span class="op">=</span> <span class="st">"rx"</span>, baud <span class="op">=</span> <span class="fl">115200</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Top</span>(); clocks<span class="op">=</span>CLOCKS, wiring<span class="op">=</span>WIRING, flash<span class="op">=</span><span class="fu">W25Q</span>())</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  host <span class="op">=</span> <span class="fu">UART</span>(sim; rx<span class="op">=</span><span class="st">"tx"</span>, tx<span class="op">=</span><span class="st">"rx"</span>, baud<span class="op">=</span><span class="fl">115200</span>)</span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@run</span> sim <span class="cf">begin</span></span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    sim.rst <span class="op">=</span> <span class="cn">true</span></span>
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">advance_by</span>(<span class="fl">1</span>ms)</span>

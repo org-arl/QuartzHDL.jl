@@ -1,6 +1,6 @@
 name = "QuartzHDL"
 uuid = "24fd0add-350c-448f-a74a-c683df4af439"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Mandar Chitre <mandar@nus.edu.sg>"]
 
 [deps]

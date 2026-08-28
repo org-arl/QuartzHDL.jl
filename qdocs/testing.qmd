@@ -27,7 +27,7 @@ end
 @testset "gray code" begin
   m = Gray()
   for i in 0:15
-    m = step(m; x = Bits{4}(i))
+    m = step(m; x=Bits{4}(i))
     @test Int(m.g) == i ⊻ (i >> 1)
   end
 end;
@@ -44,8 +44,8 @@ reference(xs) = [sum(xs[max(1, i - 3):i]) for i in eachindex(xs)]   # a 4-tap mo
 
 @quartz struct MovSum
   @in  x::Bits{8} = 0
-  h::Bits{32} = 0            # the last four 8-bit samples
   @out y::Bits{10}
+  h::Bits{32} = 0            # the last four 8-bit samples
 end
 
 @on MovSum posedge(clk) begin
@@ -54,11 +54,12 @@ end
 end
 
 xs = rand(0:255, 50)
-m = MovSum()
 ys = Int[]
-for x in xs
-  global m = step(m; x = Bits{8}(x))
-  push!(ys, Int(m.y))
+let m = MovSum()
+  for x in xs
+    m = step(m; x=Bits{8}(x))
+    push!(ys, Int(m.y))
+  end
 end
 ys == reference(xs)
 ```
@@ -85,11 +86,12 @@ code = [BARKER[k] ? 1 : -1 for k in 0:TAPS-1]
 xs = [rand(-20:20) for _ in 1:60]
 xs[31:43] .+= 100 .* reverse(code)                      # the code, oldest chip first
 
-m = Correlator()
 out = Int[]
-for x in xs
-  global m = step(m; x = SBits{8}(x))
-  m.valid && push!(out, Int(m.mf))
+let m = Correlator()
+  for x in xs
+    m = step(m; x=SBits{8}(x))
+    m.valid && push!(out, Int(m.mf))
+  end
 end
 
 pad = [zeros(Int, TAPS); xs]
@@ -104,7 +106,7 @@ The two agree sample for sample — the hardware one sample behind, since its bl
 `cosim` emits the Verilog for a module, writes a testbench, runs it under Icarus Verilog with the same stimulus as the Julia model, and compares every output and pad after every clock:
 
 ```{julia}
-stim = [(x = Bits{8}(rand(0:255)),) for _ in 1:500]
+stim = [(x=Bits{8}(rand(0:255)),) for _ in 1:500]
 r = cosim(MovSum, stim)
 r.ok
 ```
@@ -115,8 +117,8 @@ Options:
 
 - `reference = "movsum.v"` compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.
 - `ref_init = ["state" => "3'd0"]` initializes registers of the reference that the Julia model powers up differently.
-- `clocks = (clk = 48MHz, clk_slow = 1MHz)` for a module with several clocks; the testbench then advances them in the right ratio.
-- `scale = (clk_slow = 10,)` runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.
+- `clocks = (clk=48MHz, clk_slow=1MHz)` for a module with several clocks; the testbench then advances them in the right ratio.
+- `scale = (clk_slow=10,)` runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.
 - `debug = true` emits `@info` messages and `@check` failures into the Verilog as `$display` and `$error`.
 
 Where a design uses a black box, `simmodels` writes behavioural Verilog for each part from its `clockout` recipes, and `cosim` includes it; a part with a stand-in needs a Verilog model of its own, passed with `extra_sources`.
@@ -131,8 +133,8 @@ A system test builds a `Simulation` with the library components around the desig
 
 ```julia
 @testset "the device answers a version request" begin
-  sim = Simulation(Top(); clocks = CLOCKS, wiring = WIRING, flash = W25Q())
-  host = UART(sim; rx = "tx", tx = "rx", baud = 115200)
+  sim = Simulation(Top(); clocks=CLOCKS, wiring=WIRING, flash=W25Q())
+  host = UART(sim; rx="tx", tx="rx", baud=115200)
   @run sim begin
     sim.rst = true
     advance_by(1ms)

@@ -19,8 +19,8 @@ using QuartzHDL.Units
   @in  x::Bits{8}
   @in  rst::Bool = false
   @in  en::Bool = true
-  sum::Bits{16} = 0
   @out y::Bits{16}
+  sum::Bits{16} = 0
 end
 
 @on Acc posedge(clk) begin
@@ -45,7 +45,7 @@ A block with one statement needs no `begin ... end`:
 
 Three statements may open a body, before anything else:
 
-- `@reset(cond)` puts every register the block owns back to its default when `cond` holds. A register with no default keeps its value; so does a `static` one. A keyword gives one register a different reset value: `@reset(rst; sum = 1)`.
+- `@reset(cond)` puts every register the block owns back to its default when `cond` holds. A register with no default keeps its value; so does a `static` one. A keyword gives one register a different reset value: `@reset(rst; sum=1)`.
 - `@only_when(cond)` runs the block only when `cond` holds — a clock enable.
 - `@clockout(pin; invert, gate)` forwards the block's clock to an output pin, optionally inverted or gated.
 

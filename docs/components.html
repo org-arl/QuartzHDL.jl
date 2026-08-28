@@ -425,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="two-ways-to-run" class="level2">
 <h2 class="anchored" data-anchor-id="two-ways-to-run">Two ways to run</h2>
 <ul>
-<li><strong>A task</strong> acts at its own pace: it sleeps with <code>advance_by</code>, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. <code>spawn!(sim, f; persistent = true)</code> starts one that outlives any <code>@run</code>.</li>
+<li><strong>A task</strong> acts at its own pace: it sleeps with <code>advance_by</code>, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. <code>spawn!(sim, f; persistent=true)</code> starts one that outlives any <code>@run</code>.</li>
 <li><strong>A hook</strong> runs after every slot and looks at the bus: a FIFO that must see a strobe on the cycle it happens. <code>hook!(sim, f)</code> registers one; <code>unhook!(sim, f)</code> removes it.</li>
 </ul>
 <p>Most components are tasks. Reach for a hook only when a task’s <code>advance_until</code> would have to poll every slot anyway.</p>
@@ -459,7 +459,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Sensor</span>(sim; drdy, data, rate, samples)</span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  s <span class="op">=</span> <span class="fu">Sensor</span>(sim, drdy, data, <span class="fl">1</span> <span class="op">//</span> <span class="fu">Int</span>(rate), samples, <span class="cn">nothing</span>)</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  s.task <span class="op">=</span> <span class="fu">spawn!</span>(sim, () <span class="op">-&gt;</span> <span class="fu">_run</span>(s); persistent <span class="op">=</span> <span class="cn">true</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  s.task <span class="op">=</span> <span class="fu">spawn!</span>(sim, () <span class="op">-&gt;</span> <span class="fu">_run</span>(s); persistent<span class="op">=</span><span class="cn">true</span>)</span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  s</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
@@ -478,8 +478,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>Outside a <code>@run</code> body, the net accessors and the timing functions take the simulation as their first argument: <code>sim["net"] = v</code>, <code>advance_by(sim, t)</code>, <code>advance_until(sim, f)</code>. Everything else is ordinary Julia.</p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Reader</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">48</span>MHz,))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>sensor <span class="op">=</span> <span class="fu">Sensor</span>(sim; drdy <span class="op">=</span> <span class="st">"drdy"</span>, data <span class="op">=</span> <span class="st">"data"</span>, rate <span class="op">=</span> <span class="fl">10</span>kHz, samples <span class="op">=</span> [<span class="fl">100</span>, <span class="fl">200</span>, <span class="fl">300</span>])</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Reader</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">48</span>MHz,))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>sensor <span class="op">=</span> <span class="fu">Sensor</span>(sim; drdy<span class="op">=</span><span class="st">"drdy"</span>, data<span class="op">=</span><span class="st">"data"</span>, rate<span class="op">=</span><span class="fl">10</span>kHz, samples<span class="op">=</span>[<span class="fl">100</span>, <span class="fl">200</span>, <span class="fl">300</span>])</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">1</span>ms)</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(sim.count), <span class="fu">Int</span>(sim.last)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
@@ -508,17 +508,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  byte <span class="op">←</span> n</span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Sender</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">48</span>MHz,))</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Sender</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">48</span>MHz,))</span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>received <span class="op">=</span> <span class="dt">Int</span>[]</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>was_wr <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> <span class="fu">hook!</span>(sim, () <span class="op">-&gt;</span> <span class="cf">begin</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  wr <span class="op">=</span> sim.wr</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  wr <span class="op">&amp;&amp;</span> !was_wr <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(received, <span class="fu">Int</span>(sim.byte))</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">global</span> was_wr <span class="op">=</span> wr</span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span>)</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">2</span>us)</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="fu">unhook!</span>(sim, h)</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>received</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> <span class="kw">let</span> was_wr <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">hook!</span>(sim, () <span class="op">-&gt;</span> <span class="cf">begin</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    wr <span class="op">=</span> sim.wr</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    wr <span class="op">&amp;&amp;</span> !was_wr <span class="op">&amp;&amp;</span> <span class="fu">push!</span>(received, <span class="fu">Int</span>(sim.byte))</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    was_wr <span class="op">=</span> wr</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">2</span>us)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="fu">unhook!</span>(sim, h)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>received</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>6-element Vector{Int64}:
   0

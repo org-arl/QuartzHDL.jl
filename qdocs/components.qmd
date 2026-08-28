@@ -16,7 +16,7 @@ A component is a Julia object that holds a `Simulation` and reads and drives its
 
 ## Two ways to run
 
-- **A task** acts at its own pace: it sleeps with `advance_by`, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. `spawn!(sim, f; persistent = true)` starts one that outlives any `@run`.
+- **A task** acts at its own pace: it sleeps with `advance_by`, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. `spawn!(sim, f; persistent=true)` starts one that outlives any `@run`.
 - **A hook** runs after every slot and looks at the bus: a FIFO that must see a strobe on the cycle it happens. `hook!(sim, f)` registers one; `unhook!(sim, f)` removes it.
 
 Most components are tasks. Reach for a hook only when a task's `advance_until` would have to poll every slot anyway.
@@ -51,7 +51,7 @@ end
 
 function Sensor(sim; drdy, data, rate, samples)
   s = Sensor(sim, drdy, data, 1 // Int(rate), samples, nothing)
-  s.task = spawn!(sim, () -> _run(s); persistent = true)
+  s.task = spawn!(sim, () -> _run(s); persistent=true)
   s
 end
 
@@ -72,8 +72,8 @@ Base.close(s::Sensor) = (s.task === nothing || stop!(s.sim, s.task); s.task = no
 Outside a `@run` body, the net accessors and the timing functions take the simulation as their first argument: `sim["net"] = v`, `advance_by(sim, t)`, `advance_until(sim, f)`. Everything else is ordinary Julia.
 
 ```{julia}
-sim = Simulation(Reader(); clocks = (clk = 48MHz,))
-sensor = Sensor(sim; drdy = "drdy", data = "data", rate = 10kHz, samples = [100, 200, 300])
+sim = Simulation(Reader(); clocks=(clk=48MHz,))
+sensor = Sensor(sim; drdy="drdy", data="data", rate=10kHz, samples=[100, 200, 300])
 @run sim advance_by(1ms)
 Int(sim.count), Int(sim.last)
 ```
@@ -100,14 +100,15 @@ end
   byte ← n
 end
 
-sim = Simulation(Sender(); clocks = (clk = 48MHz,))
+sim = Simulation(Sender(); clocks=(clk=48MHz,))
 received = Int[]
-was_wr = false
-h = hook!(sim, () -> begin
-  wr = sim.wr
-  wr && !was_wr && push!(received, Int(sim.byte))
-  global was_wr = wr
-end)
+h = let was_wr = false
+  hook!(sim, () -> begin
+    wr = sim.wr
+    wr && !was_wr && push!(received, Int(sim.byte))
+    was_wr = wr
+  end)
+end
 @run sim advance_by(2us)
 unhook!(sim, h)
 received

@@ -19,8 +19,8 @@ Everything that leaves the package goes through one call: `write(path_or_io, thi
 ```{julia}
 @quartz struct Blink
   @in  rst::Bool = false  active=:low
-  n::Bits{24} = 0
   @out led::Bool
+  n::Bits{24} = 0
 end
 
 @on Blink posedge(clk) begin

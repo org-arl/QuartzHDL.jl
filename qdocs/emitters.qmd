@@ -18,7 +18,7 @@ Everything that leaves the package goes through three small abstract types, and 
 |---|---|---|
 | `Format` | `write(io, x, ::Format)` | `Verilog`, `VCD`, `LPF` |
 | `Viewer` | `view(::Viewer, x)` | `Surfer` |
-| `Tool` | `cosim(T, stim; tool = ::Tool)` | `Icarus` |
+| `Tool` | `cosim(T, stim; tool=::Tool)` | `Icarus` |
 
 A new one is a type and its methods, in your own package if you like. This chapter shows one of each.
 
@@ -86,7 +86,7 @@ Base.close(v::TextView) = nothing
 end
 @on Ctr posedge(clk) n ← n + 1
 
-sim = Simulation(Ctr(); clocks = (clk = 1MHz,), watch = "*")
+sim = Simulation(Ctr(); clocks=(clk=1MHz,), watch="*")
 out = @run sim advance_by(4us)
 view(TextView(stdout), out);
 ```

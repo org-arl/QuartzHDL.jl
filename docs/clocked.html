@@ -440,8 +440,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bits{8}</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rst<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  en<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  sum<span class="op">::</span><span class="dt">Bits{16} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  sum<span class="op">::</span><span class="dt">Bits{16} </span><span class="op">=</span> <span class="fl">0</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Acc <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
@@ -459,7 +459,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="the-clauses">The clauses</h3>
 <p>Three statements may open a body, before anything else:</p>
 <ul>
-<li><code>@reset(cond)</code> puts every register the block owns back to its default when <code>cond</code> holds. A register with no default keeps its value; so does a <code>static</code> one. A keyword gives one register a different reset value: <code>@reset(rst; sum = 1)</code>.</li>
+<li><code>@reset(cond)</code> puts every register the block owns back to its default when <code>cond</code> holds. A register with no default keeps its value; so does a <code>static</code> one. A keyword gives one register a different reset value: <code>@reset(rst; sum=1)</code>.</li>
 <li><code>@only_when(cond)</code> runs the block only when <code>cond</code> holds — a clock enable.</li>
 <li><code>@clockout(pin; invert, gate)</code> forwards the block’s clock to an output pin, optionally inverted or gated.</li>
 </ul>

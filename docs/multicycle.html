@@ -429,10 +429,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Corr</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  sample<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  seq<span class="op">::</span><span class="dt">Bits{31} </span><span class="op">=</span> <span class="bn">0x2f5a2c07</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  bb<span class="op">::</span><span class="dt">Bits{31} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  xcorr<span class="op">::</span><span class="dt">Multicycle{8,Bits{6}}</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> mfo<span class="op">::</span><span class="dt">Bits{6}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> mfo<span class="op">::</span><span class="dt">Bits{6}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  seq<span class="op">::</span><span class="dt">Bits{31} </span><span class="op">=</span> <span class="bn">0x2f5a2c07</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  bb<span class="op">::</span><span class="dt">Bits{31} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  xcorr<span class="op">::</span><span class="dt">Multicycle{8,Bits{6}}</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Corr xcorr <span class="op">←</span> <span class="fu">Bits</span><span class="dt">{6}</span>(<span class="fu">count_ones</span>(bb <span class="op">⊻</span> seq))</span>
@@ -456,42 +456,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="reading-one">Reading one</h2>
 <p><code>isready(m)</code> says the promise has been kept since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with <code>sample</code>, needs no <code>isready</code> — the simulator checks the timing for it, and complains if <code>sample</code> ever comes too soon:</p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Corr</span>()</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">40</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  m <span class="op">=</span> <span class="fu">step</span>(m; x <span class="op">=</span> <span class="fu">isodd</span>(i), sample <span class="op">=</span> i <span class="op">%</span> <span class="fl">8</span> <span class="op">==</span> <span class="fl">0</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">Int</span>(m.mfo)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Corr</span>()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">40</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="fu">isodd</span>(i), sample<span class="op">=</span>i <span class="op">%</span> <span class="fl">8</span> <span class="op">==</span> <span class="fl">0</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Int</span>(m.mfo)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>15</code></pre>
 </div>
 </div>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Corr</span>()</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  m <span class="op">=</span> <span class="fu">step</span>(m; x <span class="op">=</span> <span class="cn">true</span>, sample <span class="op">=</span> <span class="cn">true</span>)   <span class="co"># every cycle: far too soon</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Corr</span>()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m; x<span class="op">=</span><span class="cn">true</span>, sample<span class="op">=</span><span class="cn">true</span>)   <span class="co"># every cycle: far too soon</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-error">
 <div class="ansi-escaped-output">
 <pre>xcorr is read 1 cycle after its sources moved, and its path is declared 8 cycles; guard the read with isready(xcorr)
 Stacktrace:
- [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
- [2] <span class="ansi-bold">getindex</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:474</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [3] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:35</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [4] <span class="ansi-bold">#6</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:328</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [5] <span class="ansi-bold">_runclock</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, ::Val<span class="ansi-bright-black-fg">{:clk}</span>, ::Val<span class="ansi-bright-black-fg">{:posedge}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1025</span>
- [6] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1082</span>
- [7] <span class="ansi-bold">_stepwith</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:942</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [8] <span class="ansi-bold">#step#45</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
- [9] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:65</span></pre>
+  [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
+  [2] <span class="ansi-bold">getindex</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:478</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [3] <span class="ansi-bold">macro expansion</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:35</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [4] <span class="ansi-bold">#on#Corr#2</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:330</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [5] <span class="ansi-bold">macro expansion</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1092</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [6] <span class="ansi-bold">_runclock</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">edge</span>::Val<span class="ansi-bright-black-fg">{:posedge}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, ::Val<span class="ansi-bright-black-fg">{2}</span>, <span class="ansi-bright-black-fg">written</span>::Vector<span class="ansi-bright-black-fg">{Symbol}</span><span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1086</span>
+  [7] <span class="ansi-bold">_runclock</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1083</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [8] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1026</span>
+  [9] <span class="ansi-bold">_stepwith</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1019</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ [10] <span class="ansi-bold">#step#45</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ [11] <span class="ansi-bold">step</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:201</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ [12] top-level scope
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:66</span></pre>
 </div>
 </div>
 </div>

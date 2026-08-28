@@ -28,8 +28,8 @@ end
 
 @on Loop posedge(clk) tx ← rx
 
-sim = Simulation(Loop(); clocks = (clk = 48MHz,))
-u = UART(sim; rx = "tx", tx = "rx", baud = 115200)
+sim = Simulation(Loop(); clocks=(clk=48MHz,))
+u = UART(sim; rx="tx", tx="rx", baud=115200)
 ```
 
 The roles are the UART's own: its `rx` listens on the design's `tx`. A UART is a stream, and a stream is talked to like a serial port:
@@ -43,15 +43,15 @@ readline(u)                  # advances until a line has come in
 put!(u, [0x01, 0x02]); @run sim advance_by(1ms); take!(u)   # queue and collect, without blocking
 ```
 
-A stream is an `IO`, so `print`, `readuntil`, `read` and the rest work on it. A blocking call suspends its task inside a `@run`, or runs the simulation itself at top level, and gives up after the link's `timeout`. `frame = 8` or `frame = "\n"` groups what arrives into units for `take!`, `read(u)` and `on`. `UART(sim; ..., parity = :even, stop = 2)` sets the framing.
+A stream is an `IO`, so `print`, `readuntil`, `read` and the rest work on it. A blocking call suspends its task inside a `@run`, or runs the simulation itself at top level, and gives up after the link's `timeout`. `frame = 8` or `frame = "\n"` groups what arrives into units for `take!`, `read(u)` and `on`. `UART(sim; ..., parity=:even, stop=2)` sets the framing.
 
 ## FT2232H
 
 The FT2232H is a USB-to-parallel FIFO, driven on the design's byte bus in FT245 asynchronous mode:
 
 ```julia
-ft = FT2232H(sim; data = "usb_data", rd = "usb_rd", wr = "usb_wr",
-                  rxf = "usb_rxf", txe = "usb_txe", frame = 8)
+ft = FT2232H(sim; data="usb_data", rd="usb_rd", wr="usb_wr",
+                  rxf="usb_rxf", txe="usb_txe", frame=8)
 write(ft, bytes)
 take!(ft)                     # the next 8-byte frame the design sent
 ```
@@ -61,8 +61,8 @@ It is a stream like the UART, and it watches the bus every slot, so the design's
 ## SPI
 
 ```julia
-m  = SPIMaster(sim; sclk = "sclk", mosi = "mosi", miso = "miso", cs = "cs", rate = 2MHz, mode = 0)
-sl = SPISlave(sim; sclk = "sclk", mosi = "mosi", miso = "miso", cs = "cs")
+m  = SPIMaster(sim; sclk="sclk", mosi="mosi", miso="miso", cs="cs", rate=2MHz, mode=0)
+sl = SPISlave(sim; sclk="sclk", mosi="mosi", miso="miso", cs="cs")
 ```
 
 A master is a transaction link: `transfer(m, bytes)` selects the chip, clocks the bytes out and returns the bytes that came back. A slave answers each byte with a closure:
@@ -78,8 +78,8 @@ end
 ## I2C
 
 ```julia
-i   = I2CMaster(sim; scl = "scl", sda = "sda", rate = 400kHz)
-rtc = I2CSlave(sim; scl = "scl", sda = "sda", address = 0x51)
+i   = I2CMaster(sim; scl="scl", sda="sda", rate=400kHz)
+rtc = I2CSlave(sim; scl="scl", sda="sda", address=0x51)
 ```
 
 The master's verbs are `write(i, address, bytes)` and `read(i, address, n)`. A slave answers a transaction with a closure, the way a device would — here, a register file:
@@ -102,8 +102,8 @@ A simulation keeps one drive per net from outside the design, so a pad can carry
 A pulse train on a net — a clock, a strobe, a gated burst:
 
 ```julia
-p = PWM(sim; out = "ext_clk", rate = 1MHz, duty = 0.5)      # a clock
-p = PWM(sim; out = "trigger", rate = 10kHz, duty = 0.1, count = 3)   # three pulses
+p = PWM(sim; out="ext_clk", rate=1MHz, duty=0.5)      # a clock
+p = PWM(sim; out="trigger", rate=10kHz, duty=0.1, count=3)   # three pulses
 p.duty = 0.25                                                # changed while running
 ```
 
@@ -113,8 +113,8 @@ A memory that stands in for a vendor RAM block behind a [black box](blackbox.qmd
 
 ```julia
 QuartzHDL.standin(::Type{DacRam}) =
-  RAM(8192, 16; read  = (clock = :rdclock, addr = :rdaddress, data = :q, en = :rdclocken),
-                write = (clock = :wrclock, addr = :wraddress, data = :data, we = :we))
+  RAM(8192, 16; read=(clock=:rdclock, addr=:rdaddress, data=:q, en=:rdclocken),
+              write=(clock=:wrclock, addr=:wraddress, data=:data, we=:we))
 ram[0x10]                     # read a word from the harness
 ram[0x10] = 0xff              # write one
 fill!(ram, 0)
