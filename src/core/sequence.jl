@@ -210,7 +210,7 @@ function _seqsteps(items, inrepeat)
     elseif _ismacro(item, "@sequence")
       error("@sequence: a sequence cannot hold another")
     else
-      _hasmarker(item) && error("@sequence: a step divider belongs at the top level of the sequence, not inside $item")
+      _hasmarker(item) && error("@sequence: @then, @when, @delay and @repeat belong at the top level of the sequence, not inside $item")
       cur === nothing && open!(nothing)
       push!(cur.body, item)
     end
