@@ -345,6 +345,7 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
   slotdefs = sameslot ? Any[] : Any[
     :($QuartzHDL._blockfn(::Type{<:$structname}, ::Val{$slot}) = $fname),
     :($QuartzHDL._blockmeta(::Type{<:$structname}, ::Val{$slot}) = Val{$(QuoteNode(meta))}()),
+    _slotsettledef(T, typeexpr, withparams, slot, fname, kind, owned, required),
     _slotstepdefs(T, structname, typeexpr, withparams, slot, binds)...,
     _slotedgedef(T, typeexpr, withparams, slot, binds),
     (:($QuartzHDL._clockoutnet(::Type{<:$structname}, ::Val{$(QuoteNode(f))}, ::Val{$(QuoteNode(p))}) =
@@ -381,6 +382,24 @@ function _slotfor(T::Type, kind, clk, edge, owned, body, mod)
   end
   length(blocks(T)) < MAXSLOTS || error("$(nameof(T)) has $MAXSLOTS blocks already, which is the most a module can have")
   length(blocks(T)) + 1
+end
+
+# One settle pass of a @wire block, with its merge written out: an instance's
+# inputs settle the instance, and a field the block left unwritten is an error.
+# It is a method of the design's module rather than generated code, since a
+# generated pass that settles the instances below was entered with its arguments
+# boxed, the compiler having declined to inline it.
+function _slotsettledef(T::Type, typeexpr, withparams, slot, fname, kind, owned, required)
+  kind === :comb || return nothing
+  present = foldl((a, p) -> :($a && haskey(kw, $(QuoteNode(p)))), required; init=true)
+  Expr(:function, withparams(:($QuartzHDL._settleslot(acc::$typeexpr, m::$typeexpr, kw::NamedTuple, strict::Bool, ::Val{$slot}))),
+       quote
+         $(Expr(:meta, :inline))
+         strict || $present || return acc
+         r = $fname(m, kw)
+         r === nothing && return acc
+         $(_applycombexpr(T, owned, :acc, :m, :r))
+       end)
 end
 
 # The instances this block wires a clock to, stepped on that clock's net: one method
@@ -932,7 +951,7 @@ end
 _fieldwidth(m::QuartzModule, ::Val{f}) where f = bitwidth(fieldtype(typeof(m), f))
 
 _runclock(m, ::Val, ::Val, kw) = m
-_settle(m, kw; strict=true) = m
+_settlepasses(m, kw, strict::Bool) = m
 
 # The blocks of a module are its slots. Each `@on` or `@wire` defines, in the
 # module's own namespace, the block's function and what the block is -- kind, clock,
@@ -953,13 +972,7 @@ const MAXSLOTS = 64
   foldr((i, rest) -> :(_blockmeta(T, Val($i)) === nothing ? $(Val(i - 1)) : $rest), 1:MAXSLOTS;
         init = Val(MAXSLOTS))
 
-_kind(::Val{meta}) where meta = meta[1]
-_onedge(::Val{meta}, ::Val{clk}, ::Val{edge}) where {meta,clk,edge} =
-  meta[1] === :on && meta[2] === clk && meta[3] === edge
-_ownedval(::Val{meta}) where meta = Val{meta[4]}()
-_requiredval(::Val{meta}) where meta = Val{meta[5]}()
 _combcount(::Val{meta}) where meta = meta[1] === :comb ? length(meta[4]) : 0
-_combcount(::Nothing) = 0
 
 # the clocks of a module: the ones its blocks run on, then the nets its instances
 # take a clock from
@@ -1028,7 +1041,7 @@ function _stepinner(m::T, clk::Val, kw, ctx) where T
 end
 
 # an edge that moved nothing left the wires as they were
-_settled(new, old, kw) = new === old ? new : _settle(new, kw)
+_settled(new, old, kw) = new === old ? new : _settlepasses(new, kw, true)
 
 # the new state is the old one with some fields replaced; building it positionally
 # keeps every field typed, where a keyword splat would box them all
@@ -1074,7 +1087,7 @@ _default(::Type{T}, ::Val{f}) where {T,f} = getfield(_defaults(T)::T, f)::fieldt
 # Continuous logic runs before the clocked blocks as well as after them, over the
 # whole module tree, so the values read during the cycle are settled even on the
 # first step, when the fields still hold the struct defaults.
-_presettle(m::T, kw) where T = _settle(m, kw; strict=false)
+_presettle(m::T, kw) where T = _settlepasses(m, kw, false)
 
 # One edge: every @on block on this clock and edge runs against the old state, and
 # the writes merge in slot order. A multicycle wire's settle count moves with the
@@ -1083,21 +1096,23 @@ function _runclock(m::T, clk::Val, edge::Val, kw) where T<:QuartzModule
   _runclock(m, clk, edge, kw, _slotcount(T), _hasmulticycle(T) ? Symbol[] : nothing)
 end
 @generated _hasmulticycle(::Type{T}) where T = any(_ismulticycle(FT) for FT in fieldtypes(T))
-@generated function _runclock(m::T, clk::Val, edge::Val, kw, ::Val{n}, written) where {T,n}
+@generated _runclock(m::T, clk::Val, edge::Val, kw, ::Val{n}, written) where {T,n} =
+  :(_runedge(m, kw, written, clk, edge, $((:(_blockmeta(T, Val($i))) for i in 1:n)...)))
+@generated function _runedge(m::T, kw, written, ::Val{clk}, ::Val{edge}, metas::Vararg{Val}) where {T,clk,edge}
   body = Any[:(acc = m)]
-  for i in 1:n
+  for (i, M) in enumerate(metas)
+    kind, c, e, owned = M.parameters[1]
+    kind === :on && c === clk && e === edge || continue
     push!(body, quote
-      meta = _blockmeta(T, Val($i))
-      if _onedge(meta, clk, edge)
-        r = _blockfn(T, Val($i))(m, kw)
+      let r = _blockfn(T, Val($i))(m, kw)
         if r !== nothing
-          acc = _applyblock(acc, m, _ownedval(meta), r)
-          written === nothing || _writtennames!(written, _ownedval(meta), r)
+          acc = _applyblock(acc, m, $(Val(owned)), r)
+          written === nothing || _writtennames!(written, $(Val(owned)), r)
         end
       end
     end)
   end
-  push!(body, :(written === nothing ? acc : _advancemulticycles(acc, clk, edge, written)))
+  push!(body, :(written === nothing ? acc : _advancemulticycles(acc, Val(clk), Val(edge), written)))
   Expr(:block, body...)
 end
 
@@ -1105,42 +1120,34 @@ end
 # moves: each pass resolves at least one more field of a chain, whether the chain
 # runs between blocks or between fields of one block, so more passes than there are
 # fields means the blocks depend on each other.
-function _settle(m::T, kw; strict=true) where T<:QuartzModule
+# settling takes its mode positionally: a keyword call on this path allocated
+@inline function _settlepasses(m::T, kw, strict::Bool) where T<:QuartzModule
   passes = _combpasses(T, _slotcount(T))
   passes == 0 && return m
   for _ in 1:passes
-    m, changed = _settleonce(m, kw, strict, _slotcount(T))
-    changed || return m
+    settled = _settleonce(m, kw, strict, _slotcount(T))
+    _same(settled, m) && return m
+    m = settled
   end
-  _settleonce(m, kw, strict, _slotcount(T))[2] &&
+  _same(_settleonce(m, kw, strict, _slotcount(T)), m) ||
     error("@wire blocks of $(nameof(T)) depend on each other in a loop")
   m
 end
+
+# the same state: by value, since a mutable module is a new object every pass
+@generated function _same(a::T, b::T) where T
+  ismutabletype(T) || return :(a === b)
+  foldl((acc, f) -> :($acc && _same(getfield(a, $(QuoteNode(f))), getfield(b, $(QuoteNode(f))))), fieldnames(T); init=true)
+end
+_same(a, b) = a === b
 @generated _combpasses(::Type{T}, ::Val{n}) where {T,n} =
   Expr(:call, :+, 0, (:(_combcount(_blockmeta(T, Val($i)))) for i in 1:n)...)
-@generated function _settleonce(m::T, kw, strict, ::Val{n}) where {T,n}
-  body = Any[:(acc = m), :(changed = false)]
-  for i in 1:n
-    push!(body, quote
-      meta = _blockmeta(T, Val($i))
-      if _kind(meta) === :comb && (strict || _haskeys(kw, _requiredval(meta)))
-        r = _blockfn(T, Val($i))(m, kw)
-        if r !== nothing
-          acc, moved = _applycomb(acc, m, _ownedval(meta), r)
-          changed |= moved
-        end
-      end
-    end)
-  end
-  push!(body, :((acc, changed)))
-  Expr(:block, body...)
-end
-@generated _haskeys(kw, ::Val{names}) where names =
-  foldl((a, p) -> :($a && haskey(kw, $(QuoteNode(p)))), names; init=true)
 
-@generated function _applycomb(new::T, old::T, ::Val{owned}, r) where {T,owned}
-  _applycombbody(T, owned)
-end
+# one settle pass: every @wire block's slot, in order; a settled state that differs
+# from the one handed in is what "moved" means
+_settleslot(acc, m, kw, strict::Bool, ::Val) = acc
+@generated _settleonce(m::T, kw, strict, ::Val{n}) where {T,n} =
+  Expr(:block, :(acc = m), (:(acc = _settleslot(acc, m, kw, strict, Val($i))) for i in 1:n)..., :acc)
 
 # the fields a block wrote on this edge; a reset writes everything the block owns
 function _writtennames!(acc::Vector{Symbol}, ::Val{owned}, r) where owned
@@ -1166,17 +1173,15 @@ function _settleedge(mc::Multicycle, info, clk::Symbol, edge::Symbol, written::V
   _settlestep(mc, any(s in written for s in info.sources))
 end
 
-function _applycombbody(T, owned)
+# the state `new` with a @wire block's writes `r` merged in, an instance's inputs
+# settling the instance; a field the block left unwritten this cycle is an error
+function _applycombexpr(T, owned, new, old, r)
   q(f) = QuoteNode(f)
   value(f) = fieldtype(T, f) <: QuartzModule ?
-    :(_combinst(getfield(old, $(q(f))), getfield(r.writes, $(q(f))))) : :(getfield(r.writes, $(q(f))))
-  vals = [Expr(:kw, f, :(getfield(r.written, $i) ? $(value(f)) : _undriven($(q(f)))))
+    :($QuartzHDL._combinst(getfield($old, $(q(f))), getfield($r.writes, $(q(f))))) : :(getfield($r.writes, $(q(f))))
+  vals = [Expr(:kw, f, :(getfield($r.written, $i) ? $(value(f)) : $QuartzHDL._undriven($(q(f)))))
           for (i, f) in enumerate(owned)]
-  moved = foldl((a, f) -> :($a || getfield(vals, $(q(f))) !== getfield(old, $(q(f)))), owned; init=false)
-  quote
-    vals = $(Expr(:tuple, Expr(:parameters, vals...)))
-    (_merge(new, vals), $moved)
-  end
+  :($QuartzHDL._merge($new, $(Expr(:tuple, Expr(:parameters, vals...)))))
 end
 
 # continuous logic has nothing to hold a value with, so a path that leaves a field
@@ -1190,7 +1195,7 @@ _undriven(f::Symbol) = error("@wire left $f undriven this cycle; every path thro
 function _combinst(cur::T, w::NamedTuple) where T
   w === _inputsof(cur) && return cur
   new = _wireinputs(cur, w)
-  isblackbox(T) ? new : _settle(new, w; strict=false)
+  isblackbox(T) ? new : _settlepasses(new, w, false)
 end
 
 # the outside world drives a pad through a step keyword of the pad's own name:
