@@ -1537,7 +1537,7 @@ end
     n::Bits{8}
   end
   # a metaguard is the exception: the argument that feeds it shares its name
-  @test (@eval @quartz struct Guarded
+  @test (@eval @quartz struct GuardedInput
     @in x::Bool
     x::MetaGuard{2}
     @out y::Bool
@@ -2974,14 +2974,14 @@ end
   @test cosim(Suffixed, [(a = rand(Bool),) for _ in 1:50]; suffix = false).ok skip=!HAVE_IVERILOG
 end
 
-@encoding Phase begin idle; run; stop end
+@encoding Mode begin idle; run; stop end
 
 @quartz struct Driven
   @in enable::Bool = true
   @in rst::Bool = false
   @in limit::Bits{4} = 15
   cnt::Bits{4} = 0
-  phase::Phase = idle
+  phase::Mode = idle
   @io sda::Pad{1} = Pad{1}(:pullup)
   @out led::Bool = false
 end
