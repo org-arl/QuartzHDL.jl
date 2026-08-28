@@ -98,7 +98,7 @@ Base.typemin(::Type{Bits{N}}) where N = Bits{N}()
 Base.typemax(::Type{SBits{N}}) where N = SBits{N}(_mask(N) >> 1)
 Base.typemin(::Type{SBits{N}}) where N = SBits{N}(UInt128(1) << (N - 1))
 
-Base.show(io::IO, r::Bits{N}) where N = print(io, "Bits{", N, "}(", string(r.val; base=16, pad=cld(N, 4)), "h)")
+Base.show(io::IO, r::Bits{N}) where N = print(io, "Bits{", N, "}(0x", string(r.val; base=16, pad=max(cld(N, 4), 1)), ")")
 Base.show(io::IO, r::SBits{N}) where N = print(io, "SBits{", N, "}(", Int128(r), ")")
 
 resulttype(::Type{Bits{N}}, ::Type{Bits{M}}) where {N,M} = Bits{max(N, M)}
@@ -217,12 +217,16 @@ static(v) = v
 """
     part(i, Bits{N})
 
-Part number `i` of a word, counting from zero, `N` bits wide: `x[part(i, Bits{8})]`
-is the `i`th byte of `x`. A computed index is kept as the part number rather than
-multiplied out, so the emitter can decode it over the parts that fit.
+Part number `i` of a word, `N` bits wide, numbered like bits: from zero at the
+least significant end, so `x[part(0, Bits{8})]` is the low byte of `x` and
+`x[part(1, Bits{8})]` the one above it. A computed index is kept as the part
+number rather than multiplied out, so the emitter can decode it over the parts
+that fit.
 """
-part(i::Union{Bool,Base.BitInteger}, ::Type{Bits{N}}) where N =
-  (i ≥ 0 || throw(ArgumentError("a part number cannot be negative, got $i")); (Int(i) * N):(Int(i) * N + N - 1))
+function part(i::Union{Bool,Base.BitInteger}, ::Type{Bits{N}}) where N
+  i ≥ 0 || throw(ArgumentError("a part number cannot be negative, got $i"))
+  (Int(i) * N):(Int(i) * N + N - 1)
+end
 part(i, ::Type{Bits{N}}) where N = DynRange(i, N, N)
 
 """
