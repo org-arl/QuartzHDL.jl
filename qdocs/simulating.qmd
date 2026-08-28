@@ -19,8 +19,8 @@ using QuartzHDL.Units
 ```{julia}
 @quartz struct Blinker
   @in  en::Bool = true
-  n::Bits{4} = 0
   @out led::Bool
+  n::Bits{4} = 0
 end
 
 @on Blinker posedge(clk) begin
@@ -28,11 +28,12 @@ end
   led ← n[3]
 end
 
-m = Blinker()
 leds = Bool[]
-for _ in 1:20
-  global m = step(m)
-  push!(leds, m.led)
+let m = Blinker()
+  for _ in 1:20
+    m = step(m)
+    push!(leds, m.led)
+  end
 end
 leds
 ```
@@ -42,7 +43,7 @@ For anything with real time in it — several clocks, peripherals, a stimulus th
 ## A `Simulation`
 
 ```{julia}
-sim = Simulation(Blinker(); clocks = (clk = 1MHz,), watch = "*")
+sim = Simulation(Blinker(); clocks=(clk=1MHz,), watch="*")
 ```
 
 `clocks` gives every pin clock a rate — a named tuple is enough for a simple plan, and `@clocks` handles several clocks ([benches](benches.qmd) has the details); `wiring` connects the design to models around it, and is left out when there is nothing to connect, as here; `watch` says which nets to record. Any stubs — models of chips on the board — come as further keywords.
@@ -66,7 +67,7 @@ out = @run sim begin
   sim.en = true
   advance_until(sim.led)                # a condition, looked at every slot
   advance_until(20us)                   # or an absolute time
-  advance_until(!sim.led; timeout = 50us)
+  advance_until(!sim.led; timeout=50us)
 end
 ```
 
@@ -108,7 +109,7 @@ end
 
 ## The capture
 
-The capture — what `@run` returned above, or `capture(sim)` at any time — holds every watched net's history. Query it by name or path, and by time:
+The capture — what `@run` returned above, or `capture(sim)` at any time — holds every watched net's history, as values: a pin asserted low reads `true` while asserted, as the design sees it, and [plots and VCDs](visualizing.qmd) show the wires. Query it by name or path, and by time:
 
 ```{julia}
 out = capture(sim)
@@ -157,15 +158,15 @@ end
   @check n ≤ 15
 end
 
-sim = Simulation(Talker(); clocks = (clk = 1MHz,))
+sim = Simulation(Talker(); clocks=(clk=1MHz,))
 @run sim advance_by(40us)
 ```
 
-A message is part of the design's meaning and stays in the code; what to *show* right now is chosen from outside and never touches the design: `showlogs!(sim; from = 10us, to = 12us, modules = [:Talker], when = () -> sim.n > 3)` narrows what is printed, and `showlogs!(sim)` shows everything again.
+A message is part of the design's meaning and stays in the code; what to *show* right now is chosen from outside and never touches the design: `showlogs!(sim; from=10us, to=12us, modules=[:Talker], when=() -> sim.n > 3)` narrows what is printed, and `showlogs!(sim)` shows everything again.
 
 `@check cond` is the design's own assumption: a simulation stops where it fails, with the time and the module in the error.
 
-None of this reaches the Verilog unless asked for. `Verilog(; debug = true)` and `cosim(T, stim; debug = true)` emit messages as `$display` and a failed check as `$error`, for simulation-only builds; synthesis output is untouched.
+None of this reaches the Verilog unless asked for. `Verilog(; debug=true)` and `cosim(T, stim; debug=true)` emit messages as `$display` and a failed check as `$error`, for simulation-only builds; synthesis output is untouched.
 
 ## Lower-level pieces
 

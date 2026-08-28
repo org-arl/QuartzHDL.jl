@@ -434,8 +434,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div id="4" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Blinker</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  en<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> led<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> led<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Blinker <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
@@ -443,13 +443,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  led <span class="op">←</span> n[<span class="fl">3</span>]</span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Blinker</span>()</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>leds <span class="op">=</span> <span class="dt">Bool</span>[]</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">20</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">global</span> m <span class="op">=</span> <span class="fu">step</span>(m)</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">push!</span>(leds, m.led)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>leds</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>leds <span class="op">=</span> <span class="dt">Bool</span>[]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> m <span class="op">=</span> <span class="fu">Blinker</span>()</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">20</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="fu">step</span>(m)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">push!</span>(leds, m.led)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>leds</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>20-element Vector{Bool}:
  0
@@ -479,7 +480,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a-simulation" class="level2">
 <h2 class="anchored" data-anchor-id="a-simulation">A <code>Simulation</code></h2>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Blinker</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">1</span>MHz,), watch <span class="op">=</span> <span class="st">"*"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Blinker</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,), watch<span class="op">=</span><span class="st">"*"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>Simulation(Blinker, 4 nets, 4 watched, t = 0s)</code></pre>
 </div>
@@ -491,8 +492,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>4-element Vector{QuartzHDL.Net}:
  Net(en::input[1])
- Net(n::reg[4])
  Net(led::reg[1])
+ Net(n::reg[4])
  Net(clocks.clk::clock[1])</code></pre>
 </div>
 </div>
@@ -508,10 +509,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  sim.en <span class="op">=</span> <span class="cn">true</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(sim.led)                <span class="co"># a condition, looked at every slot</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(<span class="fl">20</span>us)                   <span class="co"># or an absolute time</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(!sim.led; timeout <span class="op">=</span> <span class="fl">50</span>us)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_until</span>(!sim.led; timeout<span class="op">=</span><span class="fl">50</span>us)</span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Capture(4 signals, 20.0us)</code></pre>
+<pre><code>Capture(4 signals, 20.0µs)</code></pre>
 </div>
 </div>
 <p><code>@run</code> returns what the body returned, or the capture when the body returns nothing. Outside a macro, <code>using QuartzHDL.Units</code> gives <code>ms</code>, <code>us</code>, <code>MHz</code> and so on.</p>
@@ -554,7 +555,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="the-capture" class="level2">
 <h2 class="anchored" data-anchor-id="the-capture">The capture</h2>
-<p>The capture — what <code>@run</code> returned above, or <code>capture(sim)</code> at any time — holds every watched net’s history. Query it by name or path, and by time:</p>
+<p>The capture — what <code>@run</code> returned above, or <code>capture(sim)</code> at any time — holds every watched net’s history, as values: a pin asserted low reads <code>true</code> while asserted, as the design sees it, and <a href="./visualizing.html">plots and VCDs</a> show the wires. Query it by name or path, and by time:</p>
 <div id="16" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">capture</span>(sim)</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>out.led[<span class="fl">5</span>us]                      <span class="co"># its value at 5 us</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -606,26 +607,26 @@ sim 1.0ms&gt; @task pulse(sim, "en", 10us)</code></pre>
 <span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@check</span> n <span class="op">≤</span> <span class="fl">15</span></span>
 <span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Talker</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">1</span>MHz,))</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Talker</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">1</span>MHz,))</span>
 <span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">40</span>us)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <div class="ansi-escaped-output">
 <pre><span class="ansi-cyan-fg ansi-bold">┌ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>wrapping
-<span class="ansi-cyan-fg ansi-bold">│ </span>  time = "15.0us"
+<span class="ansi-cyan-fg ansi-bold">│ </span>  time = "15.0µs"
 <span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(fh)
 <span class="ansi-cyan-fg ansi-bold">┌ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>wrapping
-<span class="ansi-cyan-fg ansi-bold">│ </span>  time = "31.0us"
+<span class="ansi-cyan-fg ansi-bold">│ </span>  time = "31.0µs"
 <span class="ansi-cyan-fg ansi-bold">└ </span>  n = Bits{4}(fh)
 </pre>
 </div>
 </div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Capture(0 signals, 40.0us)</code></pre>
+<pre><code>Capture(0 signals, 40.0µs)</code></pre>
 </div>
 </div>
-<p>A message is part of the design’s meaning and stays in the code; what to <em>show</em> right now is chosen from outside and never touches the design: <code>showlogs!(sim; from = 10us, to = 12us, modules = [:Talker], when = () -&gt; sim.n &gt; 3)</code> narrows what is printed, and <code>showlogs!(sim)</code> shows everything again.</p>
+<p>A message is part of the design’s meaning and stays in the code; what to <em>show</em> right now is chosen from outside and never touches the design: <code>showlogs!(sim; from=10us, to=12us, modules=[:Talker], when=() -&gt; sim.n &gt; 3)</code> narrows what is printed, and <code>showlogs!(sim)</code> shows everything again.</p>
 <p><code>@check cond</code> is the design’s own assumption: a simulation stops where it fails, with the time and the module in the error.</p>
-<p>None of this reaches the Verilog unless asked for. <code>Verilog(; debug = true)</code> and <code>cosim(T, stim; debug = true)</code> emit messages as <code>$display</code> and a failed check as <code>$error</code>, for simulation-only builds; synthesis output is untouched.</p>
+<p>None of this reaches the Verilog unless asked for. <code>Verilog(; debug=true)</code> and <code>cosim(T, stim; debug=true)</code> emit messages as <code>$display</code> and a failed check as <code>$error</code>, for simulation-only builds; synthesis output is untouched.</p>
 </section>
 <section id="lower-level-pieces" class="level2">
 <h2 class="anchored" data-anchor-id="lower-level-pieces">Lower-level pieces</h2>

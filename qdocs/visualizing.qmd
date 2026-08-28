@@ -22,9 +22,9 @@ Let's make a capture to look at:
 
 @quartz struct Heater
   @in  go::Bool = false
+  @out on::Bool
   phase::Phase = IDLE
   temp::Bits{8} = 0
-  @out on::Bool
 end
 
 @on Heater posedge(clk) begin
@@ -41,7 +41,7 @@ end
   on ← phase == WARM
 end
 
-sim = Simulation(Heater(); clocks = (clk = 1MHz,), watch = "*")
+sim = Simulation(Heater(); clocks=(clk=1MHz,), watch="*")
 out = @run sim begin
   advance_by(5us)
   sim.go = true
@@ -53,7 +53,7 @@ end
 
 ## Plots
 
-With `Plots` loaded, a signal plots as a step plot against time in seconds, and an encoded register is labelled by state name:
+With `Plots` loaded, a signal plots as a step plot of the *wire* against time in seconds, with the ticks labelled in whatever unit suits the span: a one-bit lane is labelled `L` and `H`, a pin asserted low is drawn as the voltage on it — low while asserted — and an encoded register is labelled by state name:
 
 ```{julia}
 plot(out.temp)
@@ -66,12 +66,12 @@ plot(out.phase)
 `plot(out, "a", "b", ...)` stacks several nets as lanes:
 
 ```{julia}
-plot(out, "go", "phase", "temp", "on"; size = (650, 500))
+plot(out, "go", "phase", "temp", "on"; size=(650, 500))
 ```
 
 ## VCD and Surfer
 
-`write("run.vcd", out, VCD())` writes the capture as a VCD file — real time on the axis, a lane per clock, and encoded registers written twice, as bits and as the state's name, which viewers show as text. Any waveform viewer opens it.
+`write("run.vcd", out, VCD())` writes the capture as a VCD file of the wires — real time on the axis, a pin asserted low inverted as a probe would see it, a lane per clock, and encoded registers written twice, as bits and as the state's name, which viewers show as text. Any waveform viewer opens it.
 
 [Surfer](https://surfer-project.org) is the one QuartzHDL talks to directly. With `surfer` on your path:
 

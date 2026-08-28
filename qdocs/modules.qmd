@@ -140,6 +140,8 @@ end
 
 `active=:low` says the *pin* is asserted low. Inside the module, and everywhere in the Julia model, the value means *asserted*: `rst` is `true` while the design is held in reset, whatever the wire is doing. The inversion happens where the port meets the outside — in the emitted Verilog, and in co-simulation — and nowhere else. This is what lets you write `if rst` without ever again thinking about whether it was `rst_n`.
 
+A [capture](simulating.qmd) holds values as well, so `out.rst[t]` agrees with `rst` in the block. A *waveform* — a plot or a VCD, in [visualizing](visualizing.qmd) — shows the wire instead, so a pin asserted low is drawn low while asserted, as a probe on it would show. Pads follow the same split.
+
 ### Pin names
 
 The Verilog port is named after the Julia port with its direction on the end: `rx_i`, `tx_o`, `sda_io`, and `rst_ni` for an input asserted low. `verilog="..."` names the pin something else entirely:
@@ -151,7 +153,7 @@ The Verilog port is named after the Julia port with its direction on the end: `r
 end
 ```
 
-The suffixes are an option of the emission, on by default; `Verilog(; suffix = false)` turns them off, as [Verilog output](compiling.qmd) describes.
+The suffixes are an option of the emission, on by default; `Verilog(; suffix=false)` turns them off, as [Verilog output](compiling.qmd) describes.
 
 ### Documenting ports
 
@@ -183,7 +185,7 @@ end
 A `static` field powers up at its value and `@reset` leaves it alone. In the emitted Verilog it is the one kind of field that gets an initializer, since the synthesiser then guarantees the power-up value.
 
 ::: {.callout-tip title="If you know Verilog"}
-A default that is *not* static is restored by `@reset` and does **not** appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. `Verilog(; inits = :all)` initializes everything, for simulators that would otherwise start at `x` — co-simulation uses that.
+A default that is *not* static is restored by `@reset` and does **not** appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. `Verilog(; inits=:all)` initializes everything, for simulators that would otherwise start at `x` — co-simulation uses that.
 :::
 
 ## Parametric modules
@@ -193,8 +195,8 @@ A module may take type parameters, the way a Verilog module takes `parameter`s:
 ```{julia}
 @quartz struct Shift{N}
   @in  x::Bool
-  sr::Bits{N} = 0
   @out y::Bool
+  sr::Bits{N} = 0
 end
 
 @on Shift{N} posedge(clk) begin
@@ -202,7 +204,7 @@ end
   y ← sr[N - 1]
 end
 
-m = step(Shift{4}(); x = true)
+m = step(Shift{4}(); x=true)
 ```
 
 The parameters the block body uses are named on the `@on` line. Each concrete instantiation — `Shift{4}`, `Shift{16}` — is emitted as its own Verilog module.

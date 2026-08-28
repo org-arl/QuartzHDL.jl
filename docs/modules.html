@@ -516,7 +516,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre>ArgumentError: QuartzHDL.Bits{8}(...) would drop bits from a 16-bit value; write trunc(QuartzHDL.Bits{8}, x) if that is what you mean
 Stacktrace:
  [1] <span class="ansi-bold">_checkwiden</span><span class="ansi-bold">(</span>::Type<span class="ansi-bright-black-fg">{Bits{8}}</span>, <span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:601</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:607</span>
  [2] <span class="ansi-bold">Bits{8}</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:55</span>
  [3] top-level scope
@@ -535,17 +535,17 @@ Stacktrace:
 <pre>InexactError: convert(Bits{4}, 20)
 Stacktrace:
  [1] <span class="ansi-bold">_lift</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:621</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:627</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [2] <span class="ansi-bold">convert</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:168</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:172</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [3] <span class="ansi-bold">TooBig</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">&lt;missing&gt;:-1</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [4] <span class="ansi-bold">TooBig</span><span class="ansi-bold">(</span>; <span class="ansi-bright-black-fg">n</span>::Int64, <span class="ansi-bright-black-fg">#inputs</span>::@NamedTuple<span class="ansi-bright-black-fg">{}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:357</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:348</span>
  [5] <span class="ansi-bold">_validate</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{TooBig}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:541</span>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:540</span>
  [6] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:380</span></pre>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">quartz.jl:379</span></pre>
 </div>
 </div>
 </div>
@@ -624,6 +624,7 @@ Stacktrace:
 <section id="polarity" class="level3">
 <h3 class="anchored" data-anchor-id="polarity">Polarity</h3>
 <p><code>active=:low</code> says the <em>pin</em> is asserted low. Inside the module, and everywhere in the Julia model, the value means <em>asserted</em>: <code>rst</code> is <code>true</code> while the design is held in reset, whatever the wire is doing. The inversion happens where the port meets the outside — in the emitted Verilog, and in co-simulation — and nowhere else. This is what lets you write <code>if rst</code> without ever again thinking about whether it was <code>rst_n</code>.</p>
+<p>A <a href="./simulating.html">capture</a> holds values as well, so <code>out.rst[t]</code> agrees with <code>rst</code> in the block. A <em>waveform</em> — a plot or a VCD, in <a href="./visualizing.html">visualizing</a> — shows the wire instead, so a pin asserted low is drawn low while asserted, as a probe on it would show. Pads follow the same split.</p>
 </section>
 <section id="pin-names" class="level3">
 <h3 class="anchored" data-anchor-id="pin-names">Pin names</h3>
@@ -637,7 +638,7 @@ Stacktrace:
 <pre><code>Named</code></pre>
 </div>
 </div>
-<p>The suffixes are an option of the emission, on by default; <code>Verilog(; suffix = false)</code> turns them off, as <a href="./compiling.html">Verilog output</a> describes.</p>
+<p>The suffixes are an option of the emission, on by default; <code>Verilog(; suffix=false)</code> turns them off, as <a href="./compiling.html">Verilog output</a> describes.</p>
 </section>
 <section id="documenting-ports" class="level3">
 <h3 class="anchored" data-anchor-id="documenting-ports">Documenting ports</h3>
@@ -680,7 +681,7 @@ Stacktrace:
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>A default that is <em>not</em> static is restored by <code>@reset</code> and does <strong>not</strong> appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. <code>Verilog(; inits = :all)</code> initializes everything, for simulators that would otherwise start at <code>x</code> — co-simulation uses that.</p>
+<p>A default that is <em>not</em> static is restored by <code>@reset</code> and does <strong>not</strong> appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. <code>Verilog(; inits=:all)</code> initializes everything, for simulators that would otherwise start at <code>x</code> — co-simulation uses that.</p>
 </div>
 </div>
 </section>
@@ -690,8 +691,8 @@ Stacktrace:
 <div id="32" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Shift{N}</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  x<span class="op">::</span><span class="dt">Bool</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  sr<span class="op">::</span><span class="dt">Bits{N} </span><span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  sr<span class="op">::</span><span class="dt">Bits{N} </span><span class="op">=</span> <span class="fl">0</span></span>
 <span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
 <span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Shift{N} <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
@@ -699,9 +700,9 @@ Stacktrace:
 <span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  y <span class="op">←</span> sr[N <span class="op">-</span> <span class="fl">1</span>]</span>
 <span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(<span class="fu">Shift</span><span class="dt">{4}</span>(); x <span class="op">=</span> <span class="cn">true</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(<span class="fu">Shift</span><span class="dt">{4}</span>(); x<span class="op">=</span><span class="cn">true</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Shift{4}(Bits{4}(1h), false, (x = false,))</code></pre>
+<pre><code>Shift{4}(false, Bits{4}(1h), (x = false,))</code></pre>
 </div>
 </div>
 <p>The parameters the block body uses are named on the <code>@on</code> line. Each concrete instantiation — <code>Shift{4}</code>, <code>Shift{16}</code> — is emitted as its own Verilog module.</p>

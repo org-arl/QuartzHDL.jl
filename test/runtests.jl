@@ -2704,6 +2704,59 @@ end
   @test r.ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct LowPins
+  @in  en::Bool = false  active=:low
+  @io  led::Pad{1} = Pad{1}(:pullup)  active=:low
+  @out busy::Bool  active=:low
+end
+
+@wire LowPins begin
+  led ← drive(en)
+end
+
+@on LowPins posedge(clk) begin
+  busy ← en
+end
+
+@testset "a capture holds values and a waveform shows the wires" begin
+  sim = Simulation(LowPins(); clocks = (clk = 1_000_000,), watch = "*")
+  out = @run sim begin
+    advance_by(2e-6)
+    sim.en = true
+    advance_by(2e-6)
+  end
+  wires(s) = [QuartzHDL._wirevalue(s, i) for i in eachindex(s.slots)]
+  for name in ("en", "busy", "led")
+    s = out[name]
+    @test last.(changes(s)) == [false, true]      # asserted, as the design sees it
+    @test wires(s) == [true, false]               # a zero on the wire, as a probe sees it
+  end
+  @test out.led[3e-6] && out.busy[3.5e-6] && sampled(out.busy)[end] == 1.0
+
+  v = sprint(io -> write(io, out, VCD()))
+  for (name, pat) in (("en", r"\$var wire 1 (\S+) en \$end"), ("busy", r"\$var wire 1 (\S+) busy \$end"),
+                      ("led", r"\$var wire 1 (\S+) led \$end"))
+    id = match(pat, v)[1]
+    levels = [l[startswith(l, "b") ? 2 : 1] for l in split(v, '\n') if endswith(l, id) && !startswith(l, "\$")]
+    @test levels[1] == '1' && levels[end] == '0'    # the dump is of the wires
+  end
+
+  # a clock is drawn as a square wave, falling halfway to its next tick, whatever its rate
+  t, lv = QuartzHDL._clockwave(out.clk)
+  @test lv[1:4] == [1, 0, 1, 0] && t[1:4] == [0, 1//2, 1, 3//2]
+  @test count(==(1), lv) == 5 && t[end] == 4 + 1//2
+  id = match(r"\$var wire 1 (\S+) clk \$end", v)[1]
+  @test occursin("#500\n0$id", v) && occursin("#1000\n1$id", v)
+
+  # a time axis is read in the unit that suits the span
+  @test QuartzHDL._axisunit(2.5) == (1//1, "s") && QuartzHDL._axisunit(5e-3) == (1//10^3, "ms")
+  @test QuartzHDL._axisunit(4e-6)[2] == "µs" && QuartzHDL._axisunit(300e-9)[2] == "ns"
+  @test QuartzHDL._axisunit(1e-12)[2] == "ns"
+  ms = QuartzHDL._axisunit(5e-3)
+  @test QuartzHDL._ticklabel(0.01, ms) == "10ms" && QuartzHDL._ticklabel(0.00025, ms) == "0.25ms"
+  @test QuartzHDL._ticklabel(0, ms) == "0ms" && QuartzHDL._ticklabel(1e-4, QuartzHDL._axisunit(1e-4)) == "100µs"
+end
+
 @quartz struct Continuous
   @in a::Bool = false
   @in b::Bits{8} = 0

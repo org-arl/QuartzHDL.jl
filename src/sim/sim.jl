@@ -20,9 +20,11 @@ struct Net
   enc::Union{Nothing,Encoding} # the names of an :fsm register's values
   indut::Bool                  # part of the design, rather than of a stub or the plan
   bit::Int                     # a clock's place in the plan's tick mask
+  activelow::Bool              # the pin is asserted low: the wire is the inverse of the value
 end
 
-Net(path, kind, width, T, read, enc=nothing; indut=true, bit=0) = Net(path, kind, width, T, read, enc, indut, bit)
+Net(path, kind, width, T, read, enc=nothing; indut=true, bit=0, activelow=false) =
+  Net(path, kind, width, T, read, enc, indut, bit, activelow)
 
 Base.show(io::IO, n::Net) = print(io, "Net(", n.path, "::", n.kind, "[", n.width, "])")
 
@@ -677,6 +679,14 @@ end
 
 _leafpath(l::LeafSpec, prefix) = prefix * join(l.chain, ".") * (l.part in (:val, :level) ? "" : "." * string(l.part))
 
+# a pad carries its polarity; a port's is a fact of the module holding it. Looked up
+# here, on the instance, and not in the leaf walk, which generated code also runs
+function _leafactivelow(l::LeafSpec, root)
+  l.kind === :pad && return _chainget(root, Val(Tuple(l.chain))).activelow
+  T = typeof(_chainget(root, Val(Tuple(l.chain[1:end-1]))))
+  T <: QuartzModule && _portattrs(T, l.chain[end])[2]
+end
+
 # the reader of a leaf, for reads by name; a run samples through generated code instead.
 # The chain is carried as a `Val` so a read walks typed fields: folded over a vector
 # of symbols instead, every step of the walk would box the module it lands in.
@@ -698,14 +708,16 @@ function _nets(b::Bench)
   out = Net[]
   _inputnets!(out, b.dut)
   for l in _leafspecs(typeof(b.dut))
-    push!(out, Net(_leafpath(l, ""), l.kind, l.width, l.T, _leafreader(l, s -> s.bench.dut), l.enc))
+    push!(out, Net(_leafpath(l, ""), l.kind, l.width, l.T, _leafreader(l, s -> s.bench.dut), l.enc;
+                   activelow=_leafactivelow(l, b.dut)))
   end
   for (k, v) in pairs(b.stubs)
     kv = Val((k,))
     getstub = s -> _chainget(s.bench.stubs, kv)
     push!(out, Net(string(k), :stub, 0, typeof(v), getstub; indut=false))
     for l in _leafspecs(typeof(v))
-      push!(out, Net(_leafpath(l, string(k) * "."), l.kind, l.width, l.T, _leafreader(l, getstub), l.enc; indut=false))
+      push!(out, Net(_leafpath(l, string(k) * "."), l.kind, l.width, l.T, _leafreader(l, getstub), l.enc;
+                     indut=false, activelow=_leafactivelow(l, v)))
     end
   end
   for (i, e) in enumerate(b.plan.entries)
@@ -720,7 +732,7 @@ function _inputnets!(out, dut::T) where T
   hasfield(T, INPUTS) || return
   for (f, FT) in zip(fieldnames(fieldtype(T, INPUTS)), fieldtypes(fieldtype(T, INPUTS)))
     v = Val(f)
-    push!(out, Net(string(f), :input, bitwidth(FT), FT, s -> _inputvalue(s, v)))
+    push!(out, Net(string(f), :input, bitwidth(FT), FT, s -> _inputvalue(s, v); activelow=_portattrs(T, f)[2]))
   end
 end
 
@@ -897,12 +909,22 @@ function Base.getindex(s::Signal{V}, t::Real)::V where V
 end
 _slotat(s::Signal, t::Real) = floor(Int, t / s.grid + 1e-9)
 
-function _value(s::Signal{V}, i::Int)::V where V
+# A capture holds values and a waveform shows voltages. A port is recorded as its
+# value, the wire being its inverse when the pin is asserted low; a pad is recorded
+# as its wire, since that is where the `z` bits are, and the value is the inverse.
+_valuebits(s::Signal, i::Int) = _invertif(s.net.kind === :pad && s.net.activelow, s, i)
+_wirebits(s::Signal, i::Int) = _invertif(s.net.kind !== :pad && s.net.activelow, s, i)
+_invertif(flip::Bool, s::Signal, i::Int) = flip ? ~s.vals[i] & _mask(s.net.width) : s.vals[i]
+
+_value(s::Signal{V}, i::Int) where V = _decode(s, i, _valuebits(s, i))::V
+_wirevalue(s::Signal{V}, i::Int) where V = _decode(s, i, _wirebits(s, i))::V
+
+function _decode(s::Signal, i::Int, v::UInt128)
   n = s.net
   n.kind === :clock && return true
-  s.mask[i] == 0 || return n.kind === :pad ? _padstr(s.vals[i], s.mask[i], n.width) : missing
-  n.kind === :fsm && n.enc !== nothing && return something(encname(n.enc, n.T(s.vals[i])), n.T(s.vals[i]))
-  _fromraw(n.T, s.vals[i])
+  s.mask[i] == 0 || return n.kind === :pad ? _padstr(v, s.mask[i], n.width) : missing
+  n.kind === :fsm && n.enc !== nothing && return something(encname(n.enc, n.T(v)), n.T(v))
+  _fromraw(n.T, v)
 end
 
 _fromraw(::Type{Bool}, v) = isodd(v)
@@ -946,16 +968,44 @@ function Base.getindex(x::Sampled, i::Int)::Float64
   k == 0 && return NaN
   s.net.kind === :clock && return Float64(s.slots[k] == i - 1)
   s.mask[k] == 0 || return NaN
-  v = _fromraw(s.net.T, s.vals[k])
+  v = _fromraw(s.net.T, _valuebits(s, k))
   v isa Bool ? Float64(v) : Float64(Int128(v))
 end
 "the seconds per frame of a sampled signal"
 frametime(x::Sampled) = x.signal.grid
 
+# a clock is recorded as its ticks; drawn, it rises at each and falls halfway to the
+# next, so any rate comes out as a square wave. The points are in slots.
+function _clockwave(s::Signal)
+  n = length(s.slots)
+  t = Vector{Rational{Int}}(undef, 2n); v = Vector{Float64}(undef, 2n)
+  for (k, slot) in enumerate(s.slots)
+    period = k < n ? s.slots[k+1] - slot : k > 1 ? slot - s.slots[k-1] : 1
+    t[2k-1] = slot; v[2k-1] = 1.0
+    t[2k] = slot + period // 2; v[2k] = 0.0
+  end
+  t, v
+end
+
+# A time axis stays in seconds, so `xlims` always means seconds; only its tick
+# labels are read in the unit that suits the span, since seconds are too coarse for
+# almost every run
+const AXISUNITS = (1//1 => "s", 1//10^3 => "ms", 1//10^6 => "µs", 1//10^9 => "ns")
+function _axisunit(span::Real)
+  for (u, name) in AXISUNITS
+    span ≥ u && return (u, name)
+  end
+  last(AXISUNITS)
+end
+function _ticklabel(t::Real, unit::Tuple)
+  x = round(float(t) / unit[1]; sigdigits=4)
+  (isinteger(x) ? string(Int(x)) : string(x)) * unit[2]
+end
+
 _timestr(t::Real) = t == 0 ? "0s" :
   abs(t) ≥ 1 ? "$(round(float(t); sigdigits=4))s" :
   abs(t) ≥ 1e-3 ? "$(round(float(t) * 1e3; sigdigits=4))ms" :
-  abs(t) ≥ 1e-6 ? "$(round(float(t) * 1e6; sigdigits=4))us" :
+  abs(t) ≥ 1e-6 ? "$(round(float(t) * 1e6; sigdigits=4))µs" :
   abs(t) ≥ 1e-9 ? "$(round(float(t) * 1e9; sigdigits=4))ns" : "$(round(float(t) * 1e12; sigdigits=4))ps"
 
 # hook for the viewer: called after a run, and now and then during one

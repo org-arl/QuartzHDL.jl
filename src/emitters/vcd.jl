@@ -1,6 +1,7 @@
-# A capture as a value change dump. Time is real: the unit is chosen so a slot of
-# the clock grid is at least 100 units. A clock is a square wave, falling half a
-# slot after it rose. An encoded register is written twice, as its bits and as a
+# A capture as a value change dump, of the wires: a pin asserted low is written
+# inverted, as a viewer would show it. Time is real: the unit is chosen so a slot of
+# the clock grid is at least 100 units. A clock is a square wave, falling halfway
+# to its next tick. An encoded register is written twice, as its bits and as a
 # string with the state's name.
 
 Base.write(io::IO, s::Simulation, f::VCD) = write(io, s.capture, f)
@@ -36,10 +37,15 @@ function _vcd(io::IO, r::Capture)
   evs = Tuple{Int,Int,Int,Int}[]
   for (k, s) in enumerate(sigs)
     s.net.kind === :stub && continue
+    if s.net.kind === :clock
+      ct, cv = _clockwave(s)
+      for (j, t) in enumerate(ct)
+        push!(evs, (_vcdtime(t, r.grid, unit), cv[j] == 1 ? 0 : 1, k, (j + 1) ÷ 2))
+      end
+      continue
+    end
     for i in eachindex(s.slots)
-      t = s.slots[i]
-      push!(evs, (_vcdtime(t, r.grid, unit), 0, k, i))
-      s.net.kind === :clock && push!(evs, (_vcdtime(t + 1//2, r.grid, unit), 1, k, i))
+      push!(evs, (_vcdtime(s.slots[i], r.grid, unit), 0, k, i))
     end
   end
   sort!(evs)
@@ -51,7 +57,7 @@ function _vcd(io::IO, r::Capture)
     if n.kind === :clock
       println(io, half == 0 ? "1" : "0", ids[2k-1])
     elseif n.width == 1 && n.kind !== :pad
-      println(io, isodd(s.vals[i]) ? "1" : "0", ids[2k-1])
+      println(io, isodd(_wirebits(s, i)) ? "1" : "0", ids[2k-1])
     else
       println(io, "b", _bitchars(s, i), " ", ids[2k-1])
     end
@@ -69,7 +75,7 @@ _vcdids(n) = [String(Char.('!' .+ digits(k; base=94))) for k in 0:n-1]
 
 function _bitchars(s::Signal, i::Int)
   n = s.net
-  v, m = s.vals[i], s.mask[i]
+  v, m = _wirebits(s, i), s.mask[i]
   c = n.kind === :pad ? 'z' : 'x'
   String(map(j -> isodd(m >> j) ? c : isodd(v >> j) ? '1' : '0', n.width-1:-1:0))
 end

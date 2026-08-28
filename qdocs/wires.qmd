@@ -19,8 +19,8 @@ An `@on` block writes registers. Sometimes an output should not be a register at
 ```{julia}
 @quartz struct Link
   @in  go::Bool
-  state::Bits{2} = 0
   @out busy::Bool
+  state::Bits{2} = 0
 end
 
 @on Link posedge(clk) begin
@@ -94,7 +94,7 @@ end
 
 `drive(true)` then puts a zero on the pin, and `clr` reads `true` when the pin is low: a pad's value always means *asserted*, as a port's does. What does not invert is the output enable — it says whether the module drives at all, not to what level — and the pull, which is a resistor on the physical net.
 
-Everything that models the wire itself — a bench, `padnet`, `netlevel`, a co-simulation — sees the wire, because the wire is what the board has. A pad reaches the modules above it by name, so every module that declares the same pad must give it the same Verilog name.
+Everything that models the wire itself — a bench, `padnet`, `netlevel`, a co-simulation — sees the wire, because the wire is what the board has. A capture reads a pad as the design does, as its value; a plot or a VCD of it shows the wire, as for a [port](modules.qmd). A pad reaches the modules above it by name, so every module that declares the same pad must give it the same Verilog name.
 
 ::: {.callout-tip title="If you know Verilog"}
 A pad is emitted as an `inout` with a tristate `assign pin = oe ? val : 1'bz;` and a read of the pin. You write neither: `drive`/`release` produce the value and the enable, and the resolved net is what you read. The pull is not in the Verilog at all; it goes into the constraint file, from the board description.
