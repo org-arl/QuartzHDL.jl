@@ -36,7 +36,7 @@ The value types are:
 | `Bits{N}` | N bits, unsigned, N ≤ 128 |
 | `SBits{N}` | N bits, signed (two's complement), N ≤ 128 |
 
-plus the special registers of later chapters — `Pulse`, `Timeout{N}`, `Edge`, `MetaGuard{K}`, `Pipeline{K,T}`, `Multicycle{K,T}`, `Pad{N}` — and other `@quartz` modules, which make an instance.
+plus the special registers of later chapters — `Pulse`, `Timeout{N}`, `Step`, `Edge`, `MetaGuard{K}`, `Pipeline{K,T}`, `Multicycle{K,T}`, `Pad{N}` — and other `@quartz` modules, which make an instance.
 
 ::: {.callout-tip title="If you know Verilog"}
 `reg [7:0] n;` is `n::Bits{8}`. There is no `wire` type in the struct: a wire is a local variable inside a block, or an output driven by `@wire`, as the [wires chapter](wires.qmd) shows. Signedness is part of the type rather than a property you attach later, so `SBits{12}` arithmetic is signed everywhere it appears.

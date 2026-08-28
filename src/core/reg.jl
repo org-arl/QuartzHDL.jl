@@ -313,6 +313,21 @@ end
 struct Timeout{N} end
 
 """
+    Step
+
+The step of a `@sequence`: a field declared `Step` is sixteen bits in the Julia
+model and starts at `START`; the emitted register is as wide as the steps need. It
+takes no default and no width.
+
+```julia
+@quartz struct Tx
+  step::Step
+end
+```
+"""
+struct Step end
+
+"""
     expired(t)
 
 Whether a `Timeout` field has counted down to zero.

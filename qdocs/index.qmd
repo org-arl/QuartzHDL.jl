@@ -58,7 +58,7 @@ const BIT_TIME = 9                   # clocks per bit, less one: 100 kbaud from 
   @out tx::Bool = true               # TX pin of the UART
   @out busy::Bool active=:low        # busy signal, asserted low
   # internal state
-  step::Bits{5} = 0                  # state machine step counter
+  step::Step                         # state machine step
   send_e::Edge                       # edge detector for send input
   shift::Bits{8}                     # transmit shift register
   parity::Bool                       # parity bit

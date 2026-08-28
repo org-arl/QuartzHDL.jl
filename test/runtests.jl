@@ -3357,6 +3357,41 @@ end
   ok || println(log)
 end
 
+@quartz struct Stepped
+  @in go::Bool = false
+  @out y::Bits{8}
+  step::Step
+end
+
+@on Stepped posedge(clk) begin
+  @sequence Walk step begin
+    @when go
+    y ← 1
+    @then
+    y ← 2
+    @then
+    y ← 3
+  end
+end
+
+@testset "a Step register takes the width its sequence needs" begin
+  @test fieldtype(Stepped, :step) === Bits{16}                 # sixteen bits in the model
+  @test QuartzHDL._stepwidth(QuartzHDL.sequences(Stepped)[:step]) == 2   # three steps need two bits
+  @test Stepped().step == 0 && encname(Walk, Stepped().step) === :START
+  m = step(Stepped(); go = true)
+  m = step(m)
+  @test m.y == 2 && encname(Walk, m.step) === :step_2
+  @test step(m).y == 3 && encname(Walk, step(step(m)).step) === :START
+  v = sprint(io -> write(io, Stepped, Verilog()))
+  @test occursin("reg [1:0] step", v) && occursin("localparam [1:0] Walk_START = 2'h0;", v)
+  @test !occursin("[15:0] step", v)
+  @test_throws Exception @eval @quartz struct BadStep
+    step::Step = 3
+  end
+  Random.seed!(11)
+  @test cosim(Stepped, [(go = rand(Bool),) for i in 1:100]).ok skip=!HAVE_IVERILOG
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("reference.jl")

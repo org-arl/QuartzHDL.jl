@@ -445,7 +445,7 @@ _hasdefault(T::Type, name::Symbol) = (p = port(T, name); p !== nothing && p.defa
 # its history settles in the merge, by dispatch on the field's type.
 function _advance(body, T, kind, owned, what)
   kinds = advancing(T)
-  mine = [f for f in owned if haskey(kinds, f)]
+  mine = [f for f in owned if get(kinds, f, nothing) in (:pulse, :timeout)]
   isempty(mine) && return body
   kind == :comb && error("$what $(nameof(T)): $(mine[1]) is a $(kinds[mine[1]]), " *
                          "which advances on a clock; only an @on block can write it")

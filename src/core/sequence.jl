@@ -99,6 +99,9 @@ function _seqwalk(ex, T, kind, fields, inports, found)
   Expr(ex.head, map(a -> _seqwalk(a, T, kind, fields, inports, found), ex.args)...)
 end
 
+# the width the steps of a sequence need, which is what a Step register is emitted at
+_stepwidth(enc) = max(1, ndigits(length(enc) - 1; base=2))
+
 function _sequence(ex, T, fields, inports)
   args = _macroargs(ex)
   length(args) == 3 && args[1] isa Symbol && args[2] isa Symbol &&
@@ -107,12 +110,15 @@ function _sequence(ex, T, fields, inports)
   name, field, block = args
   field in fields || error("@sequence $name: $field is not a field of $(nameof(T))")
   FT = fieldtype(T, field)
-  FT isa Type && FT <: Bits || error("@sequence $name: $field must be a Bits{N} field, it is $FT")
-  W = bitwidth(FT)
+  FT isa Type && FT <: Bits || error("@sequence $name: $field must be a Step or a Bits{N} field, it is $FT")
+  isstep = get(advancing(T), field, nothing) === :step
   steps = _seqsteps(block.args, false)
   k = length(steps)
-  k <= (Int128(1) << W) ||
-    error("@sequence $name: $k steps need Bits{$(max(1, ndigits(k - 1; base=2)))}, $field is Bits{$W}")
+  needed = max(1, ndigits(k - 1; base=2))
+  k <= (Int128(1) << bitwidth(FT)) ||
+    error(isstep ? "@sequence $name: $k steps is more than a Step counts ($(1 << STEPBITS))" :
+                   "@sequence $name: $k steps need Bits{$needed}, $field is Bits{$(bitwidth(FT))}")
+  W = bitwidth(FT)
   labels = Symbol[]
   for (i, s) in enumerate(steps)
     l = s.label === nothing ? (i == 1 ? :START : Symbol("step_", i - 1)) : s.label

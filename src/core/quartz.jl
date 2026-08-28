@@ -430,8 +430,16 @@ function _selfkind(t, d)
     t isa Expr && t.head == :curly && length(t.args) == 2 || error("@quartz: a Timeout needs a width, `Timeout{N}`")
     return (:($QuartzHDL.Bits{$(t.args[2])}), d, :timeout)
   end
+  if base === :Step
+    d === nothing || error("@quartz: a Step starts at START and takes no default, got `= $d`")
+    return (:($QuartzHDL.Bits{$STEPBITS}), nothing, :step)
+  end
   (t, d, nothing)
 end
+
+# what a Step holds in the Julia model: more steps than this counts is an error a
+# sequence raises, and the emitter narrows the register to what the steps need
+const STEPBITS = 16
 
 function _selffields!(items, kinds)
   for (i, (doc, item)) in enumerate(items)
@@ -543,7 +551,7 @@ function _validate(T::Type)
     f === INPUTS && continue
     _hwfield(FT) ||
       error("field $f::$FT of $(nameof(T)) is not a hardware type; use Bool, Bits{N}, " *
-            "SBits{N}, Pulse, Timeout{N}, Edge, MetaGuard{K}, Pipeline{K,T}, " *
+            "SBits{N}, Pulse, Timeout{N}, Step, Edge, MetaGuard{K}, Pipeline{K,T}, " *
             "Multicycle{K,T}, Pad{N} or a QuartzModule")
     FT <: Multicycle && isport(T, f, :out) &&
       error("$f of $(nameof(T)) is a multicycle wire and cannot be a port; latch it into a register and output that")

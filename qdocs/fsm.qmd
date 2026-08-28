@@ -90,7 +90,7 @@ Logic that does one thing after another over several cycles — a bus transactio
   @in  nack::Bool
   @in  z::Bits{8}
   @out busy::Bool
-  step::Bits{4} = 0
+  step::Step
   x::Bits{8} = 0
   y::Bits{8} = 0
 end
@@ -113,7 +113,7 @@ end
 end
 ```
 
-`step` is a field the struct declares, and the only register the sequence uses; it is an error if it is too narrow for the number of steps. The statements between dividers are one step: one cycle, all writes in parallel, then on to the next.
+`step` is a `Step` register the struct declares, and the only register the sequence uses: it starts at `START`, is sixteen bits in the Julia model, and is emitted as wide as the steps need. A `Bits{N}` field serves as well, when it is wide enough. The statements between dividers are one step: one cycle, all writes in parallel, then on to the next.
 
 - `@then` starts the next step; `@then NAME` names it. The first step is always `START`.
 - `@when cond` at the head of a step holds there until `cond` is true, and runs the step's body on that cycle. `@then NAME @when cond` on one line is the same as on two.
@@ -146,7 +146,7 @@ const BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 
   @out tx::Bool = true
   @out busy::Bool
   send_e::Edge
-  step::Bits{5} = 0
+  step::Step
   shift::Bits{8} = 0
   parity::Bool = false
   baud_timer::Timeout{7}
@@ -178,7 +178,7 @@ end
 end
 ```
 
-The `@repeat 8` unrolls into eight steps, one per data bit, so `step` needs five bits for the twelve of them. Run it at its real rate in a [simulation](simulating.qmd) and the frame is on the pin:
+The `@repeat 8` unrolls into eight steps, one per data bit — twelve in all, so the emitted `step` register is four bits wide. Run it at its real rate in a [simulation](simulating.qmd) and the frame is on the pin:
 
 ```{julia}
 using Plots

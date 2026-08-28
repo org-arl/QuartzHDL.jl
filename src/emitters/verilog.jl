@@ -422,7 +422,7 @@ end
 
 function _emitmodule(io::IO, T::Type{<:QuartzModule}, name::Symbol, emitted::Dict{Type,Symbol})
   (; default, fields, blks, conns) = _traceblocks(T)
-  e = Emitter(allencodings(T))
+  e = Emitter(_emitencodings(T))
   ports = _ports(T, default)
   _preflight(T, fields, blks, ports)
   out = e.io
@@ -479,6 +479,18 @@ _needsbridge(p) = p.activelow || p.vname !== p.name
 _bridge(p, from) = "$(p.activelow ? "~" : "")$from"
 
 # an encoded register's states, as the names its constants are written by
+# the encodings as the Verilog states them: a Step's at the width its steps need,
+# since that is the width its register is emitted at
+function _emitencodings(T::Type)
+  encs = allencodings(T)
+  for (f, enc) in encs
+    get(advancing(T), f, nothing) === :step || continue
+    encs[f] = _mkencoding(encname(enc), :binary, Tuple(keys(enc)), ntuple(_ -> nothing, length(enc)),
+                          _stepwidth(enc), getfield(enc, :docs))
+  end
+  encs
+end
+
 function _emitlocalparams(out, encs)
   for (f, enc) in sort(collect(encs); by=first)
     any(x -> x !== f && encs[x] === enc && x < f, keys(encs)) && continue

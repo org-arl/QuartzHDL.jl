@@ -87,6 +87,11 @@ end
 # a clock as the module's Verilog refers to it: the port's pin name, or the net
 _clockref(T::Type, c::Symbol) = string(_portattrs(T, c)[1])
 
+# a Step is a byte in the model and, once its sequence is known, as wide as the
+# steps need everywhere the emitters look
+_regwidth(T::Type, f::Symbol, FT) =
+  get(advancing(T), f, nothing) === :step && haskey(sequences(T), f) ? _stepwidth(sequences(T)[f]) : bitwidth(FT)
+
 function _fieldinfo(T::Type, default=T())
   info = []
   for (i, f) in enumerate(fieldnames(T))
@@ -109,7 +114,7 @@ function _fieldinfo(T::Type, default=T())
     elseif FT === Edge
       push!(info, (name=f, kind=:edge))
     elseif FT == Bool || FT <: HWInt || FT <: Base.BitInteger
-      push!(info, (name=f, kind=:reg, width=bitwidth(FT), signed=issigned(FT)))
+      push!(info, (name=f, kind=:reg, width=_regwidth(T, f, FT), signed=issigned(FT)))
     else
       error("field $f has type $FT, which is not a hardware type")
     end
