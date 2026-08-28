@@ -247,7 +247,7 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
   body = _logcalls(body, T)
   body, seqs = _sequences!(body, T, kind, fields, inports)
   body = _fsmsubjects(body, T)
-  body = macroexpand(mod, body)
+  body = _thislevel(macroexpand(mod, body))
   bound = Set{Symbol}(params)
   push!(bound, :this)
   _boundnames!(bound, body)
@@ -287,6 +287,9 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
               "defined in $(nameof(mod))")
     end
   end
+  # a block that hands `this` to a function may read any input through it
+  any(_passesthis, exprs) && foreach(s -> s in inputs || push!(inputs, s),
+                                     (p.name for p in interface(T) if p.dir === :in && !(p.name in _clocks(T))))
   required = [n for n in inputs if !_hasdefault(T, n)]
   val(x) = x === nothing ? nothing : _valuereads(x, T; stmt=false)
   body = _valuereads(body, T)
@@ -321,6 +324,7 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
   override(f) = :($QuartzHDL._written(this, Val($(QuoteNode(f))), $(overridden[f])))
   collbody = quote
     $((input(n) for n in inputs)...)
+    this = $QuartzHDL._wirepresent(this, $kw)
     $((:(local $(slots[f]) = $QuartzHDL._slotinit(this, Val($(QuoteNode(f))))) for f in owned)...)
     $(reset === nothing ? nothing :
       :($reset && return $(result(true, f -> haskey(overridden, f) ? override(f) : slots[f],
@@ -839,6 +843,14 @@ _slottype(::Type{FT}) where FT = FT
 _written(this::T, ::Val{f}, v) where {T,f} =
   _resolve(fieldtype(T, f), getfield(this, f), v)::_slottype(fieldtype(T, f))
 
+# inside a block `clocklevel(:net)` reads the block's own module
+function _thislevel(ex)
+  ex isa Expr || return ex
+  ex.head == :call && length(ex.args) == 2 && ex.args[1] === :clocklevel && ex.args[2] isa QuoteNode &&
+    return Expr(:call, :clocklevel, :this, ex.args[2])
+  Expr(ex.head, map(_thislevel, ex.args)...)
+end
+
 # a clock net read as data is named by a literal, so the read dispatches to the
 # method evaluated for that net rather than looking the net up on every pass
 function _levelvals(ex)
@@ -896,6 +908,20 @@ end
 end
 
 _inputsof(x) = getfield(x, INPUTS)
+
+# An input reads as a property of the state, so a helper handed `this` sees the
+# inputs of the step along with the registers. The inputs a step supplies are
+# wired in before the block runs; one it leaves out reads as its default, or as
+# what the last step supplied.
+@generated function _wirepresent(m::T, kw::NamedTuple{K}) where {T,K}
+  names = Tuple(k for k in K if k in fieldnames(fieldtype(T, INPUTS)))
+  isempty(names) && return :m
+  :(_wireinputs(m, NamedTuple{$names}(($((:(getfield(kw, $(QuoteNode(n)))) for n in names)...),))))
+end
+Base.getproperty(m::QuartzModule, f::Symbol) =
+  hasfield(typeof(m), f) ? getfield(m, f) : getfield(getfield(m, INPUTS), f)
+Base.propertynames(m::QuartzModule) =
+  (filter(!=(INPUTS), fieldnames(typeof(m)))..., keys(getfield(m, INPUTS))...)
 
 # a partial write leaves the bits it does not name alone, on top of whatever the
 # block wrote before it, or the current value if it wrote nothing
@@ -1028,7 +1054,7 @@ struct PadContext{D<:NamedTuple,N<:NamedTuple}
 end
 
 function _stepwith(m::T, clk::Val, kw::NamedTuple) where T
-  m = _presettle(m, kw)
+  m = _presettle(_wirepresent(m, kw), kw)
   _stepinner(m, clk, kw, PadContext(kw, _netdrives(m)))
 end
 
@@ -1364,6 +1390,15 @@ end
 
 # the names a body refers to that it does not bind: after the fields have been
 # qualified, what is left is inputs, globals, and mistakes
+# `this` anywhere but as the object of `this.field` or `this[...]`, or as the state
+# handle a package accessor like `clocklevel(this, :net)` takes
+_passesthis(ex) = ex === :this ||
+  (ex isa Expr && !_thisaccess(ex) && any(_passesthis, ex.args))
+_thisaccess(ex) =
+  (ex.head in (:., :ref) && ex.args[1] === :this && !any(_passesthis, ex.args[2:end])) ||
+  (ex.head == :call && _macroname(ex.args[1]) === :clocklevel && ex.args[2] === :this &&
+   !any(_passesthis, ex.args[3:end]))
+
 function _freesyms(ex, bound)
   acc = Symbol[]
   _freesyms!(acc, ex, bound)

@@ -246,7 +246,7 @@ function _combinputdeps(T::Type)
     args = [Wire{W}(:input, Any[]; signed=sg, name=an) for an in def.inputs for (W, sg) in (_inputinfo(T, def, an),)]
     params = _paramvalues(def, T)
     ctx = TraceCtx()
-    Base.invokelatest(tracefunction(def), ctx, _tracestate(fields), params..., args...)
+    Base.invokelatest(tracefunction(def), ctx, _tracestate(fields, T, def, args), params..., args...)
     # a pad read lowers to the same kind of leaf as a port, and is just as current
     live = Set{Symbol}(w.name for w in args)
     union!(live, (f.vname for f in fields if f.kind == :pad))
@@ -295,8 +295,15 @@ end
 
 _paramvalues(def::BlockDef, T::Type) = (wv = tracewheres(def, T); [get(wv, p, nothing) for p in def.params])
 
-function _tracestate(fields)
+# every declared input is reachable through the state, as `this.name`, whether or
+# not the block names it bare
+function _tracestate(fields, T::Type, def::BlockDef, args)
   state = TraceState(Dict{Symbol,Any}())
+  for n in fieldnames(fieldtype(T, INPUTS))
+    i = findfirst(==(n), def.inputs)
+    W, sg = _inputinfo(T, def, n)
+    getfield(state, :fields)[n] = i === nothing ? Wire{W}(:input, Any[]; signed=sg, name=n) : args[i]
+  end
   for f in fields
     if f.kind == :reg
       getfield(state, :fields)[f.name] = Wire{f.width}(:reg, Any[]; signed=f.signed, name=f.name)
@@ -404,7 +411,7 @@ function _traceblocks(T::Type)
       push!(args, Wire{W}(:input, Any[]; signed=sg, name=an))
     end
     params = _paramvalues(def, T)
-    state = _tracestate(fields)
+    state = _tracestate(fields, T, def, args)
     ctx = TraceCtx()
     tf = tracefunction(def)
     Base.invokelatest(tf, ctx, state, params..., args...)

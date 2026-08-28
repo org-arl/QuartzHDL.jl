@@ -71,10 +71,12 @@ end
 
 """
     clocklevel(m, net)
+    clocklevel(net)
 
 The level a clock net is resting at, for a design that samples a slow clock as
 data -- a microsecond tick, say. In Verilog this is the net name in an expression;
-here it is the square wave the tree produces.
+here it is the square wave the tree produces. Inside a block the one-argument
+form reads the block's own module.
 """
 clocklevel(m::QuartzModule, net::Symbol) = clocklevel(m, Val(net))
 

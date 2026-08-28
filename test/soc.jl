@@ -114,7 +114,7 @@ end
 end
 
 @on Soc posedge(fast) begin
-  tick ← clocklevel(this, :slow)               # a derived clock, read as data, handed down
+  tick ← clocklevel(:slow)                     # a derived clock, read as data, handed down
   lsb ← gp[0]                                  # the grandchild's pad, read at the top
   q ← sub.q
 end

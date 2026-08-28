@@ -1899,11 +1899,30 @@ end
   this.y ← n                          # both spellings mean the same field
 end
 
+@quartz struct ThisIn
+  @in d::Bits{8}
+  @in en::Bool
+  n::Bits{8}
+end
+
+addend(m) = ifelse(m.en, m.d, Bits{8}(0))   # a helper reads an input through the state
+
+@on ThisIn posedge(clk) begin
+  n ← n + addend(this)
+end
+
 @testset "this and bare field names" begin
   m = step(step(Bare(); d = Bits{8}(3)); d = Bits{8}(4))
   @test m.n == 7 && m.y == 3
   Random.seed!(41)
   @test cosim(Bare, [(d = Bits{8}(rand(0:255)),) for i in 1:200]).ok skip=!HAVE_IVERILOG
+
+  # an input read only through `this` is still a port, and still required
+  m = step(step(ThisIn(); d = Bits{8}(3), en = true); d = Bits{8}(4), en = false)
+  @test m.n == 3 && m.d == 4 && m.en == false
+  @test_throws Exception step(ThisIn(); d = Bits{8}(1))
+  @test occursin("input wire en_i", sprint(write, ThisIn, Verilog()))
+  @test cosim(ThisIn, [(d = Bits{8}(i), en = isodd(i ÷ 3)) for i in 1:100]).ok skip=!HAVE_IVERILOG
 
   # a name that is both a field and a local would otherwise silently shadow, and
   # so would one that is both an input and a local
@@ -2199,7 +2218,7 @@ end
   pll.stdby ← false
 end
 @on Sampler posedge(fast) begin
-  if clocklevel(this, :slow)                   # a clock net read as data
+  if clocklevel(:slow)                         # a clock net read as data
     seen ← seen + 1
   end
   y ← seen
