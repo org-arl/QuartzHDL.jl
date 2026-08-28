@@ -339,7 +339,8 @@ function _quartz(structdef, mod)
   statics = _staticdefaults!(items)
   _selffields!(items, kinds)
   _encodedfields!(items, mod, encs)
-  resets = setdiff(_resetfields(items), statics)
+  # a Step needs no declared default to be reset: it goes back to START
+  resets = setdiff(union(_resetfields(items), [f for (f, k) in kinds if k === :step]), statics)
   _zerodefaults!(items)
   structdef.args[3] = Expr(:block, (y for (d, x) in items for y in (d === nothing ? (x,) : (d, x)))...,
                            _inputsfield(ins))

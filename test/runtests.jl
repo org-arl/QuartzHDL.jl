@@ -3390,11 +3390,13 @@ end
 
 @quartz struct Stepped
   @in go::Bool = false
+  @in rst::Bool = false
   @out y::Bits{8}
   step::Step
 end
 
 @on Stepped posedge(clk) begin
+  @reset(rst)
   @sequence Walk step begin
     @when go
     y ← 1
@@ -3416,11 +3418,16 @@ end
   v = sprint(io -> write(io, Stepped, Verilog()))
   @test occursin("reg [1:0] step", v) && occursin("localparam [1:0] Walk_START = 2'h0;", v)
   @test !occursin("[15:0] step", v)
+  # a Step is reset without a declared default: back to START, by name in the Verilog
+  @test :step in QuartzHDL.resets(Stepped)
+  r = step(m; rst = true)
+  @test encname(Walk, r.step) === :START && r.y == m.y      # y has no default, so it keeps its value
+  @test occursin("step <= Walk_START;", v)
   @test_throws Exception @eval @quartz struct BadStep
     step::Step = 3
   end
   Random.seed!(11)
-  @test cosim(Stepped, [(go = rand(Bool),) for i in 1:100]).ok skip=!HAVE_IVERILOG
+  @test cosim(Stepped, [(go = rand(Bool), rst = rand() < 0.1) for i in 1:200]).ok skip=!HAVE_IVERILOG
 end
 
 include("aqua.jl")
