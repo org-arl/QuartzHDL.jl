@@ -28,8 +28,7 @@ const PORTMACROS = Dict(Symbol("@in") => :in, Symbol("@out") => :out, Symbol("@i
 # there are. A name outside this set is a typo, and a typo that was quietly
 # accepted would leave the port active-high with nothing said.
 const PORTATTRS = Dict(:verilog => "a name for the emitted Verilog port",
-                       :active => ":low or :high",
-                       :ext_pull => ":up or :down, a pull the board provides")
+                       :active => ":low or :high")
 
 # A multicycle path is a fact about how the logic works -- this register only
 # changes every so often, so the tool may take longer routing to it -- so it belongs

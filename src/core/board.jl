@@ -212,23 +212,33 @@ function problems(b::Board, T::Type)
   out
 end
 
-# a design that needs an external pull -- an open-drain bus, say -- must say so, and
-# a board that does not provide it is the wrong board for this design
+# A pad that relies on a pull -- an open-drain bus, say -- needs the board to provide
+# one the same way, whether the FPGA's own (`pull`) or a resistor on the board
+# (`ext_pull`); a board that provides neither, or pulls the other way, is the wrong
+# board for this design
 function _pullproblems(b::Board, T::Type)
   out = String[]
+  pads = Dict(pad.name => pad for pad in _allpads(T))
   for p in b.pins
-    want = _requiredpull(T, portof(p))
+    pad = get(pads, portof(p), nothing)
+    pad === nothing && continue
+    want = pad.pull == :pullup ? :up : pad.pull == :pulldown ? :down : nothing
     want === nothing && continue
-    got = something(_bitattr(b, p, :ext_pull, 0, :none), :none)
-    got === want ||
-      push!(out, "$(portof(p)) needs an external pull-$(want) and $(b.name) gives $(got)")
+    against = want === :up ? :down : :up
+    missing = Int[]
+    flipped = Int[]
+    for bit in 0:pad.width-1
+      given = [something(_bitattr(b, p, k, bit, :none), :none) for k in (:pull, :ext_pull)]
+      against in given ? push!(flipped, bit) : want in given || push!(missing, bit)
+    end
+    bits(v) = pad.width == 1 ? "" : " (bit" * (length(v) == 1 ? " " : "s ") * join(v, ", ") * ")"
+    isempty(flipped) ||
+      push!(out, "$(portof(p)) is pulled $want in the design and $(b.name) pulls it $against$(bits(flipped))")
+    isempty(missing) ||
+      push!(out, "$(portof(p)) relies on a pull-$want and $(b.name) provides none$(bits(missing)), " *
+                 "neither its own (pull) nor one on the board (ext_pull)")
   end
   out
-end
-
-function _requiredpull(T::Type, name::Symbol)
-  d = port(T, name)
-  d === nothing ? nothing : get(d.attrs, :ext_pull, nothing)
 end
 
 # a forwarded clock reaches a pin like any other output, so it needs a site too

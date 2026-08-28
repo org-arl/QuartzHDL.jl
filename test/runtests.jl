@@ -2152,7 +2152,7 @@ end
 @quartz struct Chip
   @in clk_ref::Bool
   @in d::Bits{4}
-  @io  io::Pad{3} = Pad{3}()  ext_pull=:up
+  @io  io::Pad{3} = Pad{3}(:pullup)
   @out q::Bits{2}
 end
 
@@ -2183,6 +2183,14 @@ end
   ghost   => (pin = 5,)
 end
 
+@board Flipped begin
+  device = "X"
+  clk_ref => (pin = 1,)
+  d       => (pins = 10:13,)
+  io      => (pins = [20, 21, 22], pull = (0:1 => :up,), ext_pull = (2:2 => :down,))
+  q       => (pins = 30:31,)
+end
+
 @testset "a board binds a design to pins" begin
   @test Rev2.device == "LFE5U-45F"
   @test QuartzHDL.oscillators(Rev2) == [:clk_ref => 48000000]
@@ -2197,7 +2205,11 @@ end
   @test any(p -> occursin("ghost", p), ps)
   @test any(p -> occursin("site 92", p), ps)
   @test any(p -> occursin("q has no pin", p), ps)
-  @test any(p -> occursin("external pull-up", p), ps)
+  @test any(p -> occursin("relies on a pull-up", p), ps)
+
+  # a pull the board provides the other way round, on one bit
+  ps = QuartzHDL.problems(Flipped, Chip)
+  @test ps == ["io is pulled up in the design and Flipped pulls it down (bit 2)"]
 
   # rates are exact, and the units mean nothing outside the block
   @test_throws Exception @eval MHz
