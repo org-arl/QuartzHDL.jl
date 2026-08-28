@@ -69,7 +69,7 @@ end
 
 const SEQMARKERS = (Symbol("@then"), Symbol("@when"), Symbol("@delay"), Symbol("@repeat"), Symbol("@sequence"))
 
-mutable struct Step
+mutable struct SeqStep
   label::Union{Nothing,Symbol}
   guard::Any
   body::Vector{Any}
@@ -170,11 +170,11 @@ _hasmarker(ex) = ex isa Expr && (ex.head == :macrocall && _macroname(ex.args[1])
 # and closes at the next divider. `@delay` and `@repeat` close the step before them
 # and leave none open, so what follows opens a fresh one, named by `@then` or not.
 function _seqsteps(items, inrepeat)
-  steps = Step[]
-  cur = Step(nothing, nothing, Any[])
+  steps = SeqStep[]
+  cur = SeqStep(nothing, nothing, Any[])
   athead() = cur !== nothing && all(x -> x isa LineNumberNode, cur.body)
   close!() = (cur === nothing || push!(steps, cur); cur = nothing)
-  open!(label) = (close!(); cur = Step(label, nothing, Any[]))
+  open!(label) = (close!(); cur = SeqStep(label, nothing, Any[]))
   for item in items
     if item isa LineNumberNode
       cur === nothing || push!(cur.body, item)
@@ -196,7 +196,7 @@ function _seqsteps(items, inrepeat)
         error("@sequence: expected `@delay n` with n a literal count, got $item")
       close!()
       for _ in 1:a[1]
-        push!(steps, Step(nothing, nothing, Any[]))
+        push!(steps, SeqStep(nothing, nothing, Any[]))
       end
     elseif _ismacro(item, "@repeat")
       a = _macroargs(item)
@@ -205,7 +205,7 @@ function _seqsteps(items, inrepeat)
       close!()
       inner = _seqsteps(a[2].args, true)
       for _ in 1:a[1], s in inner
-        push!(steps, Step(nothing, s.guard, copy(s.body)))
+        push!(steps, SeqStep(nothing, s.guard, copy(s.body)))
       end
     elseif _ismacro(item, "@sequence")
       error("@sequence: a sequence cannot hold another")
