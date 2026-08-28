@@ -23,7 +23,7 @@ struct BlockDef
   inputs::Vector{Symbol}        # the @in ports the block reads, in order of first use
   required::Vector{Symbol}      # those of them with no declared default
   owned::Vector{Symbol}
-  simfn::Function              # spliced into the step as a constant, so the call is still static
+  simfn::Function              # the block's function, named in the module's own namespace
 end
 
 """
@@ -206,10 +206,12 @@ end
 
 Base.step(m::QuartzModule, clock::Symbol; kwargs...) = _stepnet(m, clock, values(kwargs))
 
-# a clock named at run time picks its edge through a method evaluated per type, so
-# the module is not boxed to dispatch on the name
-_stepnet(m::QuartzModule, clock::Symbol, kw::NamedTuple) =
-  (clock in _clocks(typeof(m)) || error("no @on block on clock $clock"); _stepwith(m, Val(clock), kw))
+# a clock named at run time picks its edge through a chain of comparisons over the
+# module's clocks, so the module is not boxed to dispatch on the name
+_stepnet(m::QuartzModule, clock::Symbol, kw::NamedTuple) = _stepnet(m, clock, kw, Val(_clocks(typeof(m))))
+@generated _stepnet(m, clock::Symbol, kw, ::Val{clocks}) where clocks =
+  foldr((c, rest) -> :(clock === $(QuoteNode(c)) ? _stepwith(m, Val($(QuoteNode(c))), kw) : $rest), clocks;
+        init = :(error("no @on block on clock $clock")))
 
 ### helpers
 
@@ -328,24 +330,93 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
     $(_rewrite_sim(_gatherports(_levelvals(body)), :this, (slots, flags)))
     return $(result(false, f -> slots[f], f -> flags[f]))
   end
-  collsig = Expr(:tuple, Expr(:(::), :this, typeexpr), :($kw::NamedTuple))
-  for p in params
-    collsig = Expr(:where, collsig, p)
-  end
-  collfn = Expr(:function, collsig, collbody)
+  # The block is a named function of the module's own namespace, so a reload
+  # redefines it in place and the compiled step follows; the slot it fills, and what
+  # it is, are methods on the slot number that the generic step folds over.
+  slot = _slotfor(T, kind, clk, edge, owned, body, mod)
+  fname = Symbol("#", kind, "#", structname, "#", slot)
+  withparams(sig) = foldl((s, p) -> Expr(:where, s, p), params; init=sig)
+  collfn = Expr(:function, withparams(:($fname(this::$typeexpr, $kw::NamedTuple))), collbody)
+  binds = [(f, p, net, _isclockinput(T, f, p) ? :in : :out) for (f, p, net) in clockbinds]
+  meta = (kind, clk, edge, Tuple(owned), Tuple(required), Tuple(binds))
+  # a block reloaded with only its body changed redefines its function and nothing
+  # else, so the slot's methods are written once
+  sameslot = slot ≤ length(blocks(T)) && _metaof(T, blocks(T)[slot]) == meta
+  slotdefs = sameslot ? Any[] : Any[
+    :($QuartzHDL._blockfn(::Type{<:$structname}, ::Val{$slot}) = $fname),
+    :($QuartzHDL._blockmeta(::Type{<:$structname}, ::Val{$slot}) = Val{$(QuoteNode(meta))}()),
+    _slotstepdefs(T, structname, typeexpr, withparams, slot, binds)...,
+    _slotedgedef(T, typeexpr, withparams, slot, binds),
+    (:($QuartzHDL._clockoutnet(::Type{<:$structname}, ::Val{$(QuoteNode(f))}, ::Val{$(QuoteNode(p))}) =
+         Val($(QuoteNode(net)))) for (f, p, net, _) in binds)...]
   def = gensym(:def)
   quote
     $((:(const $n = $enc) for (n, f, enc) in seqs)...)
     $((:($QuartzHDL.sequences($structname)[$(QuoteNode(f))] = $n) for (n, f, enc) in seqs)...)
+    $collfn
+    $(slotdefs...)
     local $def = $QuartzHDL.BlockDef($(QuoteNode(kind)), $(QuoteNode(clk)), $(QuoteNode(edge)),
       $(QuoteNode(typeexpr)), $params, $(QuoteNode(reset)),
       $(Expr(:vect, (QuoteNode(o) for o in overrides)...)), $(QuoteNode(only_when)),
       $(Expr(:vect, (:((name = $(QuoteNode(x.name)), invert = $(x.invert),
                         gate = $(QuoteNode(x.gate)))) for x in clockouts)...)),
-      $clockbinds, $(QuoteNode(body)), $doc, $mod, $inputs, $required, $owned, $collfn)
-    $QuartzHDL._register!($structname, $def)
+      $clockbinds, $(QuoteNode(body)), $doc, $mod, $inputs, $required, $owned, $fname)
+    $QuartzHDL._register!($structname, $def, $slot)
     nothing
   end
+end
+
+_metaof(T::Type, d::BlockDef) =
+  (d.kind, d.clock, d.edge, Tuple(d.owned), Tuple(d.required),
+   Tuple((f, p, net, _isclockinput(T, f, p) ? :in : :out) for (f, p, net) in d.clockbinds))
+
+# the slot a block fills: the one it filled before, when it is the same block
+# reloaded -- same kind and clock, and the same fields, body or place -- else a new one
+function _slotfor(T::Type, kind, clk, edge, owned, body, mod)
+  ln = _firstline(body)
+  here = ln === nothing ? (mod, :unknown, 0) : (mod, ln.file, ln.line)
+  for (i, d) in enumerate(blocks(T))
+    d.kind == kind && d.clock == clk || continue
+    (Set(d.owned) == Set(owned) || d.body == body || _blockline(d) == here) && return i
+  end
+  length(blocks(T)) < MAXSLOTS || error("$(nameof(T)) has $MAXSLOTS blocks already, which is the most a module can have")
+  length(blocks(T)) + 1
+end
+
+# The instances this block wires a clock to, stepped on that clock's net: one method
+# per net, and a black box takes its edge where a module takes a step.
+function _slotstepdefs(T::Type, structname, typeexpr, withparams, slot, binds)
+  bynet = Dict{Symbol,Vector{Expr}}()
+  for (f, p, net, dir) in binds
+    dir === :in || continue
+    x = isblackbox(fieldtype(T, f)) ? :($QuartzHDL._stepbb(x, $(QuoteNode(p)))) :
+        :($QuartzHDL._stepinner(x, Val($(QuoteNode(p))), $QuartzHDL._inputsof(x), ctx))
+    push!(get!(bynet, net, Expr[]),
+          :(x = getfield(m, $(QuoteNode(f))); x = $x;
+            m = $QuartzHDL._merge(m, $(Expr(:tuple, Expr(:parameters, Expr(:kw, f, :x)))))))
+  end
+  [Expr(:function, withparams(:($QuartzHDL._blocksteps(m::$typeexpr, ::Val{$(QuoteNode(net))}, ::Val{$slot}, ctx))),
+        Expr(:block, stmts..., :m)) for (net, stmts) in bynet]
+end
+
+# the clock outputs this block wires, as (net, divide, ticked this slot), in the
+# order the black box declares them
+function _slotedgedef(T::Type, typeexpr, withparams, slot, binds)
+  parts = Any[]
+  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+    isblackbox(FT) || continue
+    bb = blackbox(FT)
+    for (i, c) in enumerate(bb.outs)
+      k = findfirst(b -> b[1] === f && b[2] === c, binds)
+      k === nothing && continue
+      recipes = [t for t in bb.tree if t.name === c]
+      div = foldl((a, t) -> :($QuartzHDL._divide($FT, $t)), recipes; init=1)
+      push!(parts, :(($(QuoteNode(binds[k][3])), $div,
+                      $QuartzHDL._hasbit(getfield(getfield(m, $(QuoteNode(f))), :ticked), $(i - 1)))))
+    end
+  end
+  isempty(parts) && return nothing
+  Expr(:function, withparams(:($QuartzHDL._blockedges(m::$typeexpr, ::Val{$slot}))), Expr(:tuple, parts...))
 end
 
 _hasdefault(T::Type, name::Symbol) = (p = port(T, name); p !== nothing && p.default !== NOPORTDEFAULT)
@@ -423,13 +494,15 @@ function _isclockoutput(T, f, p)
   q !== nothing && q.dir === :clockout
 end
 
-# the nets an instance's clocks are on, per parent type: kept in wiring order, since
-# two clock inputs on one net take their edges in that order
-const CLOCKBIND = IdDict{Type,Dict{Symbol,Vector{Pair{Symbol,Symbol}}}}()
-const NOBINDS = Pair{Symbol,Symbol}[]
+# the nets an instance's clocks are on, in wiring order, since two clock inputs on
+# one net take their edges in that order
 function _clockbind(T::Type, f::Symbol)
-  d = get(CLOCKBIND, T, nothing)
-  d === nothing ? NOBINDS : get(d, f, NOBINDS)
+  binds = Pair{Symbol,Symbol}[]
+  T <: QuartzModule && !isblackbox(T) || return binds
+  for def in blocks(T), (g, p, net) in def.clockbinds
+    g === f && push!(binds, p => net)
+  end
+  binds
 end
 function _boundnet(binds::Vector, p::Symbol)
   i = findfirst(b -> b.first === p, binds)
@@ -437,18 +510,11 @@ function _boundnet(binds::Vector, p::Symbol)
 end
 _boundnet(T::Type, f::Symbol, p::Symbol) = _boundnet(_clockbind(T, f), p)
 
-# The same binding, as a `Val` a settle pass can read: one method per type and
-# port, evaluated when the bindings are registered, so the level read that
-# follows dispatches on a constant instead of looking the net up every pass.
+# the same binding as a `Val` a settle pass can read; the block that wires a clock
+# output defines the method for it
 _clockoutnet(::Type, ::Val, ::Val) = nothing
 
-function _defineclockouts(T::Type, d)
-  exprs = [:(_clockoutnet(::Type{$T}, ::Val{$(QuoteNode(f))}, ::Val{$(QuoteNode(p))}) = Val($(QuoteNode(net))))
-           for (f, binds) in d for (p, net) in binds]
-  Core.eval(QuartzHDL, Expr(:block, exprs...))
-end
-
-function _bindclocks!(T::Type, v::Vector{BlockDef})
+function _checkbinds(T::Type, v::Vector{BlockDef})
   d = Dict{Symbol,Vector{Pair{Symbol,Symbol}}}()
   driven = Dict{Symbol,String}()
   for def in v, (f, p, net) in def.clockbinds
@@ -460,23 +526,14 @@ function _bindclocks!(T::Type, v::Vector{BlockDef})
       driven[net] = "$f.$p"
     end
   end
-  CLOCKBIND[T] = d
-  _defineclockouts(T, d)
-  _definesteps(T, d)
-  _definelevels(T)
 end
 
-function _register!(T::Type, def::BlockDef)
+function _register!(T::Type, def::BlockDef, slot::Int)
   v = blocks(T)
-  # re-including a file replaces the block it defines rather than adding a second
-  # one; two blocks written in two places stay two blocks, whatever they write
-  filter!(d -> !(d.kind == def.kind && d.clock == def.clock &&
-                 (d.body == def.body || _blockline(d) == _blockline(def))), v)
-  push!(v, def)
+  slot ≤ length(v) ? (v[slot] = def) : push!(v, def)
   empty!(MCINFO)      # the emitters cache multicycle facts read off this block list
-  _bindclocks!(T, v)
+  _checkbinds(T, v)
   _checkblocks(T, v)
-  _definestep(T, v)
   def
 end
 
@@ -874,58 +931,78 @@ end
 
 _fieldwidth(m::QuartzModule, ::Val{f}) where f = bitwidth(fieldtype(typeof(m), f))
 
-_blockclocks(::Type) = ()
 _runclock(m, ::Val, ::Val, kw) = m
 _settle(m, kw; strict=true) = m
 
-# the clocks of a module: the ones its blocks run on, and the ones its black boxes
-# take an edge from. A method evaluated per type when a block is registered gives
-# them as a constant; a type with instances but no block of its own is looked up.
-const CLOCKS = IdDict{Type,Tuple}()
-_clocks(T::Type) = _clocktuple(T)
-_clocktuple(T::Type) = get!(CLOCKS, T) do
-  out = collect(_blockclocks(T))
-  for c in _instclocks(T)
-    c in out || push!(out, c)
-  end
-  Tuple(out)
-end
+# The blocks of a module are its slots. Each `@on` or `@wire` defines, in the
+# module's own namespace, the block's function and what the block is -- kind, clock,
+# edge, the fields it owns, the inputs it needs, the clocks it wires -- as methods on
+# its slot number. What follows is generic code folded over the slots, which the
+# compiler unrolls into the same straight-line step a hand-written method would be:
+# nothing is ever evaluated into QuartzHDL, so a design precompiles in the package
+# that holds it, and a block reloaded in place is followed by the step.
+_blockfn(::Type, ::Val) = nothing
+_blockmeta(::Type, ::Val) = nothing
+_blocksteps(m, ::Val, ::Val, ctx) = m
+_blockedges(m, ::Val) = ()
 
-# the nets the instances of a module take a clock from
-function _instclocks(T::Type)
+# how many slots a module has, as a constant: a recursion over the slot number is
+# widened by the compiler, so the count is a straight line of tests it folds instead
+const MAXSLOTS = 64
+@generated _slotcount(::Type{T}) where T =
+  foldr((i, rest) -> :(_blockmeta(T, Val($i)) === nothing ? $(Val(i - 1)) : $rest), 1:MAXSLOTS;
+        init = Val(MAXSLOTS))
+
+_kind(::Val{meta}) where meta = meta[1]
+_onedge(::Val{meta}, ::Val{clk}, ::Val{edge}) where {meta,clk,edge} =
+  meta[1] === :on && meta[2] === clk && meta[3] === edge
+_ownedval(::Val{meta}) where meta = Val{meta[4]}()
+_requiredval(::Val{meta}) where meta = Val{meta[5]}()
+_combcount(::Val{meta}) where meta = meta[1] === :comb ? length(meta[4]) : 0
+_combcount(::Nothing) = 0
+
+# the clocks of a module: the ones its blocks run on, then the nets its instances
+# take a clock from
+_clocks(::Type{T}) where T = _clocksval(T, _slotcount(T))
+@generated _clocksval(::Type{T}, ::Val{n}) where {T,n} =
+  :(_metaclocks($((:(_blockmeta(T, Val($i))) for i in 1:n)...)))
+# the metas arrive as types, so the tuple is computed here, not at run time
+@generated function _metaclocks(metas::Vararg{Val})
   out = Symbol[]
-  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
-    FT <: QuartzModule || continue
-    for (p, net) in _clockbind(T, f)
-      _isclockinput(T, f, p) && !(net in out) && push!(out, net)
-    end
+  for M in metas
+    meta = M.parameters[1]
+    meta[1] === :on && !(meta[2] in out) && push!(out, meta[2])
   end
-  out
+  for M in metas, (f, p, net, dir) in M.parameters[1][6]
+    dir === :in && !(net in out) && push!(out, net)
+  end
+  QuoteNode(Tuple(out))
 end
 
 # The simulator steps every instance of a module on an edge of a net one of its
 # clocks is wired to, after the module's own blocks: the inputs an instance sees are
-# the ones the wires held before the edge, as in hardware.
-_stepinstances(m, ::Val, ctx) = m
+# the ones the wires held before the edge, as in hardware. Each block steps the
+# instances it wired, in slot order.
+_stepinstances(m::T, net::Val, ctx) where T<:QuartzModule = _stepinstances(m, net, ctx, _slotcount(T))
+@generated function _stepinstances(m::T, net::Val, ctx, ::Val{n}) where {T,n}
+  steps = [:(m = _blocksteps(m, net, Val($i), ctx)) for i in 1:n]
+  Expr(:block, steps..., :m)
+end
 
-# one method per type and net, evaluated when the bindings are registered, so the
-# walk over the instances is plain code rather than a lookup per edge
-function _definesteps(T::Type, d)
-  bynet = Dict{Symbol,Vector{Expr}}()
+# Every clock output in the module tree that is wired to a net, as (net, divide,
+# ticked this slot): the ones this module's blocks wired, in slot order, then the
+# ones below. A clock that divides is settled before the faster clock beside it, so
+# a design sampling a slow clock as data reads the new level. The emitted Verilog
+# orders its delays the same way; the two have to agree or a crossing lands a cycle
+# apart.
+_treeedges(m::T) where T<:QuartzModule = _treeedges(m, _slotcount(T))
+@generated function _treeedges(m::T, ::Val{n}) where {T,n}
+  isblackbox(T) && return :(())
+  parts = Any[:(_blockedges(m, Val($i))...) for i in 1:n]
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))
-    FT <: QuartzModule || continue
-    for (p, net) in get(d, f, Pair{Symbol,Symbol}[])
-      _isclockinput(T, f, p) || continue
-      edge = isblackbox(FT) ? :(_stepbb(x, $(QuoteNode(p)))) :
-                              :(_stepinner(x, Val($(QuoteNode(p))), _inputsof(x), ctx))
-      push!(get!(bynet, net, Expr[]), :(x = getfield(m, $(QuoteNode(f))); x = $edge;
-                                         m = _merge(m, $(Expr(:tuple, Expr(:parameters, Expr(:kw, f, :x)))))))
-    end
+    FT <: QuartzModule && !isblackbox(FT) && push!(parts, :(_treeedges(getfield(m, $(QuoteNode(f))))...))
   end
-  exprs = Any[:(function _stepinstances(m::$T, ::Val{$(QuoteNode(net))}, ctx); $(stmts...); m; end)
-              for (net, stmts) in bynet]
-  push!(exprs, :(_treeedges(m::$T) = $(_treeedgesexpr(T, d))))
-  Core.eval(QuartzHDL, Expr(:block, exprs...))
+  Expr(:tuple, parts...)
 end
 
 # A submodule's pads are the enclosing module's pads too, so what the outside
@@ -942,12 +1019,7 @@ function _stepwith(m::T, clk::Val, kw::NamedTuple) where T
   _stepinner(m, clk, kw, PadContext(kw, _netdrives(m)))
 end
 
-# One clock edge of a module and of every instance on the net. `_definestep`
-# emits a copy of this body for each module type, because one method re-entered
-# for a child and again for a grandchild trips the compiler's guard against
-# recursion. The two must stay identical: a module with no block of its own has
-# only this one, so a change made in either place alone makes the tree behave two
-# different ways depending on where a module sits in it.
+# one clock edge of a module and of every instance on the net
 function _stepinner(m::T, clk::Val, kw, ctx) where T
   m = _driveexternal(m, kw, ctx)
   m = _presettle(m, kw)
@@ -957,8 +1029,6 @@ end
 
 # an edge that moved nothing left the wires as they were
 _settled(new, old, kw) = new === old ? new : _settle(new, kw)
-
-_val(v::Vector{Symbol}) = Val(ntuple(i -> v[i], length(v)))
 
 # the new state is the old one with some fields replaced; building it positionally
 # keeps every field typed, where a keyword splat would box them all
@@ -1006,96 +1076,70 @@ _default(::Type{T}, ::Val{f}) where {T,f} = getfield(_defaults(T)::T, f)::fieldt
 # first step, when the fields still hold the struct defaults.
 _presettle(m::T, kw) where T = _settle(m, kw; strict=false)
 
-# a block may read what another block drives, so the pass repeats until nothing
-# moves; more passes than there are blocks means they depend on each other. The
-# methods are evaluated when a block is registered rather than generated on first
-# use, so a block re-registered from the REPL replaces the old one in the step.
-function _definestep(T::Type, v::Vector{BlockDef})
-  q = QuoteNode
-  clocks = unique(d.clock for d in v if d.kind == :on)
-  delete!(CLOCKS, T)
-  exprs = Any[:(_blockclocks(::Type{<:$T}) = $(Tuple(clocks)))]
-  hasmc = any(_ismulticycle(FT) for FT in fieldtypes(T))
-  for clk in clocks, edge in (:posedge, :negedge)
-    body = Any[:(acc = m)]
-    hasmc && push!(body, :(written = Symbol[]))
-    for d in v
-      d.kind == :on && d.clock == clk && d.edge == edge || continue
-      push!(body, quote
-        r = $(d.simfn)(m, kw)
-        r === nothing || (acc = _applyblock(acc, m, $(_val(d.owned)), r))
-        $(hasmc ? :(r === nothing || _writtennames!(written, $(_val(d.owned)), r)) : nothing)
-      end)
-    end
-    hasmc && push!(body, :(acc = _advancemulticycles(acc, Val($(q(clk))), Val($(q(edge))), written)))
-    push!(exprs, :(function _runclock(m::$T, ::Val{$(q(clk))}, ::Val{$(q(edge))}, kw); $(body...); acc; end))
-  end
-  combs = [d for d in v if d.kind == :comb]
-  if isempty(combs)
-    push!(exprs, :(_settle(m::$T, kw; strict=true) = m))
-  else
-    # each pass resolves at least one more field of a chain, whether the chain runs
-    # between blocks or between fields of one block
-    passes = sum(length(d.owned) for d in combs)
-    body = Any[:(acc = m), :(changed = false)]
-    for d in combs
-      present = foldl((a, p) -> :($a && haskey(kw, $(q(p)))), d.required; init=true)
-      push!(body, quote
-        if strict || $present
-          r = $(d.simfn)(m, kw)
-          if r !== nothing
-            acc, moved = _applycomb(acc, m, $(_val(d.owned)), r)
-            changed |= moved
-          end
+# One edge: every @on block on this clock and edge runs against the old state, and
+# the writes merge in slot order. A multicycle wire's settle count moves with the
+# names the edge wrote.
+function _runclock(m::T, clk::Val, edge::Val, kw) where T<:QuartzModule
+  _runclock(m, clk, edge, kw, _slotcount(T), _hasmulticycle(T) ? Symbol[] : nothing)
+end
+@generated _hasmulticycle(::Type{T}) where T = any(_ismulticycle(FT) for FT in fieldtypes(T))
+@generated function _runclock(m::T, clk::Val, edge::Val, kw, ::Val{n}, written) where {T,n}
+  body = Any[:(acc = m)]
+  for i in 1:n
+    push!(body, quote
+      meta = _blockmeta(T, Val($i))
+      if _onedge(meta, clk, edge)
+        r = _blockfn(T, Val($i))(m, kw)
+        if r !== nothing
+          acc = _applyblock(acc, m, _ownedval(meta), r)
+          written === nothing || _writtennames!(written, _ownedval(meta), r)
         end
-      end)
-    end
-    push!(exprs, quote
-      function _settleonce(m::M, kw, strict) where M<:$T
-        $(body...)
-        (acc, changed)
-      end
-      function _settle(m::M, kw; strict=true) where M<:$T
-        for _ in 1:$passes
-          m, changed = _settleonce(m, kw, strict)
-          changed || return m
-        end
-        _settleonce(m, kw, strict)[2] &&
-          error("@wire blocks of $(nameof(M)) depend on each other in a loop")
-        m
       end
     end)
   end
-  allclocks = copy(clocks)
-  for c in _instclocks(T)
-    c in allclocks || push!(allclocks, c)
+  push!(body, :(written === nothing ? acc : _advancemulticycles(acc, clk, edge, written)))
+  Expr(:block, body...)
+end
+
+# A block may read what another block drives, so the pass repeats until nothing
+# moves: each pass resolves at least one more field of a chain, whether the chain
+# runs between blocks or between fields of one block, so more passes than there are
+# fields means the blocks depend on each other.
+function _settle(m::T, kw; strict=true) where T<:QuartzModule
+  passes = _combpasses(T, _slotcount(T))
+  passes == 0 && return m
+  for _ in 1:passes
+    m, changed = _settleonce(m, kw, strict, _slotcount(T))
+    changed || return m
   end
-  dispatch = foldr((c, rest) -> :(clock === $(q(c)) ? _stepwith(m, Val($(q(c))), kw) : $rest), allclocks;
-                   init = :(error("no @on block on clock $clock")))
-  push!(exprs, quote
-    _clocktuple(::Type{<:$T}) = $(Tuple(allclocks))
-    _stepnet(m::M, clock::Symbol, kw::NamedTuple) where M<:$T = $dispatch
-    # the per-type copy of the generic _stepinner above; keep the two identical
-    function _stepinner(m::M, clk::Val, kw, ctx) where M<:$T
-      m = _driveexternal(m, kw, ctx)
-      m = _presettle(m, kw)
-      m = _settled(_stepinstances(_runclock(m, clk, Val(:posedge), kw), clk, ctx), m, kw)
-      _settled(_runclock(m, clk, Val(:negedge), kw), m, kw)
-    end
-  end)
-  for d in combs
-    push!(exprs, :(function _applycomb(new::M, old::M, ::Val{$(Tuple(d.owned))}, r) where M<:$T
-                     $(_applycombbody(T, d.owned))
-                   end))
+  _settleonce(m, kw, strict, _slotcount(T))[2] &&
+    error("@wire blocks of $(nameof(T)) depend on each other in a loop")
+  m
+end
+@generated _combpasses(::Type{T}, ::Val{n}) where {T,n} =
+  Expr(:call, :+, 0, (:(_combcount(_blockmeta(T, Val($i)))) for i in 1:n)...)
+@generated function _settleonce(m::T, kw, strict, ::Val{n}) where {T,n}
+  body = Any[:(acc = m), :(changed = false)]
+  for i in 1:n
+    push!(body, quote
+      meta = _blockmeta(T, Val($i))
+      if _kind(meta) === :comb && (strict || _haskeys(kw, _requiredval(meta)))
+        r = _blockfn(T, Val($i))(m, kw)
+        if r !== nothing
+          acc, moved = _applycomb(acc, m, _ownedval(meta), r)
+          changed |= moved
+        end
+      end
+    end)
   end
-  push!(exprs, quote
-    function _combinst(cur::M, w::NamedTuple) where M<:$T
-      w === _inputsof(cur) && return cur
-      _settle(_wireinputs(cur, w), w; strict=false)
-    end
-  end)
-  Core.eval(QuartzHDL, Expr(:block, exprs...))
-  nothing
+  push!(body, :((acc, changed)))
+  Expr(:block, body...)
+end
+@generated _haskeys(kw, ::Val{names}) where names =
+  foldl((a, p) -> :($a && haskey(kw, $(QuoteNode(p)))), names; init=true)
+
+@generated function _applycomb(new::T, old::T, ::Val{owned}, r) where {T,owned}
+  _applycombbody(T, owned)
 end
 
 # the fields a block wrote on this edge; a reset writes everything the block owns
@@ -1142,11 +1186,7 @@ _undriven(f::Symbol) = error("@wire left $f undriven this cycle; every path thro
 # A block writes an instance's inputs, not the instance: the record of inputs has
 # no pointers in it, so the write set stays inline. An instance's wires have settled
 # when the inputs are what they were; new ones settle the instance's own wires in
-# turn, so a value can travel down and back up.
-#
-# `_definestep` emits a copy of this per module type, without the black-box test:
-# a black box has no @wire block of its own, so it never reaches `_definestep` and
-# always lands here, where the test is what stops it being settled like a module.
+# turn, so a value can travel down and back up. A black box has no wires to settle.
 function _combinst(cur::T, w::NamedTuple) where T
   w === _inputsof(cur) && return cur
   new = _wireinputs(cur, w)

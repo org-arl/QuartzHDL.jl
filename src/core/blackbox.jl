@@ -78,10 +78,8 @@ here it is the square wave the tree produces.
 """
 clocklevel(m::QuartzModule, net::Symbol) = clocklevel(m, Val(net))
 
-# A @wire block asks on every settle pass, so the walk -- which instance, down
-# which path, holds the level -- is plain code: one method per type and net,
-# evaluated when the bindings are registered. A net the bindings cannot place is
-# resolved when first asked for, and the error says why.
+# the walk -- which instance, down which path, holds the level -- is resolved from
+# the bindings when asked; a net they cannot place errors, and the error says why
 function clocklevel(m::T, ::Val{net}) where {T<:QuartzModule,net}
   r = _resolvelevel(T, net, Symbol[])
   # a full-rate clock has no wave the cycle world can track: read as data it is
@@ -89,13 +87,6 @@ function clocklevel(m::T, ::Val{net}) where {T<:QuartzModule,net}
   r === nothing ? false : _levelat(m, r...)
 end
 
-# Every clock output in the module tree that is wired to a net, as (net, divide,
-# ticked this slot): one entry per output, in tree order, from a method evaluated
-# per type when its bindings are registered. A clock that divides is settled
-# before the faster clock beside it, so a design sampling a slow clock as data
-# reads the new level. The emitted Verilog orders its delays the same way; the two
-# have to agree or a crossing lands a cycle apart.
-_treeedges(::QuartzModule) = ()
 
 # every clock net that had an edge in the module tree this step, slowest first
 function clockedges(m::QuartzModule)
@@ -270,25 +261,6 @@ end
 
 _levelbit(x, ::Val{bit}) where bit = _hasbit(getfield(x, :levels), bit)
 
-function _definelevels(T::Type)
-  exprs = Expr[]
-  for net in _derivednets(T)
-    r = try
-      _resolvelevel(T, net, Symbol[])
-    catch
-      continue
-    end
-    if r === nothing
-      push!(exprs, :(clocklevel(m::$T, ::Val{$(QuoteNode(net))}) = false))
-      continue
-    end
-    path, bit = r
-    x = foldl((acc, f) -> :(getfield($acc, $(QuoteNode(f)))), path; init=:m)
-    push!(exprs, :(clocklevel(m::$T, ::Val{$(QuoteNode(net))}) = _levelbit($x, Val($bit))))
-  end
-  Core.eval(QuartzHDL, Expr(:block, exprs...))
-end
-
 function _derivednets(T::Type)
   nets = Symbol[]
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))
@@ -336,28 +308,6 @@ function _findlevel(T::Type, net::Symbol)
     end
   end
   nothing
-end
-
-function _treeedgesexpr(T::Type, d)
-  parts = Any[]
-  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
-    FT <: QuartzModule || continue
-    x = :(getfield(m, $(QuoteNode(f))))
-    if isblackbox(FT)
-      bb = blackbox(FT)
-      binds = get(d, f, Pair{Symbol,Symbol}[])
-      for (i, c) in enumerate(bb.outs)
-        net = _boundnet(binds, c)
-        net === nothing && continue
-        recipes = [t for t in bb.tree if t.name === c]
-        div = foldl((a, t) -> :(_divide($FT, $t)), recipes; init=1)
-        push!(parts, :(($(QuoteNode(net)), $div, _hasbit(getfield($x, :ticked), $(i - 1)))))
-      end
-    else
-      push!(parts, :(_treeedges($x)...))
-    end
-  end
-  Expr(:tuple, parts...)
 end
 
 function _bbport(name::Symbol, dir::Symbol, t)

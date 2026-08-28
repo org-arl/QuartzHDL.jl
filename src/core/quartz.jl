@@ -187,15 +187,7 @@ macro multicycle(T, cycles, path)
   from, to = path.args[2], path.args[3]
   (from isa Symbol && to isa Symbol) ||
     error("@multicycle: expected field names either side of =>")
-  store = _mcname(T)
-  esc(quote
-    if !@isdefined($store)
-      const $store = $QuartzHDL.MultiCycle[]
-    end
-    $QuartzHDL.multicycles(::Type{<:$T}) = $store
-    push!($store, $QuartzHDL._mkmulticycle($T, $(QuoteNode(from)), $(QuoteNode(to)), $cycles))
-    $store
-  end)
+  esc(:(push!($QuartzHDL.multicycles($T), $QuartzHDL._mkmulticycle($T, $(QuoteNode(from)), $(QuoteNode(to)), $cycles))))
 end
 
 """
@@ -216,10 +208,7 @@ macro primary(T, nets...)
     end
   end
   isempty(names) && error("@primary: expected `@primary Module net, net, ...`")
-  esc(quote
-    $QuartzHDL.primarynets(::Type{<:$T}) = $names
-    $names
-  end)
+  esc(:($QuartzHDL._setprimary!($T, $names)))
 end
 
 ### helpers
@@ -339,6 +328,8 @@ function _quartz(structdef, mod)
   end
   name = decl isa Expr && decl.head == :curly ? decl.args[1] : decl
   store = _blocksname(name)
+  mcs = _mcname(name)
+  prim = _primaryname(name)
   iface = _ifacename(name)
   seqs = _seqname(name)
   encs = Pair{Symbol,Symbol}[]
@@ -363,6 +354,14 @@ function _quartz(structdef, mod)
     end
     if !@isdefined($seqs)
       const $seqs = Dict{Symbol,Any}()
+    end
+    if !@isdefined($mcs)
+      const $mcs = $QuartzHDL.MultiCycle[]
+      $QuartzHDL.multicycles(::Type{<:$name}) = $mcs
+    end
+    if !@isdefined($prim)
+      const $prim = Symbol[]
+      $QuartzHDL.primarynets(::Type{<:$name}) = $prim
     end
     $QuartzHDL.sequences(::Type{<:$name}) = $seqs
     empty!($seqs)
@@ -582,6 +581,14 @@ _hwfield(T) = isblackbox(T) || T == Bool || T <: HWInt || T === Edge || T <: Met
               T <: Base.BitInteger || !isconcretetype(T)
 
 _mcname(name::Symbol) = Symbol("#quartz_multicycle#", name)
+_primaryname(name::Symbol) = Symbol("#quartz_primary#", name)
+
+# stated once, on the top module; stated again, it replaces what was said
+function _setprimary!(T::Type, names::Vector{Symbol})
+  store = primarynets(T)
+  empty!(store)
+  append!(store, names)
+end
 
 function _mkmulticycle(T::Type, from::Symbol, to::Symbol, cycles::Integer)
   for f in (from, to)

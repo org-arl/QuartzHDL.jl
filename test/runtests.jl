@@ -3200,6 +3200,110 @@ end
   @inferred Missing out.cnt[1.0e-6]
 end
 
+@quartz struct Reloaded
+  n::Bits{4} = 0
+end
+
+@on Reloaded posedge(clk) begin
+  n ← n + 1
+end
+
+@quartz struct TreeKid
+  @in en::Bool = false
+  @out y::Bool
+  n::Bits{4} = 0
+end
+
+@on TreeKid posedge(clk) begin
+  en && (n ← n + 1)
+end
+
+@wire TreeKid y <= n[0]
+
+@quartz struct TreeTop
+  @in go::Bool = false
+  kid::TreeKid = TreeKid()
+  @out z::Bool
+  c::Bits{8} = 0
+end
+
+@wire TreeTop begin
+  kid.clk ← clk
+  kid.en ← go
+  z <= kid.y
+end
+
+@on TreeTop posedge(clk) begin
+  c ← c + 1
+end
+
+@testset "a design lives in its own module and precompiles there" begin
+  # a block is a named function of the module's namespace, and its slot is a method
+  # on the slot number; nothing is evaluated into QuartzHDL
+  @test QuartzHDL._blockfn(Reloaded, Val(1)) === getfield(@__MODULE__, Symbol("#on#Reloaded#1"))
+  @test QuartzHDL._blockfn(Reloaded, Val(2)) === nothing
+  @test QuartzHDL._slotcount(Reloaded) === Val(1) && QuartzHDL._slotcount(TreeTop) === Val(2)
+  @test QuartzHDL._clocks(TreeTop) == (:clk,)
+
+  # the same block reloaded keeps its slot, and the step follows the new body
+  @test step(Reloaded()).n == 1
+  @eval @on Reloaded posedge(clk) begin
+    n ← n + 2
+  end
+  @test length(QuartzHDL.blocks(Reloaded)) == 1
+  @test Base.invokelatest(step, Reloaded()).n == 2
+
+  # a tree steps as one inferred, static call chain
+  m = TreeTop()
+  for _ in 1:3
+    m = @inferred QuartzHDL._stepwith(m, Val(:clk), (go = true,))
+  end
+  @test m.c == 3 && m.kid.n == 3 && m.z
+  @inferred QuartzHDL._treeedges(m)
+
+  # a package holding a two-block design precompiles, with no method overwritten
+  dir = mktempdir()
+  mkpath(joinpath(dir, "src"))
+  write(joinpath(dir, "Project.toml"), """
+    name = "HoldsADesign"
+    uuid = "0f1e2d3c-4b5a-4c6d-8e7f-a0b1c2d3e4f5"
+    version = "0.1.0"
+    """)
+  write(joinpath(dir, "src", "HoldsADesign.jl"), """
+    module HoldsADesign
+    using QuartzHDL
+    @quartz struct Two
+      @in go::Bool
+      @out y::Bool
+      @out z::Bool
+      n::Bits{4} = 0
+    end
+    @on Two posedge(clk) begin
+      n ← n + 1
+      y ← n[0]
+    end
+    @wire Two z <= go
+    end
+    """)
+  code = """
+    using Pkg; Pkg.develop(path = $(repr(pkgdir(QuartzHDL))); io = devnull)
+    using HoldsADesign
+    m = step(HoldsADesign.Two(); go = true)
+    print("stepped ", Int(m.n))
+    """
+  # the test environment's load path has no Pkg; the child gets the stdlibs back
+  loadpath = join([dir, "@stdlib"], Sys.iswindows() ? ";" : ":")
+  cmd = setenv(`$(Base.julia_cmd()) --startup-file=no --warn-overwrite=yes -e $code`,
+               "JULIA_LOAD_PATH" => loadpath, "JULIA_DEPOT_PATH" => join(DEPOT_PATH, Sys.iswindows() ? ";" : ":"))
+  out = IOBuffer()
+  ok = success(pipeline(cmd; stdout = out, stderr = out))
+  log = String(take!(out))
+  @test ok
+  @test occursin("stepped 1", log)
+  @test !occursin("overwritten", log) && !occursin("closed module", log)
+  ok || println(log)
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("reference.jl")
