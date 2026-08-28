@@ -8,7 +8,7 @@ module QuartzHDLPlotsExt
 
 using QuartzHDL
 using QuartzHDL: Signal, Capture, _wirevalue, _clockwave, _axisunit, _ticklabel
-using Plots: RecipesBase
+using Plots: RecipesBase, mm
 
 RecipesBase.@recipe function f(s::Signal)
   unit = _axisunit((s.stop[] + 1) * s.grid)
@@ -44,7 +44,11 @@ RecipesBase.@recipe function f(r::Capture, names::AbstractString...)
   for (i, s) in enumerate(sigs)
     RecipesBase.@series begin
       subplot := i
-      i < length(sigs) && (xguide := "")
+      if i < length(sigs)
+        xguide := ""
+        xformatter := (_ -> "")
+        bottom_margin := -4mm
+      end
       s
     end
   end
