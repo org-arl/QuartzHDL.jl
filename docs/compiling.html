@@ -496,12 +496,12 @@ endmodule</code></pre>
 </section>
 <section id="the-command-line" class="level2">
 <h2 class="anchored" data-anchor-id="the-command-line">The command line</h2>
-<p>The package doubles as an app. <code>julia -m QuartzHDL design.jl</code> compiles the <code>@quartz</code> modules in a Julia file to Verilog without a driver script:</p>
+<p>The package doubles as an app. On Julia 1.12 or later, <code>julia -m QuartzHDL design.jl</code> compiles the <code>@quartz</code> modules in a Julia file to Verilog without a driver script:</p>
 <pre><code>julia -m QuartzHDL design.jl --top 'Filter{127}' -o filter.v --name filter
 julia -m QuartzHDL design.jl                          # every non-parametric module -&gt; Name.v
 julia -m QuartzHDL design.jl --top Top --board Rev2 --outdir build   # Top.v and Rev2.lpf
 julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace</code></pre>
-<p><code>Pkg.Apps.develop(path = "...")</code> (Julia 1.12 or later) installs a <code>quartz</code> executable, so the <code>julia -m QuartzHDL</code> prefix becomes just <code>quartz</code>.</p>
+<p><code>Pkg.Apps.add("QuartzHDL")</code> installs a <code>quartz</code> executable, so the <code>julia -m QuartzHDL</code> prefix becomes just <code>quartz</code>. Julia 1.11 has neither <code>-m</code> nor <code>Pkg.Apps</code>; there the package is a library, driven from a script.</p>
 <p>The design file is <code>include</code>d in a fresh module, so guard any test or driver code in it:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">abspath</span>(<span class="cn">PROGRAM_FILE</span>) <span class="op">==</span> <span class="pp">@__FILE__</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># runs only when the file is executed directly, never when compiled</span></span>

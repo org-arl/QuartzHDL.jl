@@ -53,7 +53,7 @@ Two things you may be used to doing by hand are done for you and are worth knowi
 
 ## The command line
 
-The package doubles as an app. `julia -m QuartzHDL design.jl` compiles the `@quartz` modules in a Julia file to Verilog without a driver script:
+The package doubles as an app. On Julia 1.12 or later, `julia -m QuartzHDL design.jl` compiles the `@quartz` modules in a Julia file to Verilog without a driver script:
 
 ```
 julia -m QuartzHDL design.jl --top 'Filter{127}' -o filter.v --name filter
@@ -62,7 +62,7 @@ julia -m QuartzHDL design.jl --top Top --board Rev2 --outdir build   # Top.v and
 julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace
 ```
 
-`Pkg.Apps.develop(path = "...")` (Julia 1.12 or later) installs a `quartz` executable, so the `julia -m QuartzHDL` prefix becomes just `quartz`.
+`Pkg.Apps.add("QuartzHDL")` installs a `quartz` executable, so the `julia -m QuartzHDL` prefix becomes just `quartz`. Julia 1.11 has neither `-m` nor `Pkg.Apps`; there the package is a library, driven from a script.
 
 The design file is `include`d in a fresh module, so guard any test or driver code in it:
 
