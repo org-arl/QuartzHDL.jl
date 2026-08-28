@@ -1,0 +1,85 @@
+---
+title: "Pipelines"
+engine: julia
+---
+
+**`Pipeline{K,T}`: a computation spread over K cycles**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+Some arithmetic will not fit in one clock. A wide multiply, a sum of many terms, a popcount over a long register: the logic is too deep for the clock period, and the fix is to register it in the middle — a pipeline. Writing pipelines by hand means deciding where the cuts go, declaring a register for every value that crosses one, and keeping the stages in step. A `Pipeline{K,T}` does that for you.
+
+## Writing to a pipeline
+
+```{julia}
+@quartz struct Mac
+  @in  a::Bits{16}, b::Bits{16}, c::Bits{16}, d::Bits{16}
+  p::Pipeline{2,Bits{33}}
+  @out y::Bits{33}
+  @out valid::Bool
+end
+
+@on Mac posedge(clk) begin
+  p ← Bits{33}(a) * b + Bits{33}(c) * d      # two multiplies and an add, over two cycles
+  y ← coalesce(p, 0)                         # the latest result, or 0 before the first
+  valid ← isnew(p)
+end
+```
+
+Write an expression into the pipeline and the result comes out K cycles later. Here the multiplies land in the first stage and the add in the second; the result written at edge 1 is readable at edge 3, and copied to `y` at edge 4. The compiler cuts the traced expression into K stages of roughly equal depth, and every value that crosses a cut becomes a register.
+
+```{julia}
+m = Mac()
+for i in 1:5
+  m = step(m; a = Bits{16}(i), b = Bits{16}(10), c = Bits{16}(1), d = Bits{16}(i))
+  println("edge $i: y = $(Int(m.y)), valid = $(m.valid)")
+end
+```
+
+## Reading from a pipeline
+
+- Read bare, `p` is the most recent output, or `missing` before the first one has arrived — so `coalesce(p, 0)` gives a value either way.
+- `isnew(p)` is true on the cycle a new result appears.
+- `isready(p)` is true when a result is out and no write is still on its way through, so what `p` gives is the result of the last write.
+
+Write to a pipeline every cycle and you get a result every cycle, K cycles late. Write to it occasionally and `isnew` tells you when to look.
+
+## Seeing the cuts
+
+`stages` shows what the compiler did:
+
+```{julia}
+stages(Mac, :p)
+```
+
+Each stage lists what it takes in, what it computes, what it registers, and the cost of its longest path; the last line is what the whole pipeline costs in registers. `stages(Mac)` reports every pipeline in the module.
+
+A single operation cannot be split. If K is larger than the computation can use, the extra stages only delay, the report says so, and writing the Verilog warns:
+
+```{julia}
+@quartz struct TooDeep
+  @in  a::Bits{8}, b::Bits{8}
+  s::Pipeline{3,Bits{9}}
+end
+
+@on TooDeep posedge(clk) s ← Bits{9}(a) + b
+
+stages(TooDeep, :s)
+```
+
+::: {.callout-tip title="If you know Verilog"}
+The Verilog contains the stage registers and an `always` block per stage, plus a valid bit that travels with the data — the same code you would write, except the cuts were chosen by measuring the logic rather than by eye. Change the expression and the cuts move with it.
+:::
+
+## What goes in a pipeline
+
+The expression written into a pipeline may use registers, inputs, locals and helper functions, like any other expression. What it may not do is depend on its own output: a feedback path through a pipeline is a loop with K cycles of delay, and that is a state machine, not a pipeline. Write the feedback as ordinary registers around the pipeline instead.
+
+## Next
+
+[Multicycle paths](multicycle.qmd): the other answer to slow logic, when the inputs are slower still.

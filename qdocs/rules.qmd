@@ -1,0 +1,77 @@
+---
+title: "Rules and their reasons"
+---
+
+**What the compiler refuses, and why**
+
+Everything QuartzHDL refuses to compile, it refuses with a message naming the line. The rules exist for one reason: a construct that the Julia model and the Verilog could interpret differently is not allowed, so that the two can never disagree. This page collects them.
+
+## Values
+
+| rule | why |
+|---|---|
+| widths are at most 128 bits | `UInt128` is the widest thing that is fast in Julia |
+| narrowing needs `trunc` | dropping bits should be deliberate; the rule is on the width so it fires the same way every run |
+| signed and unsigned do not mix without a conversion | which one wins would be a guess |
+| a plain integer default must fit the width | a value that wraps at the declaration is a mistake, not a value |
+| a bit index or slice must lie inside the word | out of range reads as zero in Julia and as `x` in Verilog |
+| a computed-base slice must fit at every base | same |
+| a shift by the width or more is an error | the result is zero whatever the input: a statement about a width that is wrong |
+
+## Declarations
+
+| rule | why |
+|---|---|
+| an input cannot be a `Pulse`, `Timeout` or `Edge` | an input has no storage |
+| a field or port name may not be a Verilog keyword | it is a net inside the emitted module |
+| a port attribute must be one of `verilog`, `active`, `ext_pull` | a misspelt attribute that was ignored would leave a pin the wrong way round |
+| a pad's Verilog name is the same in every module that declares it | it is one net on both sides |
+| an input may not share a field's name | it would be two things — except a `MetaGuard`, which is fed by the input of its name by design |
+| a `Timeout` needs a width | `Timeout` alone has no size |
+| an instance's constructor takes no arguments | the wiring is stated once, in `@wire` |
+
+## Blocks
+
+| rule | why |
+|---|---|
+| one writer per register | two writers in Verilog is a multiply-driven net |
+| a `@wire` drives its outputs on every path | a combinational output that latches is not a wire |
+| a `@wire` writes only outputs, pads and instance inputs | anything else is a register, and registers are clocked |
+| a field written by `@on` is not driven by `@wire` | one net, one kind of driver |
+| no `while` in a block | it would not have a fixed depth |
+| no local assignment inside `if` | both arms exist in hardware; use `ifelse` |
+| a condition may not make Julia branch on a hardware value | Julia would branch; the hardware cannot |
+| a bare name must be a field, an input, a local, or defined in the module | a typo would otherwise become a port nothing drives |
+| a local may not shadow a field or an input | a silent shadow |
+| `←` is a statement, never an expression | `x ← c ? a : b` would parse as `(x ← c) ? a : b` and lose the write |
+| only a statement — a write, a log macro, a `@check` — may sit to the right of `cond && (...)` | a computed-and-discarded value is a mistake |
+| a state name may not also be a field, an input or a local | a bare name would mean two things |
+| every state has a `@state` branch, or there is an `@otherwise` | an unhandled state is a stuck machine |
+| a sequence's register is wide enough for its steps | it cannot hold a step it does not have room for |
+| a sequence divider is at the top level or in a `@repeat` | one under an `if` would be a guess |
+| a clock wire takes a bare net name | a gated or divided clock is a part's job, not logic's |
+| a wire to an instance or a part cannot sit under an `if` | the part sees its pin every cycle; put the condition in the value |
+| a black box's inputs are all wired | an unwired pin is a floating input |
+| a submodule's `@wire` output is read only if it does not depend on the submodule's inputs | the Julia model would be a cycle behind the Verilog wire |
+| a `Multicycle` wire reads only registers of its own module | the sources must be nets the constraint can name |
+| a `Multicycle` is not read before its K-th edge | that is the promise the constraint makes |
+
+## Boards
+
+| rule | why |
+|---|---|
+| every port has a pin, and every pin names a port | a port with no site is a bug found in the lab |
+| one port per site | two would short |
+| a port's width matches its pin count | same |
+| a pad's `ext_pull` is provided by the board | an open-drain bus with no pull never reads high |
+| setting and attribute names are a closed set | an attribute nothing reads is a buffer configured by a tool default |
+| `@primary` names clocks the design has | a constraint on a net that does not exist |
+
+## Simulation
+
+| rule | why |
+|---|---|
+| combinational logic must settle within a bound | past it, the logic has a loop; the error names the fields in it |
+| a clock plan's rates share a grid, or the clock is `dithered` | an exact grid for two unrelated oscillators is usually an accident |
+| only an input or an unwired pad can be driven from a stimulus | everything else is the design's |
+| `advance_until` with a timeout that passes is an error | a condition that never comes is a failed test |

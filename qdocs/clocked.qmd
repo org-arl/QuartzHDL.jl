@@ -1,0 +1,240 @@
+---
+title: "Clocked logic"
+engine: julia
+---
+
+**The `@on` block: what registers become on a clock edge**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+## The block
+
+```{julia}
+@quartz struct Acc
+  @in  x::Bits{8}
+  @in  rst::Bool = false
+  @in  en::Bool = true
+  sum::Bits{16} = 0
+  @out y::Bits{16}
+end
+
+@on Acc posedge(clk) begin
+  @reset(rst)
+  @only_when(en)
+  sum ← sum + x
+  y ← sum
+end
+```
+
+The module type comes first, then the clock: `posedge(name)` or `negedge(name)`. Any name will do — it becomes a clock port of the module. A parametric module names the parameters its body uses: `@on Ctr{N} posedge(clk)`.
+
+Inside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever `@in` ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing module — is an error, so a typo cannot quietly become a port that nothing drives.
+
+A block with one statement needs no `begin ... end`:
+
+```julia
+@on Acc posedge(clk) y ← sum
+```
+
+### The clauses
+
+Three statements may open a body, before anything else:
+
+- `@reset(cond)` puts every register the block owns back to its default when `cond` holds. A register with no default keeps its value; so does a `static` one. A keyword gives one register a different reset value: `@reset(rst; sum = 1)`.
+- `@only_when(cond)` runs the block only when `cond` holds — a clock enable.
+- `@clockout(pin; invert, gate)` forwards the block's clock to an output pin, optionally inverted or gated.
+
+A string before the clauses is the block's summary, kept for documentation.
+
+## Writing a register
+
+`x ← v` and `x <= v` mean the same thing: a write that lands at the end of the cycle. Every read in the block sees the value the register had when the edge arrived, so the order of statements does not matter for reads, and the last write to a register wins:
+
+```{julia}
+@quartz struct Swap
+  a::Bits{8} = 1
+  b::Bits{8} = 2
+end
+
+@on Swap posedge(clk) begin
+  a ← b
+  b ← a
+end
+
+step(Swap())
+```
+
+One register has one writer: two `@on` blocks may not write the same field.
+
+::: {.callout-tip title="If you know Verilog"}
+`←` is the non-blocking assignment `<=`, and the only kind of register write there is. You may write `<=` if you prefer; `←` is there because `<=` also means "less than or equal", and a compiler that has to guess is a compiler that will one day guess wrong. Type it as `\leftarrow` at the Julia REPL or in an editor with Julia support.
+:::
+
+## Locals are wires
+
+`=` makes a local variable, and a local is a wire: a name for part of an expression, with no storage.
+
+```julia
+@on Acc posedge(clk) begin
+  total = sum + x        # a wire
+  sum ← total            # a register
+  y ← total >> 1
+end
+```
+
+A local that shadows a field or an input is an error rather than a silent shadow.
+
+## Choosing
+
+`if`, `elseif` and `else` work as you would expect, on any condition the hardware can compute:
+
+```{julia}
+@quartz struct Sat
+  @in  x::Bits{8}
+  @in  limit::Bits{8} = 200
+  y::Bits{8} = 0
+end
+
+@on Sat posedge(clk) begin
+  if x > limit
+    y ← limit
+  elseif x == 0
+    y ← 1
+  else
+    y ← x
+  end
+end
+```
+
+Both arms of an `if` exist in hardware, so a local may not be assigned inside one — the value would be undefined on the other path. Use `ifelse` for a value that depends on a condition:
+
+```julia
+big = ifelse(a > b, a, b)     # a mux
+```
+
+Julia's `&&` and `||` short-circuit, which is a branch Julia takes and hardware cannot; on hardware values use `&` and `|` instead, which are plain gates.
+
+### One-line conditionals
+
+A single write under a condition can be written the way Julia writes it:
+
+```julia
+count == limit && (count ← 0)      # if count == limit
+tx_rd || (tx_rq ← true)           # unless tx_rd
+a && b && (x ← v)                  # both conditions
+```
+
+This is exactly the `if` spelled differently. Only a statement may sit on the right — a write, a log macro (`cond && @info "seen" x`), or a `@check`: something that computes a value and throws it away is still a mistake, and still warns.
+
+### Case
+
+A chain of `if`/`elseif` that tests one register against distinct constants is emitted as a Verilog `case`. You write the chain, or a [state machine](fsm.qmd), and the emitter recognises the shape.
+
+## Writing part of a register
+
+```julia
+w[8:15] ← byte                     # bits 8 to 15
+w[part(i, Bits{8})] ← byte          # byte number i, counting from zero
+w[base .+ (0:7)] ← byte            # eight bits from a computed base
+```
+
+`part(i, Bits{8})` is the one to reach for when a word is a row of equal fields: the index is widened before the multiply, so the product cannot wrap and no width appears in the design. `base .+ (0:7)` is for a base that is not a multiple of the width. Both are Verilog's `x[base +: 8]`; a base that would run off the end is an error.
+
+Splitting is a write with `⊞` on the left, by the widths of the targets, and `_` skips a piece:
+
+```julia
+word ← id ⊞ tag ⊞ payload           # join
+id ⊞ tag ⊞ payload ← word           # split
+hi ⊞ _ ⊞ lo ← word                  # the middle bits go nowhere
+```
+
+## Shifts and widths
+
+Shifting left by the value's own width or more leaves nothing behind, which is a statement about a width that is wrong rather than a shift worth making, so it is an error. Widen first if that is what you mean:
+
+```julia
+wide = Bits{16}(narrow) << 8
+```
+
+## Helper functions are just Julia
+
+Anything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types:
+
+```{julia}
+parity(x) = count_ones(x)[0]
+saturate(x, hi) = ifelse(x > hi, hi, x)
+
+@quartz struct Uses
+  @in  x::Bits{8}
+  p::Bool = false
+  s::Bits{8} = 0
+end
+
+@on Uses posedge(clk) begin
+  p ← parity(x)
+  s ← saturate(x, Bits{8}(100))
+end
+
+write(stdout, Uses, Verilog());
+```
+
+This is how an algorithm moves from Julia to hardware a step at a time: the reference implementation and the hardware share helper functions, and each helper is checked in both worlds.
+
+Hardware has a few operations Julia does not, and the package supplies them:
+
+| function | gives |
+|---|---|
+| `firstset(x)` | the lowest set bit, as a one-hot |
+| `onehot(Bits{N}, i)` | an N-bit word with only bit `i` set |
+| `popcount(x)` | the number of set bits (`count_ones` works too) |
+| `leading_zeros(x)`, `trailing_zeros(x)` | as in Julia |
+| `bitwidth(x)` | the width of a value or type |
+| `bits(a, b, ...)`, `a ⊞ b`, `split(x, w...)` | join and take apart |
+
+A helper that needs the whole state takes it as an argument — inside a block the state is reachable as `this`:
+
+```julia
+in_reset(m) = !m.timer[7]
+...
+in_reset(this) && (y ← 0)
+```
+
+## Methods
+
+A helper written *as if inside the module* — bare field names, inputs, register writes — is a method:
+
+```{julia}
+@quartz struct Sender
+  @in  busy::Bool
+  tx_tag::Bits{4} = 0
+  tx_data::Bits{8} = 0
+  tx_rq::Bool = false
+end
+
+@method function send(tag, payload)
+  tx_tag ← tag
+  tx_data ← payload
+  tx_rq ← true
+end
+
+@method ready() = !tx_rq && !busy
+
+@on Sender posedge(clk) begin
+  ready() && send(3, 0x55)
+end
+```
+
+A method belongs to no one module: the same method serves every module whose fields it names. It is inlined where it is called, so it must be defined before the block that calls it. A method that writes is a statement, and `cond && f()` guards it as it would a write; one that only computes a value may be used as one.
+
+## Logging from inside a block
+
+`@info`, `@debug`, `@warn` and `@error` work inside a block, with the simulation time and the module's name added; `@check` is an assertion the simulation stops on. None of it reaches the Verilog unless asked for. [Simulating](simulating.qmd#logging) has the details.
+
+## Next
+
+[Wires and pads](wires.qmd): combinational outputs, and pins that go both ways.

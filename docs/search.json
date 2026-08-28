@@ -1,0 +1,1828 @@
+[
+  {
+    "objectID": "composing.html",
+    "href": "composing.html",
+    "title": "Submodules",
+    "section": "",
+    "text": "Modules inside modules",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "composing.html#an-instance-is-a-field",
+    "href": "composing.html#an-instance-is-a-field",
+    "title": "Submodules",
+    "section": "An instance is a field",
+    "text": "An instance is a field\nA field whose type is another @quartz module is an instance of it. Wire its inputs and clock in a @wire block, and read its outputs by name:\n\n@quartz struct Counter\n  @in  en::Bool = true\n  n::Bits{4} = 0\n  @out wrap::Bool\nend\n\n@on Counter posedge(clk) begin\n  en && (n ← n + 1)\n  wrap ← n == 15\nend\n\n@quartz struct Top\n  @in  run::Bool = true\n  ctr::Counter = Counter()\n  @out wraps::Bits{8} = 0\nend\n\n@wire Top begin\n  ctr.clk ← clk               # a clock input takes a net name\n  ctr.en  ← run               # a data input takes a value\nend\n\n@on Top posedge(clk) begin\n  ctr.wrap && (wraps ← wraps + 1)\nend\n\nm = Top()\nfor _ in 1:64\n  m = step(m; run = true)\nend\nInt(m.wraps)\n\n3\n\n\nThree kinds of wire, all with the same arrow:\n\ninst.clk ← net binds a clock input to a net of this module: a pin clock, another block’s clock, or a net a black box drives. The right side must be a bare net name — a gated or divided clock is made by a black box, not by logic — and the wire cannot sit under an if.\ninst.port ← value drives a data input, like any @out port: it may use ifelse and the rest, but not an if around it, since the instance sees its pin every cycle.\nnet ← part.clkout names the net a black box’s clock output drives; the next chapter.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "composing.html#what-an-instance-sees",
+    "href": "composing.html#what-an-instance-sees",
+    "title": "Submodules",
+    "section": "What an instance sees",
+    "text": "What an instance sees\nA constructor never wires: Counter() takes no arguments, and a keyword there is an error. Nothing steps an instance from a block. The simulator steps it on every edge of each net its clock is wired to, after the enclosing module’s own blocks on that edge, so the instance sees the values the wires held before the edge — as hardware does.\nOnly an instance’s @out ports may be read. An output the instance drives with @wire may be read too, as long as it does not depend on the instance’s own inputs: where it does, the Julia model would be a cycle behind the Verilog wire, so the compiler refuses instead of guessing.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nctr::Counter = Counter() plus the @wire lines is Counter ctr(.clk(clk), .en(run), .wrap(...)). The difference is that the connections are checked: an input left unwired is an error, a wire to a port that does not exist is an error, and the direction of every connection is known from the instance’s declaration.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "composing.html#pads-through-the-hierarchy",
+    "href": "composing.html#pads-through-the-hierarchy",
+    "title": "Submodules",
+    "section": "Pads through the hierarchy",
+    "text": "Pads through the hierarchy\nA pad declared in a submodule reaches the top by name: the same sda pad in a module and in the module that instantiates it is one net. Every module that declares it must give it the same Verilog name, since it is one pin.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "composing.html#instances-used-twice",
+    "href": "composing.html#instances-used-twice",
+    "title": "Submodules",
+    "section": "Instances used twice",
+    "text": "Instances used twice\nTwo fields of the same type are two instances with their own state:\n@quartz struct Pair\n  a::Counter = Counter()\n  b::Counter = Counter()\nend\n\n@wire Pair begin\n  a.clk ← clk; a.en ← true\n  b.clk ← clk; b.en ← a.wrap\nend\nA board description addresses a port of an instance by its path, a.wrap, so a module used twice gets two pin bindings.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "composing.html#next",
+    "href": "composing.html#next",
+    "title": "Submodules",
+    "section": "Next",
+    "text": "Next\nBlack boxes and the clock tree: the parts QuartzHDL does not describe.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Submodules"
+    ]
+  },
+  {
+    "objectID": "quickstart.html",
+    "href": "quickstart.html",
+    "title": "Quickstart",
+    "section": "",
+    "text": "A small design, end to end\nLet’s build something small but real: a pulse-width modulator. It takes an 8-bit duty and produces a square wave whose high time is duty out of every 256 clocks. Along the way we will simulate it, look at its waveform, check the generated Verilog against the Julia model, and write the Verilog out.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#describe-it",
+    "href": "quickstart.html#describe-it",
+    "title": "Quickstart",
+    "section": "Describe it",
+    "text": "Describe it\n\nusing QuartzHDL\n\n@quartz struct Pwm\n  @in  duty::Bits{8} = 128\n  count::Bits{8} = 0\n  @out pwm::Bool\nend\n\n@on Pwm posedge(clk) begin\n  count ← count + 1\n  pwm ← count &lt; duty\nend\n\nThree things to notice:\n\nA field with @in is an input: it has no storage, and the block reads it by name. = 128 is its default, so we may leave it out when stepping.\nA field with @out is an output register, and a field with neither is an internal register. count::Bits{8} = 0 is an 8-bit unsigned register that powers up at zero.\ncount ← count + 1 schedules the new value for the end of the cycle. count + 1 wraps at 8 bits, as hardware does, so this counter runs from 0 to 255 and round again with no extra code.\n\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\n@on Pwm posedge(clk) begin ... end is always @(posedge clk) begin ... end, and ← is &lt;=. Every write in the block sees the register values from before the edge; the writes land together afterwards. There is no blocking assignment.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#step-it-by-hand",
+    "href": "quickstart.html#step-it-by-hand",
+    "title": "Quickstart",
+    "section": "Step it by hand",
+    "text": "Step it by hand\nA module is a value. step takes one and returns the next, one clock edge later:\n\nm = Pwm()\nm = step(m; duty = Bits{8}(3))\nm = step(m; duty = Bits{8}(3))\nm\n\nPwm(Bits{8}(02h), true, (duty = Bits{8}(80h),))\n\n\nLet’s run a full period and count the high cycles:\n\nm = Pwm()\nhighs = 0\nfor _ in 1:256\n  global m = step(m; duty = Bits{8}(64))\n  global highs += m.pwm\nend\nhighs\n\n64\n\n\n64 of 256, as promised. step is all you need for a unit test — we will see a nicer way to drive a longer run next.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#simulate-it",
+    "href": "quickstart.html#simulate-it",
+    "title": "Quickstart",
+    "section": "Simulate it",
+    "text": "Simulate it\nFor anything longer than a few cycles, a Simulation wraps the module with a clock and a recorder. We give the clock a real rate, and say which nets to watch (\"*\" means all of them):\n\nsim = Simulation(Pwm(); clocks = (clk = 1MHz,), watch = \"*\")\n\nSimulation(Pwm, 4 nets, 4 watched, t = 0s)\n\n\nThen we drive it with a @run block. Inside, sim.duty = v drives an input, and advance_by lets time pass:\n\nout = @run sim begin\n  sim.duty = 64\n  advance_by(1ms)\n  sim.duty = 192\n  advance_by(1ms)\nend\n\nCapture(4 signals, 2.0ms)\n\n\nWhat comes back is a capture of every watched net. Ask it what a net was at some time, or list its changes:\n\nout.pwm[0.5ms], out.pwm[1.5ms]\n\n(false, false)\n\n\n\nchanges(out.pwm)[1:6]\n\n6-element Vector{Pair{Float64, Union{Missing, Bool}}}:\n      0.0 =&gt; 0\n   1.0e-6 =&gt; 1\n   6.5e-5 =&gt; 0\n 0.000257 =&gt; 1\n 0.000321 =&gt; 0\n 0.000513 =&gt; 1\n\n\nAnd with Plots loaded, plot it:\n\nusing Plots\nplot(out, \"pwm\"; xlims = (0.9ms, 1.1ms))\n\n\n\n\nThe duty steps from 25% to 75% at 1 ms, which is what we asked for. Simulation covers the rest of this: watching specific nets, waiting on conditions, running tasks alongside the stimulus, and a REPL prompt for interactive poking.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#check-it-against-the-verilog",
+    "href": "quickstart.html#check-it-against-the-verilog",
+    "title": "Quickstart",
+    "section": "Check it against the Verilog",
+    "text": "Check it against the Verilog\nNow the part that makes all of this trustworthy. cosim writes the Verilog for the module, runs it under Icarus Verilog with the same inputs as the Julia model, and compares every output after every clock:\n\nstimulus = [(duty = Bits{8}(i &lt; 300 ? 64 : 192),) for i in 1:600]\nr = cosim(Pwm, stimulus)\nr.ok\n\ntrue\n\n\nIf r.ok were false, r.mismatches would list the first cycles where the two disagreed. Because the two came from one source, a mismatch means a bug in QuartzHDL rather than in your design — and that is the kind of bug that gets fixed first.\n\n\n\n\n\n\nNote\n\n\n\ncosim needs iverilog and vvp on your path. On a Mac, brew install icarus-verilog.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#write-the-verilog",
+    "href": "quickstart.html#write-the-verilog",
+    "title": "Quickstart",
+    "section": "Write the Verilog",
+    "text": "Write the Verilog\n\nwrite(stdout, Pwm, Verilog());\n\nmodule Pwm (\n  input wire clk_i,\n  input wire [7:0] duty_i,\n  output wire pwm_o\n);\n\n  wire clk = clk_i;\n  wire [7:0] duty = duty_i;\n  reg [7:0] count;\n  reg pwm;\n\n  wire [7:0] w13 = count + 8'h1;\n  wire w14 = count &lt; duty;\n\n  always @(posedge clk_i) begin\n    begin\n      count &lt;= w13;\n      pwm &lt;= w14;\n    end\n  end\n\n  assign pwm_o = pwm;\nendmodule\n\n\nPassing a path instead of stdout writes a file. The ports carry direction suffixes (duty_i, pwm_o, clk_i) so the pin list reads clearly in the vendor tools; Verilog output shows how to change the naming, and how to generate the constraint file that puts each port on a pin.\nThere is also a command line, for when you want a .v file without writing a driver script:\njulia -m QuartzHDL pwm.jl --top Pwm -o pwm.v",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "quickstart.html#what-next",
+    "href": "quickstart.html#what-next",
+    "title": "Quickstart",
+    "section": "What next",
+    "text": "What next\nYou have now seen every part of the workflow. The chapters that follow take each part in turn, starting with modules and registers — the types, the ports, and what a default means.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Quickstart"
+    ]
+  },
+  {
+    "objectID": "wires.html",
+    "href": "wires.html",
+    "title": "Wires and pads",
+    "section": "",
+    "text": "Combinational outputs, and pins that go both ways",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Wires and pads"
+    ]
+  },
+  {
+    "objectID": "wires.html#wire-an-output-that-follows-the-state",
+    "href": "wires.html#wire-an-output-that-follows-the-state",
+    "title": "Wires and pads",
+    "section": "@wire: an output that follows the state",
+    "text": "@wire: an output that follows the state\nAn @on block writes registers. Sometimes an output should not be a register at all but a function of the current state — busy is true whenever the state machine is not idle, with no cycle of delay. That is a @wire block:\n\n@quartz struct Link\n  @in  go::Bool\n  state::Bits{2} = 0\n  @out busy::Bool\nend\n\n@on Link posedge(clk) begin\n  if state == 0\n    go && (state ← 1)\n  else\n    state ← state + 1\n  end\nend\n\n@wire Link busy ← state != 0\n\nA @wire block drives its outputs continuously from the state the last clock edge produced. Several outputs go in a begin ... end:\n@wire Link begin\n  busy ← state != 0\n  done ← state == 3\nend\nThe rules are the ones a wire needs:\n\nA @wire block may write only @out ports, pads, and the inputs of instances (see submodules). A field written by an @on block may not also be driven by a @wire.\nIt must drive each output on every path. A combinational output that is left undriven on some branch is a latch in hardware and an error here.\nif, ifelse and the rest work as they do in @on, subject to that rule.\n\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\n@wire is assign. An output that is written by @on is a reg driven from an always block; one written by @wire is a wire. A given output is one or the other, never both.\n\n\nCombinational logic across modules settles to a fixed point in the simulator, with a bound: past it, the logic has a loop, and the error says which fields are in it.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Wires and pads"
+    ]
+  },
+  {
+    "objectID": "wires.html#pads",
+    "href": "wires.html#pads",
+    "title": "Wires and pads",
+    "section": "Pads",
+    "text": "Pads\nA Pad{N} is a pin the module both drives and reads — an open-drain bus line, a bidirectional data bus, a chip select you also sense.\n\n@quartz struct I2CPin\n  @in  pulling::Bool\n  @io  sda::Pad{1}  ext_pull=:up\n  seen::Bool = false\nend\n\n@wire I2CPin sda ← ifelse(pulling, drive(false), release())\n\n@on I2CPin posedge(clk) begin\n  seen ← sda\nend\n\n\ndrive(v) holds the pin at v; drive(v, en) holds only the bits en selects; release() lets go. sda ← v is shorthand for drive(v).\nRead bare, sda is the resolved net — what the pin actually sees, given the module’s own drive, whatever the outside is driving, and the pull. bus[3] and bus[0:3] index a wider pad.\next_pull=:up says the board provides a pull-up, which is what makes an open-drain bus read high when nobody is holding it low. A pad may also declare an internal pull with its default: Pad{1}(:pulldown).\n\nA pad keeps what it drives through a reset — it is a pin, not a register.\n\nPolarity on a pad\nA pad may be active=:low, and may be renamed for Verilog:\n\n@quartz struct Clearer\n  @io clr::Pad{1} = Pad{1}(:pulldown)  active=:low  verilog=\"CLR_N\"\n  @in go::Bool\nend\n\n@wire Clearer clr ← drive(go)\n\ndrive(true) then puts a zero on the pin, and clr reads true when the pin is low: a pad’s value always means asserted, as a port’s does. What does not invert is the output enable — it says whether the module drives at all, not to what level — and the pull, which is a resistor on the physical net.\nEverything that models the wire itself — a bench, padnet, netlevel, a co-simulation — sees the wire, because the wire is what the board has. A pad reaches the modules above it by name, so every module that declares the same pad must give it the same Verilog name.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nA pad is emitted as an inout with a tristate assign pin = oe ? val : 1'bz; and a read of the pin. You write neither: drive/release produce the value and the enable, and the resolved net is what you read. The pull is not in the Verilog at all; it goes into the constraint file, from the board description.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Wires and pads"
+    ]
+  },
+  {
+    "objectID": "wires.html#reading-a-clock-as-data",
+    "href": "wires.html#reading-a-clock-as-data",
+    "title": "Wires and pads",
+    "section": "Reading a clock as data",
+    "text": "Reading a clock as data\nOccasionally a design samples a slow clock as if it were a signal — a reference tick, say. clocklevel(this, :clk_1MHz) reads a clock net’s current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block’s own.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Wires and pads"
+    ]
+  },
+  {
+    "objectID": "wires.html#next",
+    "href": "wires.html#next",
+    "title": "Wires and pads",
+    "section": "Next",
+    "text": "Next\nState machines and sequences: named states, @fsm, and multi-step transactions with @sequence.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Wires and pads"
+    ]
+  },
+  {
+    "objectID": "clocked.html",
+    "href": "clocked.html",
+    "title": "Clocked logic",
+    "section": "",
+    "text": "The @on block: what registers become on a clock edge",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#the-block",
+    "href": "clocked.html#the-block",
+    "title": "Clocked logic",
+    "section": "The block",
+    "text": "The block\n\n@quartz struct Acc\n  @in  x::Bits{8}\n  @in  rst::Bool = false\n  @in  en::Bool = true\n  sum::Bits{16} = 0\n  @out y::Bits{16}\nend\n\n@on Acc posedge(clk) begin\n  @reset(rst)\n  @only_when(en)\n  sum ← sum + x\n  y ← sum\nend\n\nThe module type comes first, then the clock: posedge(name) or negedge(name). Any name will do — it becomes a clock port of the module. A parametric module names the parameters its body uses: @on Ctr{N} posedge(clk).\nInside the body a bare name is the field of that name, or the input of that name. Nothing is listed: the block reads whatever @in ports it mentions. A name that is none of those — not a field, not an input, not a local, not something defined in the enclosing module — is an error, so a typo cannot quietly become a port that nothing drives.\nA block with one statement needs no begin ... end:\n@on Acc posedge(clk) y ← sum\n\nThe clauses\nThree statements may open a body, before anything else:\n\n@reset(cond) puts every register the block owns back to its default when cond holds. A register with no default keeps its value; so does a static one. A keyword gives one register a different reset value: @reset(rst; sum = 1).\n@only_when(cond) runs the block only when cond holds — a clock enable.\n@clockout(pin; invert, gate) forwards the block’s clock to an output pin, optionally inverted or gated.\n\nA string before the clauses is the block’s summary, kept for documentation.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#writing-a-register",
+    "href": "clocked.html#writing-a-register",
+    "title": "Clocked logic",
+    "section": "Writing a register",
+    "text": "Writing a register\nx ← v and x &lt;= v mean the same thing: a write that lands at the end of the cycle. Every read in the block sees the value the register had when the edge arrived, so the order of statements does not matter for reads, and the last write to a register wins:\n\n@quartz struct Swap\n  a::Bits{8} = 1\n  b::Bits{8} = 2\nend\n\n@on Swap posedge(clk) begin\n  a ← b\n  b ← a\nend\n\nstep(Swap())\n\nSwap(Bits{8}(02h), Bits{8}(01h), NamedTuple())\n\n\nOne register has one writer: two @on blocks may not write the same field.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\n← is the non-blocking assignment &lt;=, and the only kind of register write there is. You may write &lt;= if you prefer; ← is there because &lt;= also means “less than or equal”, and a compiler that has to guess is a compiler that will one day guess wrong. Type it as \\leftarrow at the Julia REPL or in an editor with Julia support.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#locals-are-wires",
+    "href": "clocked.html#locals-are-wires",
+    "title": "Clocked logic",
+    "section": "Locals are wires",
+    "text": "Locals are wires\n= makes a local variable, and a local is a wire: a name for part of an expression, with no storage.\n@on Acc posedge(clk) begin\n  total = sum + x        # a wire\n  sum ← total            # a register\n  y ← total &gt;&gt; 1\nend\nA local that shadows a field or an input is an error rather than a silent shadow.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#choosing",
+    "href": "clocked.html#choosing",
+    "title": "Clocked logic",
+    "section": "Choosing",
+    "text": "Choosing\nif, elseif and else work as you would expect, on any condition the hardware can compute:\n\n@quartz struct Sat\n  @in  x::Bits{8}\n  @in  limit::Bits{8} = 200\n  y::Bits{8} = 0\nend\n\n@on Sat posedge(clk) begin\n  if x &gt; limit\n    y ← limit\n  elseif x == 0\n    y ← 1\n  else\n    y ← x\n  end\nend\n\nBoth arms of an if exist in hardware, so a local may not be assigned inside one — the value would be undefined on the other path. Use ifelse for a value that depends on a condition:\nbig = ifelse(a &gt; b, a, b)     # a mux\nJulia’s && and || short-circuit, which is a branch Julia takes and hardware cannot; on hardware values use & and | instead, which are plain gates.\n\nOne-line conditionals\nA single write under a condition can be written the way Julia writes it:\ncount == limit && (count ← 0)      # if count == limit\ntx_rd || (tx_rq ← true)           # unless tx_rd\na && b && (x ← v)                  # both conditions\nThis is exactly the if spelled differently. Only a statement may sit on the right — a write, a log macro (cond && @info \"seen\" x), or a @check: something that computes a value and throws it away is still a mistake, and still warns.\n\n\nCase\nA chain of if/elseif that tests one register against distinct constants is emitted as a Verilog case. You write the chain, or a state machine, and the emitter recognises the shape.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#writing-part-of-a-register",
+    "href": "clocked.html#writing-part-of-a-register",
+    "title": "Clocked logic",
+    "section": "Writing part of a register",
+    "text": "Writing part of a register\nw[8:15] ← byte                     # bits 8 to 15\nw[part(i, Bits{8})] ← byte          # byte number i, counting from zero\nw[base .+ (0:7)] ← byte            # eight bits from a computed base\npart(i, Bits{8}) is the one to reach for when a word is a row of equal fields: the index is widened before the multiply, so the product cannot wrap and no width appears in the design. base .+ (0:7) is for a base that is not a multiple of the width. Both are Verilog’s x[base +: 8]; a base that would run off the end is an error.\nSplitting is a write with ⊞ on the left, by the widths of the targets, and _ skips a piece:\nword ← id ⊞ tag ⊞ payload           # join\nid ⊞ tag ⊞ payload ← word           # split\nhi ⊞ _ ⊞ lo ← word                  # the middle bits go nowhere",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#shifts-and-widths",
+    "href": "clocked.html#shifts-and-widths",
+    "title": "Clocked logic",
+    "section": "Shifts and widths",
+    "text": "Shifts and widths\nShifting left by the value’s own width or more leaves nothing behind, which is a statement about a width that is wrong rather than a shift worth making, so it is an error. Widen first if that is what you mean:\nwide = Bits{16}(narrow) &lt;&lt; 8",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#helper-functions-are-just-julia",
+    "href": "clocked.html#helper-functions-are-just-julia",
+    "title": "Clocked logic",
+    "section": "Helper functions are just Julia",
+    "text": "Helper functions are just Julia\nAnything that computes a value can be an ordinary function. It runs in the simulator, and it is traced into the emitted Verilog — no annotation, no special types:\n\nparity(x) = count_ones(x)[0]\nsaturate(x, hi) = ifelse(x &gt; hi, hi, x)\n\n@quartz struct Uses\n  @in  x::Bits{8}\n  p::Bool = false\n  s::Bits{8} = 0\nend\n\n@on Uses posedge(clk) begin\n  p ← parity(x)\n  s ← saturate(x, Bits{8}(100))\nend\n\nwrite(stdout, Uses, Verilog());\n\nmodule Uses (\n  input wire clk_i,\n  input wire [7:0] x_i\n);\n\n  wire clk = clk_i;\n  wire [7:0] x = x_i;\n  reg p;\n  reg [7:0] s;\n\n  wire [3:0] w4 = x[0] + x[1] + x[2] + x[3] + x[4] + x[5] + x[6] + x[7];\n  wire w5 = w4[0];\n  wire w7 = x &gt; 8'h64;\n  wire [7:0] w9 = w7 ? 8'h64 : x;\n\n  always @(posedge clk_i) begin\n    begin\n      p &lt;= w5;\n      s &lt;= w9;\n    end\n  end\n\nendmodule\n\n\nThis is how an algorithm moves from Julia to hardware a step at a time: the reference implementation and the hardware share helper functions, and each helper is checked in both worlds.\nHardware has a few operations Julia does not, and the package supplies them:\n\n\n\nfunction\ngives\n\n\n\n\nfirstset(x)\nthe lowest set bit, as a one-hot\n\n\nonehot(Bits{N}, i)\nan N-bit word with only bit i set\n\n\npopcount(x)\nthe number of set bits (count_ones works too)\n\n\nleading_zeros(x), trailing_zeros(x)\nas in Julia\n\n\nbitwidth(x)\nthe width of a value or type\n\n\nbits(a, b, ...), a ⊞ b, split(x, w...)\njoin and take apart\n\n\n\nA helper that needs the whole state takes it as an argument — inside a block the state is reachable as this:\nin_reset(m) = !m.timer[7]\n...\nin_reset(this) && (y ← 0)",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#methods",
+    "href": "clocked.html#methods",
+    "title": "Clocked logic",
+    "section": "Methods",
+    "text": "Methods\nA helper written as if inside the module — bare field names, inputs, register writes — is a method:\n\n@quartz struct Sender\n  @in  busy::Bool\n  tx_tag::Bits{4} = 0\n  tx_data::Bits{8} = 0\n  tx_rq::Bool = false\nend\n\n@method function send(tag, payload)\n  tx_tag ← tag\n  tx_data ← payload\n  tx_rq ← true\nend\n\n@method ready() = !tx_rq && !busy\n\n@on Sender posedge(clk) begin\n  ready() && send(3, 0x55)\nend\n\nA method belongs to no one module: the same method serves every module whose fields it names. It is inlined where it is called, so it must be defined before the block that calls it. A method that writes is a statement, and cond && f() guards it as it would a write; one that only computes a value may be used as one.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#logging-from-inside-a-block",
+    "href": "clocked.html#logging-from-inside-a-block",
+    "title": "Clocked logic",
+    "section": "Logging from inside a block",
+    "text": "Logging from inside a block\n@info, @debug, @warn and @error work inside a block, with the simulation time and the module’s name added; @check is an assertion the simulation stops on. None of it reaches the Verilog unless asked for. Simulating has the details.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "clocked.html#next",
+    "href": "clocked.html#next",
+    "title": "Clocked logic",
+    "section": "Next",
+    "text": "Next\nWires and pads: combinational outputs, and pins that go both ways.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Clocked logic"
+    ]
+  },
+  {
+    "objectID": "compiling.html",
+    "href": "compiling.html",
+    "title": "Verilog output",
+    "section": "",
+    "text": "Getting the Verilog out\nEverything that leaves the package goes through one call: write(path_or_io, thing, format). The formats are Verilog() for a design, VCD() for a capture, LPF(board) for constraints, and Diamond(board) for a whole Lattice build.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#verilog",
+    "href": "compiling.html#verilog",
+    "title": "Verilog output",
+    "section": "Verilog()",
+    "text": "Verilog()\n\n@quartz struct Blink\n  @in  rst::Bool = false  active=:low\n  n::Bits{24} = 0\n  @out led::Bool\nend\n\n@on Blink posedge(clk) begin\n  @reset(rst)\n  n ← n + 1\n  led ← n[23]\nend\n\nwrite(stdout, Blink, Verilog());\n\nmodule Blink (\n  input wire clk_i,\n  input wire rst_ni,\n  output wire led_o\n);\n\n  wire clk = clk_i;\n  wire rst = ~rst_ni;\n  reg [23:0] n;\n  reg led;\n\n  wire [23:0] w5 = n + 24'h1;\n  wire w6 = n[23];\n\n  always @(posedge clk_i) begin\n    if (rst) begin\n      n &lt;= 24'h0;\n    end else begin\n      n &lt;= w5;\n      led &lt;= w6;\n    end\n  end\n\n  assign led_o = led;\nendmodule\n\n\nwrite(\"blink.v\", Blink, Verilog()) writes a file. The module is a type: a parametric module is written per instantiation, write(io, Shift{16}, Verilog()).\nThe options:\n\nname = :blink names the Verilog module something other than the Julia type.\nsuffix = false turns off the direction suffixes on the pins (n_i, led_o). A pin asserted low then keeps just _n, since it cannot share the name of the value behind it.\ninits = :all initializes every register in the Verilog, for a simulator that would otherwise start them at x. The default initializes only static fields; see modules for why.\ndebug = true emits the block’s @info and @check as $display and $error.\n\nSubmodules and black boxes are written along with the module that instantiates them, one Verilog module each. Black boxes are instantiated, not defined: their definitions come from the vendor.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#what-the-verilog-looks-like",
+    "href": "compiling.html#what-the-verilog-looks-like",
+    "title": "Verilog output",
+    "section": "What the Verilog looks like",
+    "text": "What the Verilog looks like\nThe output is meant to be read. Ports carry their documentation as comments; encodings become localparams and @fsm chains become case; a pipeline is a set of stage registers with a valid bit; a Multicycle is an assign with a settle counter; pads are tristate assigns. Names are the Julia names, so a synthesis report or a timing path reads back to the source without a mapping table.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nTwo things you may be used to doing by hand are done for you and are worth knowing about. Every port asserted low is bridged at the boundary (assign rst = !rst_ni;) and used asserted inside, so the module body never mentions _n. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops’ enable and clear pins free; only static fields carry initial values.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#the-command-line",
+    "href": "compiling.html#the-command-line",
+    "title": "Verilog output",
+    "section": "The command line",
+    "text": "The command line\nThe package doubles as an app. julia -m QuartzHDL design.jl compiles the @quartz modules in a Julia file to Verilog without a driver script:\njulia -m QuartzHDL design.jl --top 'Filter{127}' -o filter.v --name filter\njulia -m QuartzHDL design.jl                          # every non-parametric module -&gt; Name.v\njulia -m QuartzHDL design.jl --top Top --board Rev2 --outdir build   # Top.v and Rev2.lpf\njulia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace\nPkg.Apps.develop(path = \"...\") (Julia 1.12 or later) installs a quartz executable, so the julia -m QuartzHDL prefix becomes just quartz.\nThe design file is included in a fresh module, so guard any test or driver code in it:\nif abspath(PROGRAM_FILE) == @__FILE__\n  # runs only when the file is executed directly, never when compiled\nend\nA parametric module needs a concrete --top, since Verilog is emitted per instantiation. --board also writes the constraint file for that top; the next chapter says what goes in it.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#a-lattice-diamond-workspace",
+    "href": "compiling.html#a-lattice-diamond-workspace",
+    "title": "Verilog output",
+    "section": "A Lattice Diamond workspace",
+    "text": "A Lattice Diamond workspace\nwrite(dir, Top, Diamond(board)) writes everything Diamond needs into a directory, so the build is make and not a session in the GUI:\nbuild/rev2/\n  src/Top.v          the design, and every submodule with it\n  src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`\n  Rev2.lpf           the constraints, as `LPF(board)` writes them\n  Top.ldf            the project file: device, top, sources, strategy\n  Top.sty            Diamond's default strategy\n  build.sh           synthesis, translate, map, place-and-route, bitstream\n  Makefile           `make` runs build.sh when a source is newer than the bitstream\nThe board’s device must be the full part number Diamond knows, LCMXO2-7000HE-4TG144I rather than a family. A MachXO part boots from its own flash, so its build.sh also exports the JEDEC file, and make targets that. build.sh sources diamond_env from /usr/local/lattice/bin/lin64, or from $DIAMOND_BIN when Diamond is elsewhere.\nA black box needs its netlist in the workspace. Give the files with vendor = [\"vendor/PLL48.v\", ...] and they are copied into src/ and listed in the project; a black box with no netlist among them is still listed, as src/&lt;Name&gt;.v, with a warning saying where to put the file. implementation = \"impl\" names Diamond’s implementation and its directory.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#simulation-models-for-black-boxes",
+    "href": "compiling.html#simulation-models-for-black-boxes",
+    "title": "Verilog output",
+    "section": "Simulation models for black boxes",
+    "text": "Simulation models for black boxes\nsimmodels(io, Top) writes a behavioural Verilog module for every black box in the design whose clock tree it knows, from the clockout recipes. They stand in for vendor netlists that cannot be simulated, and cosim uses them automatically.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "compiling.html#next",
+    "href": "compiling.html#next",
+    "title": "Verilog output",
+    "section": "Next",
+    "text": "Next\nBoards and constraints: where each port goes.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Verilog output"
+    ]
+  },
+  {
+    "objectID": "internals.html",
+    "href": "internals.html",
+    "title": "Under the hood",
+    "section": "",
+    "text": "How one source becomes both a simulator and a Verilog module\nYou do not need this page to use QuartzHDL. It is here for the reader who wants to know what the macros do, and for anyone who wants to work on the package.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Under the hood"
+    ]
+  },
+  {
+    "objectID": "internals.html#the-model",
+    "href": "internals.html#the-model",
+    "title": "Under the hood",
+    "section": "The model",
+    "text": "The model\nA module is a Julia struct. Its fields are the state: registers, pads, pipelines, synchronisers, instances. Nothing else is state, and there is no state anywhere else. @on blocks say what the state becomes on a clock edge: every block reads the state as it was when the edge arrived and produces a set of writes, and the writes are merged afterwards. That is Verilog’s non-blocking assignment, and it is the only kind there is. @wire blocks say what a wire is at every instant, which is assign.\nstep(m; inputs...) returns a new module value. Everything is immutable, so a run is a list of states, and a bench can fork, replay, or keep history without care.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Under the hood"
+    ]
+  },
+  {
+    "objectID": "internals.html#five-stages",
+    "href": "internals.html#five-stages",
+    "title": "Under the hood",
+    "section": "Five stages",
+    "text": "Five stages\nCapture. @on and @wire take the clauses off the top of the body, inline the methods it calls, macro-expand it — so a user macro can perform a register write — and check every bare name against the fields, the inputs and the locals. Then the body is rewritten twice: once into a collector, a function that runs the body against the current state and returns the block’s write set; and once into a tracer. Both rewrites share the rules for what a write is, so a construct cannot be a write in one and not the other. The macro records what the block owns, which clock it runs on, its reset and gating conditions, and registers all of it on the type. A block found again at the same source line replaces the earlier one, so re-including a file does not double it.\nSimulation. step settles the module tree, runs the posedge blocks against the old state, merges their writes, settles again, then does the same for the negedge blocks. A reset restores the defaults of the fields that have them. Combinational blocks iterate to a fixed point with a bound. Pads are resolved against the outside world and the pull once per net across the whole tree, so a pin several modules deep sees what the top sees. Registering a block evaluates, for its struct type, straight-line methods for one clock edge and one settle pass, so a slot of a bench allocates nothing but the value it returns.\nTracing. The same body runs again with Wire values in place of registers. Every operation on a Wire builds a node of an expression graph instead of computing a value; branches become mux trees; a wire to an instance’s input becomes a connection on its instantiation; a pad write becomes a value and an enable. The operator tables for Bits and for Wire mirror each other one for one, which is what makes the graph mean the same thing as the computation.\nCutting and checking. A Pipeline{K,T} write has its graph split into K stages by depth, weighted so an adder costs its width, a multiplier more, and a popcount as the adder tree it is. Every value that crosses a cut becomes a register. A Multicycle{K,T} has its sources and sinks read off the graph: the leaves it reads and the registers written from its value, which give the constraint lines, the settle counter in the Verilog, and the same counter in the simulator.\nEmission. The graph is written as wire declarations and always blocks, with case where a chain tests one value, +: where a slice has a computed base, and assign for combinational outputs. A port whose pin is named differently or asserted low is bridged at the boundary and nowhere else — in the module, in an instance connection, and in co-simulation alike. cosim then emits the module, writes a testbench that reads the stimulus from a file, runs it under Icarus Verilog, and compares every output and pad after every clock.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Under the hood"
+    ]
+  },
+  {
+    "objectID": "internals.html#why-the-restrictions-are-what-they-are",
+    "href": "internals.html#why-the-restrictions-are-what-they-are",
+    "title": "Under the hood",
+    "section": "Why the restrictions are what they are",
+    "text": "Why the restrictions are what they are\nEvery rule in the rules appendix is there because a construct could have meant different things in the two worlds. The test of a new feature is the same: if it expands to something the language already has, it cannot make the two disagree; if it does not, it can, and it needs a co-simulation test that proves it does not.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Under the hood"
+    ]
+  },
+  {
+    "objectID": "internals.html#where-to-look",
+    "href": "internals.html#where-to-look",
+    "title": "Under the hood",
+    "section": "Where to look",
+    "text": "Where to look\nThe source is organised as the five stages are:\nsrc/core/       the value types, the struct and block macros, tracing, ports,\n                black boxes, clocks, wiring, benches, boards\nsrc/sim/        the Simulation: nets, capture, tasks, the REPL prompt, logging\nsrc/emitters/   Verilog, pipeline stages, multicycle paths, simulation models,\n                VCD, LPF, Surfer, co-simulation under Icarus\nsrc/library/    the components: UART, FT2232H, SPI, I2C, PWM, RAM\nsrc/app.jl      the command line\nEach file opens with a comment saying what it does and what it must agree with.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Under the hood"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Introduction",
+    "section": "",
+    "text": "Write FPGA logic in Julia, simulate it in Julia, compile it to Verilog.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "index.html#what-quartzhdl-is",
+    "href": "index.html#what-quartzhdl-is",
+    "title": "Introduction",
+    "section": "What QuartzHDL is",
+    "text": "What QuartzHDL is\nQuartzHDL is a small language for describing synchronous digital hardware, embedded in Julia. You write a module as a struct whose fields are the registers, and a block that says what those registers become on each clock edge. The same source then does two things:\n\nit runs as ordinary Julia, one function call per clock edge, so you can poke at it, print it, plot it and test it like any other Julia code; and\nit compiles to Verilog, ready for your FPGA vendor’s tools.\n\nAnd because both come from one source, QuartzHDL can drive the Julia model and the generated Verilog with the same stimulus and check, cycle by cycle, that they agree.\n\n\n\n\n\n\nNoteWhat QuartzHDL is not\n\n\n\nQuartzHDL does not turn arbitrary Julia code into hardware, and it is not a replacement for Verilog or VHDL. It is a hardware description language that happens to be written in Julia, with the restrictions that hardware needs. If you know how to write an always @(posedge clk) block, you already know most of what QuartzHDL lets you say.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "index.html#why-you-might-want-it",
+    "href": "index.html#why-you-might-want-it",
+    "title": "Introduction",
+    "section": "Why you might want it",
+    "text": "Why you might want it\nIt reads like the design, not like the wiring. Registers are typed fields with defaults, ports are declared with their direction and polarity, a state machine is a @fsm, a multi-step transaction is a @sequence, a handshake bit is a Pulse. Each of these is one line where Verilog needs several, and each is checked at the declaration rather than found in the lab.\nYou debug it in Julia. A module is a value. Step it, inspect a field, set a breakpoint on a condition, log from inside a block with @info, and look at waveforms in a viewer or in a plot. There is a REPL prompt for talking to a running simulation. None of this needs a simulator licence or a testbench in another language.\nPorting a signal-processing algorithm becomes a sequence of small steps. If the reference implementation is Julia — a filter, a correlator, a demodulator — you can move it into fixed-width hardware one piece at a time, running the hardware model and the floating-point reference side by side on the same data and comparing the two at every stage. The helper functions you write along the way are plain Julia, traced into the Verilog without annotations.\nThe surrounding chips are in the library. A UART, a USB FIFO, SPI and I2C masters and slaves, a PWM source and a block RAM come as ready-made models that attach to your design’s pins, so a system test talks to the design the way a host would: write(uart, \"AT\\r\\n\"), readline(uart).\nTesting and CI are just Julia testing and CI. A hardware test is a @testset. The Verilog co-simulation runs under Icarus Verilog on any CI machine. A pull request that changes a module runs the whole system test before anyone looks at it.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "index.html#a-first-look",
+    "href": "index.html#a-first-look",
+    "title": "Introduction",
+    "section": "A first look",
+    "text": "A first look\nHere is a complete module: an 8-bit counter with an enable input and a tick output that fires when it wraps around.\n\nusing QuartzHDL\n\n@quartz struct Counter\n  @in  en::Bool = true\n  @in  rst::Bool = false\n  count::Bits{8} = 0\n  @out tick::Bool\nend\n\n@on Counter posedge(clk) begin\n  @reset(rst)\n  if en\n    count ← count + 1\n    tick ← count == 255\n  else\n    tick ← false\n  end\nend\n\nThe @quartz struct declares the registers and ports. @on says what happens on each rising edge of clk: ← is a register write that lands at the end of the cycle, exactly like Verilog’s &lt;=. To simulate, we make a module and step it:\n\nm = Counter()\nfor i in 1:300\n  m = step(m; en = true)\n  m.tick && println(\"wrapped after $i clocks\")\nend\nm.count\n\nwrapped after 256 clocks\n\n\nBits{8}(2ch)\n\n\nAnd to get Verilog, we write the module type out:\n\nwrite(stdout, Counter, Verilog());\n\nmodule Counter (\n  input wire clk_i,\n  input wire en_i,\n  input wire rst_i,\n  output wire tick_o\n);\n\n  wire clk = clk_i;\n  wire en = en_i;\n  wire rst = rst_i;\n  reg [7:0] count;\n  reg tick;\n\n  wire [7:0] w6 = count + 8'h1;\n  wire w8 = count == 8'hff;\n\n  always @(posedge clk_i) begin\n    if (rst) begin\n      count &lt;= 8'h0;\n    end else begin\n      if (en) begin\n        count &lt;= w6;\n        tick &lt;= w8;\n      end else begin\n        tick &lt;= 1'h0;\n      end\n    end\n  end\n\n  assign tick_o = tick;\nendmodule\n\n\nThat is the whole loop: describe, simulate, compile. The rest of this manual walks through it slowly.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "index.html#installation",
+    "href": "index.html#installation",
+    "title": "Introduction",
+    "section": "Installation",
+    "text": "Installation\nQuartzHDL needs Julia 1.10 or later.\nusing Pkg\nPkg.add(\"QuartzHDL\")\nSome features need tools on your path, and the manual says so where it uses them: Icarus Verilog (iverilog, vvp) for co-simulation, and Surfer for live waveforms. On a Mac with Homebrew, brew install icarus-verilog surfer gets both.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "index.html#where-to-go-next",
+    "href": "index.html#where-to-go-next",
+    "title": "Introduction",
+    "section": "Where to go next",
+    "text": "Where to go next\n\nQuickstart builds a small design end to end: write it, simulate it, test it against the generated Verilog.\nWriting hardware covers the language a construct at a time, starting with modules and registers.\nGoing further adds the constructs that make real designs short: pulses, timeouts and edges, clock domains, pipelines, multicycle paths, submodules and black boxes.\nSimulating covers driving a simulation, benches, waveforms and plots, the component library and tests and CI.\nBuilding covers Verilog output and boards and constraints.\nExtending shows how to write custom components and custom emitters.\nThe appendices hold a side-by-side with Verilog, the rules the compiler enforces, a look under the hood, and the API reference.\n\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nBoxes like this one appear throughout the manual to point out where QuartzHDL differs from what a Verilog author would expect.",
+    "crumbs": [
+      "<b>Getting started</b>",
+      "Introduction"
+    ]
+  },
+  {
+    "objectID": "verilog.html",
+    "href": "verilog.html",
+    "title": "For Verilog users",
+    "section": "",
+    "text": "The same things, side by side\nIf you write Verilog, most of QuartzHDL is a change of spelling. This page collects the correspondences in one place; the chapters have the details, and the callouts in each chapter point out where the semantics differ.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "For Verilog users"
+    ]
+  },
+  {
+    "objectID": "verilog.html#declarations",
+    "href": "verilog.html#declarations",
+    "title": "For Verilog users",
+    "section": "Declarations",
+    "text": "Declarations\n\n\n\n\n\n\n\nVerilog\nQuartzHDL\n\n\n\n\nmodule Foo(...); ... endmodule\n@quartz struct Foo ... end plus its blocks\n\n\nparameter N = 8\n@quartz struct Foo{N}\n\n\nreg [7:0] x;\nx::Bits{8}\n\n\nreg signed [11:0] x;\nx::SBits{12}\n\n\nreg x;\nx::Bool\n\n\ninput [7:0] a\n@in a::Bits{8}\n\n\noutput reg y\n@out y::Bool\n\n\ninout sda\n@io sda::Pad{1}\n\n\ninput rst_n used as !rst_n\n@in rst::Bool active=:low, used as rst\n\n\ninitial x = 5;\nx::Bits{8} = static(5)\n\n\nlocalparam IDLE = 0, RUN = 1;\n@encoding Phase begin IDLE = 0; RUN = 1 end\n\n\nFoo u(.clk(clk), .a(a));\nu::Foo = Foo() and @wire Top begin u.clk ← clk; u.a ← a end\n\n\na vendor primitive\n@blackbox",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "For Verilog users"
+    ]
+  },
+  {
+    "objectID": "verilog.html#behaviour",
+    "href": "verilog.html#behaviour",
+    "title": "For Verilog users",
+    "section": "Behaviour",
+    "text": "Behaviour\n\n\n\n\n\n\n\nVerilog\nQuartzHDL\n\n\n\n\nalways @(posedge clk) begin ... end\n@on Foo posedge(clk) begin ... end\n\n\nalways @(negedge clk)\n@on Foo negedge(clk)\n\n\nx &lt;= v;\nx ← v (or x &lt;= v)\n\n\nx = v; (blocking, as a wire)\nx = v (a local)\n\n\nassign y = expr;\n@wire Foo y ← expr\n\n\nif (rst) begin x &lt;= 0; ... end\n@reset(rst)\n\n\nif (en) begin ... end around the block\n@only_when(en)\n\n\ncase (state) ... endcase\n@fsm state begin @state ... end\n\n\ncond ? a : b\nifelse(cond, a, b)\n\n\n{a, b, c}\na ⊞ b ⊞ c or bits(a, b, c)\n\n\nx[3]\nx[3]\n\n\nx[7:4]\nx[4:7] — low first\n\n\nx[base +: 8]\nx[base .+ (0:7)] or x[part(i, Bits{8})]\n\n\nx[7:0] to narrow\ntrunc(Bits{8}, x)\n\n\n$display(...)\n@info ... (emitted only with debug = true)\n\n\nassert\n@check cond",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "For Verilog users"
+    ]
+  },
+  {
+    "objectID": "verilog.html#patterns-that-become-one-line",
+    "href": "verilog.html#patterns-that-become-one-line",
+    "title": "For Verilog users",
+    "section": "Patterns that become one line",
+    "text": "Patterns that become one line\n\n\n\nVerilog\nQuartzHDL\n\n\n\n\na flag cleared at the top of the block and set below\np::Pulse\n\n\na down-counter with a done flag\nt::Timeout{N}, expired(t)\n\n\nx_q &lt;= x; x_qq &lt;= x_q; and x_q & !x_qq\ne::Edge, rose(e)\n\n\na two-flop synchroniser\nx::MetaGuard{2} with an input x\n\n\nstage registers and a valid pipeline\np::Pipeline{K,T}\n\n\na multicycle constraint plus a settle counter\nm::Multicycle{K,T}\n\n\na state register, a case, and a step counter\n@sequence",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "For Verilog users"
+    ]
+  },
+  {
+    "objectID": "verilog.html#where-the-semantics-differ",
+    "href": "verilog.html#where-the-semantics-differ",
+    "title": "For Verilog users",
+    "section": "Where the semantics differ",
+    "text": "Where the semantics differ\n\nThere is no blocking assignment to a register. = makes a local, which is a wire. The write-then-read-in-the-same-block idiom does not exist; read the old value, or use a local.\nWidths are types, and narrowing is explicit. Verilog silently truncates on assignment; QuartzHDL requires trunc. Widening is automatic, and mixed-width arithmetic takes the wider width.\nBit ranges are low to high. x[0:3] are the four low bits.\nDirections are declared, and a port’s name inside the module is its logical name. The _i/_o/_n suffixes appear on the pins in the emitted Verilog, not in the source.\nValues mean asserted. An active=:low port is inverted at the boundary once, and nowhere else.\nNo latches. A @wire block must drive its outputs on every path, or it is an error.\nOne writer per register. Two blocks writing one register is an error at the declaration, not a multiply-driven net found at synthesis.\nInstances are never stepped from a block. The simulator steps them on their wired clocks; the source states the wiring once.\nSimulation is the Julia model, not an event simulator. There are no delays, no x or z inside the design (a pad reads its resolved level), and no races: every block on a clock reads the state before the edge and writes after it. Co-simulation checks that the Verilog agrees.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "For Verilog users"
+    ]
+  },
+  {
+    "objectID": "blackbox.html",
+    "href": "blackbox.html",
+    "title": "Black boxes and the clock tree",
+    "section": "",
+    "text": "The parts QuartzHDL does not describe: PLLs, RAM blocks, vendor primitives\nA vendor PLL, a block RAM, an oscillator: the design has to instantiate them, but what they do on a clock edge is not the design’s to say. Declare such a part as a black box. The design states what the part looks like and how it is wired; the behaviour comes from elsewhere.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "blackbox.html#declaring-a-part",
+    "href": "blackbox.html#declaring-a-part",
+    "title": "Black boxes and the clock tree",
+    "section": "Declaring a part",
+    "text": "Declaring a part\n\n@blackbox PLL48 begin\n  \"the 48 MHz PLL, from the vendor's clock wizard\"\n  clock(CLKI)\n  \"high puts the PLL to sleep\"\n  input(STDBY::Bool)\n  clockout(CLKOP, from = CLKI, divide = 1,  enable = !stdby)\n  clockout(CLKOS, from = CLKI, divide = 48, enable = !stdby)\nend\n\nPLL48\n\n\nThe declaration transcribes the datasheet. Port names keep the vendor’s spelling in the emitted Verilog (.CLKI(...)) and appear in Julia as their lowercase (pll.clki). A string at the top documents the part; one before a port documents the port. The clauses:\n\nclock(NAME, ...) declares clock inputs.\ninput(NAME::Type, ...) declares data inputs.\noutput(NAME::Type, ...) declares data outputs.\nclockout(NAME; from, divide, phase, enable) declares a clock output and how it is made: an edge every divide edges of from, offset by phase, only while enable holds, where enable may read the part’s inputs.\npragma(\"...\") is emitted as a synthesis attribute on the instance (/* synthesis syn_noprune=1 */) and means nothing to the simulator.\n\nverilog=\"Name\" after the part’s name sets the Verilog module name when it differs.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "blackbox.html#wiring-a-part",
+    "href": "blackbox.html#wiring-a-part",
+    "title": "Black boxes and the clock tree",
+    "section": "Wiring a part",
+    "text": "Wiring a part\nA black box is wired like a submodule: clock inputs to nets, data inputs to values, and clock outputs the other way round, naming the net they drive:\n\n@quartz struct Top\n  @in  sleep::Bool = false\n  pll::PLL48 = PLL48()\n  fast::Bits{8} = 0\n  slow::Bits{8} = 0\nend\n\n@wire Top begin\n  pll.clki  ← clk_48MHz          # a clock input, on a net\n  clk       ← pll.clkop          # a clock output, naming the net it drives\n  clk_1MHz  ← pll.clkos\n  pll.stdby ← sleep              # a data input, given a value\nend\n\n@on Top posedge(clk) fast ← fast + 1\n@on Top posedge(clk_1MHz) slow ← slow + 1\n\nAn input left unwired is an error. A wire to a part cannot sit under an if: the part sees its pin every cycle, so put the condition in the value.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "blackbox.html#the-clock-tree-is-the-clockout-declarations",
+    "href": "blackbox.html#the-clock-tree-is-the-clockout-declarations",
+    "title": "Black boxes and the clock tree",
+    "section": "The clock tree is the clockout declarations",
+    "text": "The clock tree is the clockout declarations\nIn simulation the clockout recipes are the behaviour of the part. Every derived clock — source, divider, phase, enable — is computed from them, and nothing else. A clock that divides holds its counter while gated, as the hardware does. A mux is a part that declares one output twice, once per source, with complementary enables. Switching it is not an edge: the output follows the newly selected source when that is low, and otherwise holds until that source’s own next edge, so a switch never adds or loses a cycle in either model.\nThe design above has two clocks derived from one pin. A Simulation needs the rate of the pin clock only; the rest follows:\n\nsim = Simulation(Top(); clocks = (clk_48MHz = 48MHz,), watch = \"*\")\nout = @run sim begin\n  advance_by(10us)\nend\nInt(sim.fast), Int(sim.slow)\n\n(224, 10)\n\n\nIn the Verilog the instance is wired to the vendor module. For co-simulation, simmodels generates a behavioural Verilog module for each part from the same recipes, so the Verilog testbench and the Julia model cannot disagree about the clock tree:\n\nsimmodels(stdout, Top);\n\n// generated by QuartzHDL from the clockout declarations of PLL48\n`timescale 1ns/1ns\nmodule PLL48 (\n  input wire CLKI,\n  input wire STDBY,\n  output reg CLKOP,\n  output reg CLKOS\n);\n\n  reg [31:0] n2_CLKOS = 32'd0;\n  initial begin\n    CLKOP = 1'b0;\n    CLKOS = 1'b0;\n  end\n\n  wire w2 = ~STDBY;\n  wire w3 = ~STDBY;\n  always @(negedge CLKI) if (w2) #1 CLKOP = 1'b0;\n\n  always @(posedge CLKI) begin\n    if (w3) begin\n      if (n2_CLKOS % 32'd48 == 32'd0) #1 CLKOS = 1'b1;\n      else if (n2_CLKOS % 32'd48 == 32'd24) #1 CLKOS = 1'b0;\n      n2_CLKOS = n2_CLKOS + 32'd1;\n    end\n    if (w2) begin\n      #1 CLKOP = 1'b1;\n    end\n  end\n\nendmodule\n\n\nA clockout with no from — an oscillator, say — is a port and nothing more: it never ticks in simulation.\nclocklevel(this, :clk_1MHz) reads a clock net as data from inside a block, for the rare design that samples a slow reference.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "blackbox.html#parts-with-data-outputs-stand-ins",
+    "href": "blackbox.html#parts-with-data-outputs-stand-ins",
+    "title": "Black boxes and the clock tree",
+    "section": "Parts with data outputs: stand-ins",
+    "text": "Parts with data outputs: stand-ins\nA part with outputs that are not clocks — a RAM — needs something to say what those outputs do. That is a stand-in, and it belongs to the test harness, not the design:\n\n@blackbox RAM256 begin\n  input(WrAddress::Bits{8}, RdAddress::Bits{8}, Data::Bits{16}, WE::Bool)\n  clock(WrClock, RdClock)\n  output(Q::Bits{16})\nend\n\nstruct Ram256Model\n  mem::Vector{UInt16}\n  q::Bits{16}\nend\n\nQuartzHDL.standin(::Type{RAM256}) = Ram256Model(zeros(UInt16, 256), Bits{16}(0))\n\nfunction Base.step(r::Ram256Model, clock::Symbol; wraddress, rdaddress, data, we)\n  clock === :rdclock && return Ram256Model(r.mem, Bits{16}(r.mem[Int(rdaddress) + 1]))\n  we || return r\n  mem = copy(r.mem); mem[Int(wraddress) + 1] = UInt16(Int(data))\n  Ram256Model(mem, r.q)\nend\n\nstandin is called when the part is constructed, so the harness loads before the design is instantiated. The simulator calls step(model, :port; inputs...) on each edge of each clock input — in declaration order when two share a net — and reads an output as the model’s field of the same name. Without a stand-in the outputs read as zero. The Verilog needs none: there the vendor’s netlist does the work.\nFor the common case, the library’s RAM is a ready-made stand-in with ports named by role, so a block RAM needs no model of its own.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nA @blackbox is an instantiation of a module QuartzHDL has no source for. Where Verilog would need a separate simulation model — often a hand-written one that drifts from the real clock tree — QuartzHDL derives the model from the clockout recipes and checks it against the Julia simulation in cosim.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "blackbox.html#next",
+    "href": "blackbox.html#next",
+    "title": "Black boxes and the clock tree",
+    "section": "Next",
+    "text": "Next\nSimulation: driving a design over time.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Black boxes and the clock tree"
+    ]
+  },
+  {
+    "objectID": "testing.html",
+    "href": "testing.html",
+    "title": "Tests and CI",
+    "section": "",
+    "text": "Unit tests, co-simulation, and running it all on every push\nA hardware test in QuartzHDL is a Julia test. That is the whole point of this chapter, but it is worth spelling out what falls out of it.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#unit-tests-with-step",
+    "href": "testing.html#unit-tests-with-step",
+    "title": "Tests and CI",
+    "section": "Unit tests with step",
+    "text": "Unit tests with step\n\n@quartz struct Gray\n  @in  x::Bits{4} = 0\n  @out g::Bits{4}\nend\n\n@on Gray posedge(clk) g ← x ⊻ (x &gt;&gt; 1)\n\n@testset \"gray code\" begin\n  m = Gray()\n  for i in 0:15\n    m = step(m; x = Bits{4}(i))\n    @test Int(m.g) == i ⊻ (i &gt;&gt; 1)\n  end\nend;\n\n\nTest Summary: | Pass  Total  Time\ngray code     |   16     16  0.2s\n\n\n\n\nBecause step takes a value and returns one, a test can fork a state, run two stimuli from it, and compare — nothing has to be reset between cases.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#checking-against-a-reference-model",
+    "href": "testing.html#checking-against-a-reference-model",
+    "title": "Tests and CI",
+    "section": "Checking against a reference model",
+    "text": "Checking against a reference model\nPorting an algorithm is where this shines. Keep the floating-point reference beside the hardware and compare on the same data:\n\nreference(xs) = [sum(xs[max(1, i - 3):i]) for i in eachindex(xs)]   # a 4-tap moving sum\n\n@quartz struct MovSum\n  @in  x::Bits{8} = 0\n  h::Bits{32} = 0            # the last four 8-bit samples\n  @out y::Bits{10}\nend\n\n@on MovSum posedge(clk) begin\n  h ← h &lt;&lt; 8 | x\n  y ← Bits{10}(x) + h[0:7] + h[8:15] + h[16:23]     # this sample and the three before it\nend\n\nxs = rand(0:255, 50)\nm = MovSum()\nys = Int[]\nfor x in xs\n  global m = step(m; x = Bits{8}(x))\n  push!(ys, Int(m.y))\nend\nys == reference(xs)\n\ntrue\n\n\nWhen the two differ, findfirst(ys .!= reference(xs)) says at which sample, and you have both models in one process to step through.\n\nA matched filter against its reference\nA fuller example, from the package’s own tests: a passband matched filter for a 13-chip Barker code, one chip per sample. The last thirteen 8-bit samples sit in a window register; each is added or subtracted as the code says, and the sum goes through a two-stage pipeline. The arithmetic is a plain Julia function, unrolled into the Verilog:\n# A passband matched filter for a 13-chip Barker code: the last thirteen samples of\n# an 8-bit signal, each added or subtracted as the code says, through a two-stage\n# pipeline. One chip per sample, so the window is the code's length.\n\nusing QuartzHDL\n\nconst TAPS = 13\nconst BARKER = Bits{13}(0b1111100110101)\n\n@quartz struct Correlator\n  @in  x::SBits{8} = 0\n  window::Bits{8 * TAPS} = 0\n  y::Pipeline{2,SBits{16}}\n  @out mf::SBits{16} = 0\n  @out valid::Bool = false\nend\n\ntap(window, k) = SBits{16}(SBits{8}(window[8k:8k+7]))\ncorrelate(window) = sum(BARKER[k] ? tap(window, k) : -tap(window, k) for k in 0:TAPS-1)\n\n@on Correlator posedge(clk) begin\n  window ← window &lt;&lt; 8 | Bits{8}(x)\n  y ← correlate(window)\n  mf ← coalesce(y, 0)\n  valid ← isnew(y)\nend\nThe reference is the same dot product in ordinary integers, over a window that starts empty. Bury the code in noise and run both on the same samples:\n\nusing Random\nRandom.seed!(4)\ncode = [BARKER[k] ? 1 : -1 for k in 0:TAPS-1]\nxs = [rand(-20:20) for _ in 1:60]\nxs[31:43] .+= 100 .* reverse(code)                      # the code, oldest chip first\n\nm = Correlator()\nout = Int[]\nfor x in xs\n  global m = step(m; x = SBits{8}(x))\n  m.valid && push!(out, Int(m.mf))\nend\n\npad = [zeros(Int, TAPS); xs]\nref = [sum(pad[n - k] * code[k + 1] for k in 0:TAPS-1) for n in TAPS+1:length(pad)]\nout[2:end] == ref[1:length(out)-1], argmax(out), maximum(out)\n\n(true, 44, 1311)\n\n\nThe two agree sample for sample — the hardware one sample behind, since its block reads the window before this cycle’s sample joins it — and the peak stands where the code ends, thirteen times the chip amplitude above the noise. When a change to the filter moves any of that, the comparison says at which sample.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#co-simulation",
+    "href": "testing.html#co-simulation",
+    "title": "Tests and CI",
+    "section": "Co-simulation",
+    "text": "Co-simulation\ncosim emits the Verilog for a module, writes a testbench, runs it under Icarus Verilog with the same stimulus as the Julia model, and compares every output and pad after every clock:\n\nstim = [(x = Bits{8}(rand(0:255)),) for _ in 1:500]\nr = cosim(MovSum, stim)\nr.ok\n\ntrue\n\n\nThe stimulus is a vector with one entry per clock edge, each a named tuple of the module’s inputs. What comes back has ok, mismatches (the first disagreements, with cycle, signal and both values), and the paths of the files it made, for looking at by hand.\nOptions:\n\nreference = \"movsum.v\" compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.\nref_init = [\"state\" =&gt; \"3'd0\"] initializes registers of the reference that the Julia model powers up differently.\nclocks = (clk = 48MHz, clk_slow = 1MHz) for a module with several clocks; the testbench then advances them in the right ratio.\nscale = (clk_slow = 10,) runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.\ndebug = true emits @info messages and @check failures into the Verilog as $display and $error.\n\nWhere a design uses a black box, simmodels writes behavioural Verilog for each part from its clockout recipes, and cosim includes it; a part with a stand-in needs a Verilog model of its own, passed with extra_sources.\n\n\n\n\n\n\nNote\n\n\n\ncosim needs iverilog and vvp on the path. It is the one part of QuartzHDL that runs anything but Julia, and it is what makes the claim “the Verilog does what the Julia does” a tested fact rather than an intention.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#system-tests",
+    "href": "testing.html#system-tests",
+    "title": "Tests and CI",
+    "section": "System tests",
+    "text": "System tests\nA system test builds a Simulation with the library components around the design and talks to it as a host would. It reads like a description of the board:\n@testset \"the device answers a version request\" begin\n  sim = Simulation(Top(); clocks = CLOCKS, wiring = WIRING, flash = W25Q())\n  host = UART(sim; rx = \"tx\", tx = \"rx\", baud = 115200)\n  @run sim begin\n    sim.rst = true\n    advance_by(1ms)\n    sim.rst = false\n  end\n  write(host, \"V\\n\")\n  @test readline(host) == \"1.2.0\"\nend;",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#ci",
+    "href": "testing.html#ci",
+    "title": "Tests and CI",
+    "section": "CI",
+    "text": "CI\nA QuartzHDL package tests like any Julia package, so the standard GitHub Actions workflow works. Add Icarus Verilog for the co-simulation tests:\nname: CI\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: julia-actions/setup-julia@v2\n        with:\n          version: '1'\n      - run: sudo apt-get install -y iverilog\n      - uses: julia-actions/julia-buildpkg@v1\n      - uses: julia-actions/julia-runtest@v1\nA pull request that changes a module runs the unit tests, the reference comparisons, the co-simulations and the system tests before anyone reads the diff.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "testing.html#next",
+    "href": "testing.html#next",
+    "title": "Tests and CI",
+    "section": "Next",
+    "text": "Next\nVerilog output: getting the Verilog out, and the command line.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Tests and CI"
+    ]
+  },
+  {
+    "objectID": "benches.html",
+    "href": "benches.html",
+    "title": "Benches",
+    "section": "",
+    "text": "Clocks with real rates, and the design wired to models of what surrounds it\nA Simulation is built on a Bench: the design plus stubs — models of the chips around it — advanced together on one clock plan. This chapter is about the two declarations that set a bench up, @clocks and @wiring, and about the bench itself, which you can also drive directly.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "benches.html#clocks-the-plan",
+    "href": "benches.html#clocks-the-plan",
+    "title": "Benches",
+    "section": "@clocks: the plan",
+    "text": "@clocks: the plan\n\nplan = @clocks begin\n  clk   = 48MHz\n  slow  = 1MHz\n  sensor = 400kHz, dithered\nend\n\nClockPlan(48.0MHz grid, clk 48.0MHz, slow 1.0MHz, sensor 400.0kHz dithered)\n\n\nWhat @clocks makes is a ClockPlan. Every clock that arrives on a pin gets a rate here, and so does every stub that is stepped at a rate of its own. Rates are absolute, so a run reports the time it covered in seconds, and a capture has a real time axis.\nOne slot is the finest grid every rate divides. A clock that does not divide the grid the others make can be marked dithered: it then ticks on the nearest slot, with its mean rate exactly as asked and up to one slot of jitter. An unmarked clock that does not fit is an error naming both ways out, because an exact common grid for two unrelated oscillators is usually an accident.\nClocks a black box derives are not listed: they follow from their sources.\nA simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is clocks = (clk = 1MHz,) (with using QuartzHDL.Units for the units). A dithered clock is (rate, :dithered), and grid sets the slot rate, as in the block.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "benches.html#wiring-connections-to-the-outside",
+    "href": "benches.html#wiring-connections-to-the-outside",
+    "title": "Benches",
+    "section": "@wiring: connections to the outside",
+    "text": "@wiring: connections to the outside\n\n@quartz struct Dut\n  @in  rx::Bool = true\n  @out tx::Bool\n  @io  sda::Pad{1}  ext_pull=:up\n  n::Bits{8} = 0\nend\n\n@on Dut posedge(clk) begin\n  n ← n + 1\n  tx ← n[7]\nend\n\n@wire Dut sda ← ifelse(n[0], drive(false), release())\n\nwiring = @wiring begin\n  dut.rx    ← echo.tx                  # an input of the design, from a stub\n  echo.rx   ← dut.tx                   # an input of a stub, from the design\n  dut.sda   ← drive(false, echo.pull)  # what a stub drives on a pad's net\n  echo.sda  ← dut.sda                  # and the level that net resolves to\nend\n\nWiring{var\"#9#10\", 2}(var\"#9#10\"(), (:rx, :sda))\n\n\nThe arrow is the design’s own: the left side is an input, the right side a value from the others’ outputs. Every stub sees the state at the start of the slot, so a combinational path out through a peripheral and back arrives a slot later, as it would on a board.\nA pad of the design names its net. Wired to, it takes what the outside drives on the net; read, it gives the level the net resolves to — from the design’s drive, the outside’s and the pull. An input the block leaves out is undriven, and a net with no pull that nobody holds reads zero. A bench with nothing to connect needs no @wiring at all: wiring defaults to the empty one.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "benches.html#a-stub",
+    "href": "benches.html#a-stub",
+    "title": "Benches",
+    "section": "A stub",
+    "text": "A stub\nA stub is any value with a step method — including another @quartz module, which is often the easiest way to write one:\n\n@quartz struct Echo\n  @in  rx::Bool = false\n  @in  sda::Bool = true\n  @out tx::Bool\n  @out pull::Bool = false\n  seen::Bool = false\nend\n\n@on Echo posedge(clk) begin\n  tx ← rx\n  seen ← sda\nend\n\nA hand-written stub is a struct with Base.step(s::MyStub; inputs...) returning the new state. Its outputs are its fields.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "benches.html#the-bench",
+    "href": "benches.html#the-bench",
+    "title": "Benches",
+    "section": "The bench",
+    "text": "The bench\n\nplan = @clocks begin\n  clk  = 48MHz\n  echo = 48MHz         # a stub is stepped at a rate, like a clock\nend\n\nb = Bench(Dut(); clocks = plan, wiring, echo = Echo())\nb = step(b, 1000)\nfloat(time(b))\n\n2.0833333333333333e-5\n\n\nstep(b, n) advances n slots. b.dut is the design and b.stubs.echo the stub, as values:\n\nInt(b.dut.n), b.stubs.echo.seen\n\n(232, false)\n\n\npadnet(b, :sda) gives what each side is driving on a pad’s net and what it resolves to, and netlevel resolves a set of drives against a pull by hand, when a test wants to check the wire itself. history(b) is the list of states a bench kept, if it was asked to keep them.\nMost of the time you will not touch the bench directly: a Simulation takes the same keywords, adds the recorder, the tasks and the net names, and is what the rest of this manual drives. Reach for Bench when you want a pure, allocation-free loop — a long Monte Carlo run, say — and nothing else.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nA bench is the testbench, minus the testbench. The clock generators come from @clocks, the wiring from @wiring, and the stubs are whatever Julia values you like. What there is none of is the initial block full of #10 clk = ~clk; lines.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "benches.html#next",
+    "href": "benches.html#next",
+    "title": "Benches",
+    "section": "Next",
+    "text": "Next\nWaveforms and plots: waveforms in a viewer and in a plot.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Benches"
+    ]
+  },
+  {
+    "objectID": "multicycle.html",
+    "href": "multicycle.html",
+    "title": "Multicycle paths",
+    "section": "",
+    "text": "Multicycle{K,T}: slow logic whose inputs are slower still\nSometimes the logic is slow but its inputs are slower. A correlation over a long shift register that only shifts once per symbol has no need of pipeline stages, only of time: if the register holds still for sixteen clocks, the logic may take sixteen clocks to settle. Telling the vendor tools so is a multicycle path constraint, and it is the kind of constraint that is easy to write wrongly, because it names registers by hand and nothing checks it.\nA Multicycle{K,T} is a wire allowed K cycles to settle, on the promise that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator’s check from the same traced logic.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "multicycle.html#declaring-one",
+    "href": "multicycle.html#declaring-one",
+    "title": "Multicycle paths",
+    "section": "Declaring one",
+    "text": "Declaring one\n\n@quartz struct Corr\n  @in  x::Bool\n  @in  sample::Bool\n  seq::Bits{31} = 0x2f5a2c07\n  bb::Bits{31} = 0\n  xcorr::Multicycle{8,Bits{6}}\n  @out mfo::Bits{6}\nend\n\n@wire Corr xcorr ← Bits{6}(count_ones(bb ⊻ seq))\n\n@on Corr posedge(clk) begin\n  if sample                        # once per symbol, eight clocks or more apart\n    mfo ← xcorr\n    bb ← bb &lt;&lt; 1 | x\n  end\nend\n\nA multicycle wire is driven by a @wire block and read bare. Its sources must be registers of this module — an input is copied into a register first — and the compiler reads them off the wire’s logic, together with the registers the value reaches.\nFrom that one reading it produces three things:\n\nthe timing exception in the constraint file, naming every source and every sink;\na settle counter in the Verilog, restarted whenever a source is written, that isready(xcorr) reads;\nthe same counter in the simulator, which raises an error if the design reads the wire before its time.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "multicycle.html#reading-one",
+    "href": "multicycle.html#reading-one",
+    "title": "Multicycle paths",
+    "section": "Reading one",
+    "text": "Reading one\nisready(m) says the promise has been kept since the sources last moved: it is true from the K-th edge after a source was written, which is when a register at the end of the path may safely capture. A design that reads by its own timing, as the correlator above does with sample, needs no isready — the simulator checks the timing for it, and complains if sample ever comes too soon:\n\nm = Corr()\nfor i in 1:40\n  m = step(m; x = isodd(i), sample = i % 8 == 0)\nend\nInt(m.mfo)\n\n15\n\n\n\nm = Corr()\nfor i in 1:6\n  m = step(m; x = true, sample = true)   # every cycle: far too soon\nend\n\n\nxcorr is read 1 cycle after its sources moved, and its path is declared 8 cycles; guard the read with isready(xcorr)\nStacktrace:\n [1] error(s::String)\n   @ Base ./error.jl:44\n [2] getindex\n   @ ~/Projects/QuartzHDL.jl/src/core/reg.jl:474 [inlined]\n [3] macro expansion\n   @ ~/Projects/QuartzHDL.jl/qdocs/multicycle.qmd:35 [inlined]\n [4] #6\n   @ ~/Projects/QuartzHDL.jl/src/core/blocks.jl:328 [inlined]\n [5] _runclock(m::Corr, ::Val{:clk}, ::Val{:posedge}, kw::@NamedTuple{x::Bool, sample::Bool})\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/core/blocks.jl:1025\n [6] _stepinner(m::Corr, clk::Val{:clk}, kw::@NamedTuple{x::Bool, sample::Bool}, ctx::QuartzHDL.PadContext{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}})\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/core/blocks.jl:1082\n [7] _stepwith\n   @ ~/Projects/QuartzHDL.jl/src/core/blocks.jl:942 [inlined]\n [8] #step#45\n   @ ~/Projects/QuartzHDL.jl/src/core/blocks.jl:204 [inlined]\n [9] top-level scope\n   @ ~/Projects/QuartzHDL.jl/qdocs/multicycle.qmd:65",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "multicycle.html#constraints-by-hand",
+    "href": "multicycle.html#constraints-by-hand",
+    "title": "Multicycle paths",
+    "section": "Constraints by hand",
+    "text": "Constraints by hand\nA path that is not a wire’s — a slow transfer between two registers, say — can still be declared for the constraint file, once per module:\n@multicycle Sys 15 a =&gt; b\nThis writes the exception and nothing else: no counter and no check, since there is no wire to derive them from. Prefer a Multicycle wire where one fits.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nThe Verilog for a Multicycle is an assign for the wire, a small counter, and a ready bit. The constraint file gets MULTICYCLE lines from the same source, so the two cannot disagree about which registers the path runs between — which is the usual way hand-written multicycle constraints go wrong.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "multicycle.html#pipeline-or-multicycle",
+    "href": "multicycle.html#pipeline-or-multicycle",
+    "title": "Multicycle paths",
+    "section": "Pipeline or multicycle?",
+    "text": "Pipeline or multicycle?\n\nThe inputs change every cycle and you need a result every cycle: a Pipeline. It costs registers and adds latency, and it is always safe.\nThe inputs hold still for K cycles at a time: a Multicycle. It costs nothing but a counter, and the promise is checked in simulation and stated to the tools.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "multicycle.html#next",
+    "href": "multicycle.html#next",
+    "title": "Multicycle paths",
+    "section": "Next",
+    "text": "Next\nSubmodules: modules inside modules.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Multicycle paths"
+    ]
+  },
+  {
+    "objectID": "library.html",
+    "href": "library.html",
+    "title": "Library components",
+    "section": "",
+    "text": "The chips around the design, ready to attach\nWhat sits on the board beside the design — a USB controller, a UART, an SPI flash, an I2C sensor, a block RAM — comes from the library. A component is bound to the design’s nets by role, and then talked to the way a host would talk to the hardware.\nA component needs no wiring and no entry in the clock plan: it reads and drives nets the way a stimulus does, from a task of its own or, for a bus it must watch every cycle, a hook run after every slot. Pins are asserted as true, as everywhere in the design; a pin declared active=:low is inverted at the pin, not here. close(c) takes a component off the bench.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#uart",
+    "href": "library.html#uart",
+    "title": "Library components",
+    "section": "UART",
+    "text": "UART\nLet’s build a loopback and talk to it:\n\n@quartz struct Loop\n  @in  rx::Bool = true\n  @out tx::Bool = true\nend\n\n@on Loop posedge(clk) tx ← rx\n\nsim = Simulation(Loop(); clocks = (clk = 48MHz,))\nu = UART(sim; rx = \"tx\", tx = \"rx\", baud = 115200)\n\nUART(tx ← design, design ← rx, 115200 baud)\n\n\nThe roles are the UART’s own: its rx listens on the design’s tx. A UART is a stream, and a stream is talked to like a serial port:\n\nwrite(u, \"hello\\n\")          # blocks, in simulation time, until it has gone out\nreadline(u)                  # advances until a line has come in\n\n\"hello\"\n\n\n\nput!(u, [0x01, 0x02]); @run sim advance_by(1ms); take!(u)   # queue and collect, without blocking\n\n2-element Vector{UInt8}:\n 0x01\n 0x02\n\n\nA stream is an IO, so print, readuntil, read and the rest work on it. A blocking call suspends its task inside a @run, or runs the simulation itself at top level, and gives up after the link’s timeout. frame = 8 or frame = \"\\n\" groups what arrives into units for take!, read(u) and on. UART(sim; ..., parity = :even, stop = 2) sets the framing.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#ft2232h",
+    "href": "library.html#ft2232h",
+    "title": "Library components",
+    "section": "FT2232H",
+    "text": "FT2232H\nThe FT2232H is a USB-to-parallel FIFO, driven on the design’s byte bus in FT245 asynchronous mode:\nft = FT2232H(sim; data = \"usb_data\", rd = \"usb_rd\", wr = \"usb_wr\",\n                  rxf = \"usb_rxf\", txe = \"usb_txe\", frame = 8)\nwrite(ft, bytes)\ntake!(ft)                     # the next 8-byte frame the design sent\nIt is a stream like the UART, and it watches the bus every slot, so the design’s read and write strobes are honoured whenever they come.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#spi",
+    "href": "library.html#spi",
+    "title": "Library components",
+    "section": "SPI",
+    "text": "SPI\nm  = SPIMaster(sim; sclk = \"sclk\", mosi = \"mosi\", miso = \"miso\", cs = \"cs\", rate = 2MHz, mode = 0)\nsl = SPISlave(sim; sclk = \"sclk\", mosi = \"mosi\", miso = \"miso\", cs = \"cs\")\nA master is a transaction link: transfer(m, bytes) selects the chip, clocks the bytes out and returns the bytes that came back. A slave answers each byte with a closure:\non(sl) do b\n  b .+ 0x40                   # what to send next, given what just arrived\nend\nmode is the usual 0–3 (clock polarity and phase).",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#i2c",
+    "href": "library.html#i2c",
+    "title": "Library components",
+    "section": "I2C",
+    "text": "I2C\ni   = I2CMaster(sim; scl = \"scl\", sda = \"sda\", rate = 400kHz)\nrtc = I2CSlave(sim; scl = \"scl\", sda = \"sda\", address = 0x51)\nThe master’s verbs are write(i, address, bytes) and read(i, address, n). A slave answers a transaction with a closure, the way a device would — here, a register file:\nregisters = collect(0x00:0x0f)\non(rtc) do bytes              # what the master wrote: here, a register address\n  registers[bytes[1] + 1:end] # what the next read will return\nend\nThe bus is open-drain, so the design’s scl and sda are pads with ext_pull=:up. Clock stretching is not modelled.\n\n\n\n\n\n\nWarningOne outside driver per net\n\n\n\nA simulation keeps one drive per net from outside the design, so a pad can carry one library component: a slave on the bus the design’s master runs, or a master on the bus a design’s slave listens to. Two library components on the same pad — two slaves on one bus, or a library master and a library slave with no design between them — overwrite each other’s drive, and the transaction fails. A second device on a shared bus has to be a module of the design for now.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#pwm",
+    "href": "library.html#pwm",
+    "title": "Library components",
+    "section": "PWM",
+    "text": "PWM\nA pulse train on a net — a clock, a strobe, a gated burst:\np = PWM(sim; out = \"ext_clk\", rate = 1MHz, duty = 0.5)      # a clock\np = PWM(sim; out = \"trigger\", rate = 10kHz, duty = 0.1, count = 3)   # three pulses\np.duty = 0.25                                                # changed while running",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#ram",
+    "href": "library.html#ram",
+    "title": "Library components",
+    "section": "RAM",
+    "text": "RAM\nA memory that stands in for a vendor RAM block behind a black box. Its ports are named by role, in the lowercase names Julia sees; any number of each:\nQuartzHDL.standin(::Type{DacRam}) =\n  RAM(8192, 16; read  = (clock = :rdclock, addr = :rdaddress, data = :q, en = :rdclocken),\n                write = (clock = :wrclock, addr = :wraddress, data = :data, we = :we))\nram[0x10]                     # read a word from the harness\nram[0x10] = 0xff              # write one\nfill!(ram, 0)\nA read port holds the word its address named before the edge, and a read of the address being written sees the old word. The storage is changed in place, and reset! does not clear it.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#answering-with-a-closure",
+    "href": "library.html#answering-with-a-closure",
+    "title": "Library components",
+    "section": "Answering with a closure",
+    "text": "Answering with a closure\nThe pattern is the same across the library: on(component) do unit ... end is called with each unit as it arrives — a transaction for I2C, a byte or a configured frame for an SPI slave or a stream — and what it returns is queued to send. A unit given to a closure is not kept for take!. A slave with nothing queued sends 0xff.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "library.html#next",
+    "href": "library.html#next",
+    "title": "Library components",
+    "section": "Next",
+    "text": "Next\nCustom components.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Library components"
+    ]
+  },
+  {
+    "objectID": "boards.html",
+    "href": "boards.html",
+    "title": "Boards and constraints",
+    "section": "",
+    "text": "Where each port goes: @board and the constraint file\nThe design says nothing about pins, and the board says nothing about logic. A @board is the pin map of one physical board; the constraint file is written from the two together, and refuses if they disagree.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "boards.html#board",
+    "href": "boards.html#board",
+    "title": "Boards and constraints",
+    "section": "@board",
+    "text": "@board\n\n@quartz struct Top\n  @in  rst::Bool = false  active=:low\n  @out led::Bits{4} = 0\n  @io  sda::Pad{1}  ext_pull=:up\n  n::Bits{26} = 0\nend\n\n@on Top posedge(clk) begin\n  @reset(rst)\n  n ← n + 1\n  led ← n[22:25]\nend\n\n@wire Top sda ← release()\n\n@board Rev2 begin\n  \"revision 2 of the evaluation board\"\n  device  = \"LFE5U-25F-6BG381C\"\n  io      = :LVCMOS33                  # every pin below, unless it says otherwise\n\n  clk =&gt; (pin = \"G2\", osc = 12MHz)     # a rate belongs with the pin it arrives on\n  rst =&gt; (pin = \"R1\", pull = :up)\n  sda =&gt; (pin = \"T2\", drive = 8, ext_pull = :up)\n  led =&gt; (pins = [\"A9\", \"B9\", \"A10\", \"B10\"], io = :LVCMOS25)\nend\n\nMain.Notebook.Rev2\n\n\nEvery line is either a setting — key = value — or a binding of a port to its pin. Ports are named as the design names them; the constraint file names the pins as the emitted Verilog does. A port of an instance is addressed by path, uart.tx. A site is written the way the datasheet writes it: \"G2\" on a BGA, pin = 27 on a numbered package.\nA setting that is a pin attribute (io, pull, drive, ext_pull) applies to every binding; a binding overrides it, nothing included — (pin = 27, io = nothing) says “left to the tool, on purpose”. pins = [...] takes nothing for a bit with no pin, and an attribute may vary by bit: pull = (0:2 =&gt; :down,).\nAttribute names are a closed set, checked where they are written, since a misspelt one that was quietly ignored would leave a pin with the wrong buffer. A string at the top documents the board; one before a binding documents the pin.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "boards.html#lpf-the-constraint-file",
+    "href": "boards.html#lpf-the-constraint-file",
+    "title": "Boards and constraints",
+    "section": "LPF: the constraint file",
+    "text": "LPF: the constraint file\n\nwrite(stdout, Top, LPF(Rev2));\n\n// generated by QuartzHDL for Top on Rev2 (LFE5U-25F-6BG381C)\nLOCATE COMP \"clk_i\" SITE \"G2\" ;\nLOCATE COMP \"rst_ni\" SITE \"R1\" ;\nLOCATE COMP \"sda_io\" SITE \"T2\" ;\nLOCATE COMP \"led_o[0]\" SITE \"A9\" ;\nLOCATE COMP \"led_o[1]\" SITE \"B9\" ;\nLOCATE COMP \"led_o[2]\" SITE \"A10\" ;\nLOCATE COMP \"led_o[3]\" SITE \"B10\" ;\nIOBUF PORT \"clk_i\" PULLMODE=NONE IO_TYPE=LVCMOS33 ;\nIOBUF PORT \"rst_ni\" PULLMODE=UP IO_TYPE=LVCMOS33 ;\nIOBUF PORT \"sda_io\" PULLMODE=NONE IO_TYPE=LVCMOS33 DRIVE=8 ;\nIOBUF PORT \"led_o[0]\" PULLMODE=NONE IO_TYPE=LVCMOS25 ;\nIOBUF PORT \"led_o[1]\" PULLMODE=NONE IO_TYPE=LVCMOS25 ;\nIOBUF PORT \"led_o[2]\" PULLMODE=NONE IO_TYPE=LVCMOS25 ;\nIOBUF PORT \"led_o[3]\" PULLMODE=NONE IO_TYPE=LVCMOS25 ;\nFREQUENCY NET \"clk_i\" 12.000000 MHz ;\n\n\nLPF writes the Lattice constraint file: pin sites, buffer settings, the frequency of every clock (from the oscillators and the clock tree, through every black box), the nets that want a global buffer, and the timing exceptions — one for every source and sink of a Multicycle wire, and any declared by hand with @multicycle.\nWhich clocks ride the chip’s global distribution is a choice about the design, made once on the top module:\n@primary Top clk, clk_fast\nEach name must be a clock the design has, and LPF writes a USE PRIMARY NET line for each. A design that says nothing leaves the choice to the tool.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "boards.html#what-it-refuses",
+    "href": "boards.html#what-it-refuses",
+    "title": "Boards and constraints",
+    "section": "What it refuses",
+    "text": "What it refuses\nThe constraint writer checks the design against the board and refuses to write anything if:\n\na port has no pin, or a pin names a port that does not exist;\ntwo ports sit on one site;\na port’s width does not match its pin count;\nthe design declares ext_pull on a pad and the board does not provide it.\n\n\n@board Wrong begin\n  device = \"LFE5U-25F-6BG381C\"\n  clk =&gt; (pin = \"G2\", osc = 12MHz)\n  rst =&gt; (pin = \"R1\")\n  led =&gt; (pins = [\"A9\", \"B9\", \"A10\"])   # three pins for a 4-bit port\n  sda =&gt; (pin = \"T2\")                   # and no pull-up for an open-drain pad\nend\nwrite(devnull, Top, LPF(Wrong))\n\n\nWrong and Top do not agree:\n  led is 4 bits and Wrong gives it 3 pin(s)\n  sda needs an external pull-up and Wrong gives none\nStacktrace:\n [1] error(s::String)\n   @ Base ./error.jl:44\n [2] _lpf(io::IOBuffer, T::Type{Top}, b::Board)\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/emitters/lpf.jl:10\n [3] write(io::Base.DevNull, T::Type{Top}, f::LPF)\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/emitters/lpf.jl:6\n [4] top-level scope\n   @ ~/Projects/QuartzHDL.jl/qdocs/boards.qmd:87\n\n\n\nEach of those is a bug that would otherwise be found in the lab, with a scope.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\n@board plus LPF replaces the hand-maintained .lpf and keeps it in step with the design: rename a port, and the constraint line follows; add a Multicycle wire, and its exception appears. Only Lattice’s format is written today; the @board description itself holds nothing vendor-specific except the device name.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "boards.html#the-command-line",
+    "href": "boards.html#the-command-line",
+    "title": "Boards and constraints",
+    "section": "The command line",
+    "text": "The command line\nquartz design.jl --top Top --board Rev2 --outdir build\nwrites Top.v and Rev2.lpf together, which is what a build script calls.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "boards.html#next",
+    "href": "boards.html#next",
+    "title": "Boards and constraints",
+    "section": "Next",
+    "text": "Next\nThe appendices: a side-by-side with Verilog, the rules, a look under the hood, and the reference.",
+    "crumbs": [
+      "<b>Building</b>",
+      "Boards and constraints"
+    ]
+  },
+  {
+    "objectID": "fsm.html",
+    "href": "fsm.html",
+    "title": "State machines and sequences",
+    "section": "",
+    "text": "Named states, @fsm, and multi-step transactions with @sequence",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "fsm.html#encodings",
+    "href": "fsm.html#encodings",
+    "title": "State machines and sequences",
+    "section": "Encodings",
+    "text": "Encodings\nAn @encoding names a set of values over a Bits{N}:\n\n@encoding Phase begin\n  IDLE = 0\n  RUN  = 1\n  DONE = 2\nend\n\nPhase(IDLE = Bits{2}(0h), RUN = Bits{2}(1h), DONE = Bits{2}(2h))\n\n\nGive the values where they matter — a protocol tag, or a state whose bits drive something directly — or leave them out and let them be numbered. encoding = :onehot or :gray picks a scheme when the values do not matter but the layout does:\n\n@encoding Lamp encoding=:onehot begin\n  RED; AMBER; GREEN\nend\nLamp.AMBER\n\nBits{3}(2h)\n\n\nOutside a module, a value of the encoding is written with its name, Phase.RUN, since there it is a number. encname(Phase, v) gives a value’s name back, and a state may carry a docstring that statedoc reads.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "fsm.html#state-machines",
+    "href": "fsm.html#state-machines",
+    "title": "State machines and sequences",
+    "section": "State machines",
+    "text": "State machines\nA register declared with an encoding as its type is a Bits of the encoding’s width that knows its encoding. Inside a block, a bare state name then means the state wherever it meets that register — assigned to it, compared with it, as its default, in a @state label:\n\n@quartz struct Machine\n  @in  go::Bool\n  state::Phase = IDLE\n  n::Bits{8} = 0\n  @out y::Bits{8}\nend\n\n@on Machine posedge(clk) begin\n  @fsm state begin\n    @state IDLE\n      go && (state ← RUN)\n    @state RUN\n      n ← n + 1\n      n == 5 && (state ← DONE)\n    @otherwise\n      state ← IDLE\n  end\n  y ← n\nend\n\n@fsm expands to the if/elseif chain you would otherwise write, so nothing about simulation or emission changes. What it adds is the checking: every state must have a branch or there must be an @otherwise; no state may appear twice; a name the encoding does not define is an error. The Verilog gets a case over localparams, so the state machine reads by name there too.\nLet’s run it:\n\nm = Machine()\nm = step(m; go = true)\nfor _ in 1:6\n  m = step(m; go = false)\nend\nencname(Phase, m.state), m.y\n\n(:DONE, Bits{8}(05h))\n\n\nA state name that is also a field, an input or a local is an error — a bare name may not mean two things. state ← go ? RUN : IDLE works; so does handing a state to a method that writes it straight into the register: send(DONE) for @method send(s) = (state ← s).\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nAn @encoding is a set of localparams and a @fsm is a case statement, with the checks a linter would do. The one difference to remember: a bare state name only resolves against a register of that encoding’s type. Anywhere else, write Phase.RUN.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "fsm.html#sequences",
+    "href": "fsm.html#sequences",
+    "title": "State machines and sequences",
+    "section": "Sequences",
+    "text": "Sequences\nLogic that does one thing after another over several cycles — a bus transaction, a handshake, a conversion — is a state machine whose states are steps. @sequence writes it as the steps:\n\n@quartz struct Writer\n  @in  go::Bool\n  @in  nack::Bool\n  @in  z::Bits{8}\n  step::Bits{4} = 0\n  x::Bits{8} = 0\n  y::Bits{8} = 0\n  @out busy::Bool\nend\n\n@on Writer posedge(clk) begin\n  @sequence Xfer step begin\n    @when go                 # START: wait for go, then\n    x ← y\n    @then SEND               # next cycle\n    y ← z\n    @repeat 4 begin          # four cycles of\n      y ← y + 1\n      nack && @goto START    # unless told to give up\n    end\n    @delay 2                 # two idle cycles\n    @then @when z == 5       # wait here until z is 5\n    x ← 4\n  end                        # and back to START\n  busy ← step != Xfer.START\nend\n\nstep is a field the struct declares, and the only register the sequence uses; it is an error if it is too narrow for the number of steps. The statements between dividers are one step: one cycle, all writes in parallel, then on to the next.\n\n@then starts the next step; @then NAME names it. The first step is always START.\n@when cond at the head of a step holds there until cond is true, and runs the step’s body on that cycle. @then NAME @when cond on one line is the same as on two.\n@delay n is n idle steps.\n@repeat n begin ... end is its body n times over, unrolled — so it is steps rather than a counter, and its steps cannot be named.\n@goto NAME in a body goes to that step, guard and all.\nAfter the last step the sequence goes back to START, so a leading @when go re-arms it.\n\nXfer is an @encoding of the steps, made by the block: Xfer.START, Xfer.SEND, and Xfer.step_2… for the unnamed ones. Inside the body a label is bare; outside it — in another block, or in a test — it is written with the sequence’s name:\n\nm = Writer()\nm = step(m; go = true, nack = false, z = Bits{8}(9))\nm = step(m; go = false, nack = false, z = Bits{8}(9))\nencname(Xfer, m.step), m.busy\n\n(:step_2, true)\n\n\nThe trace shows the step by name, and the Verilog is a case over localparams with a default that returns to START, so a register value that is no step recovers.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "fsm.html#a-uart-transmitter",
+    "href": "fsm.html#a-uart-transmitter",
+    "title": "State machines and sequences",
+    "section": "A UART transmitter",
+    "text": "A UART transmitter\nWriter shows every divider once; here is the same construct with a purpose. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time — and the bit time is a Timeout, reloaded at every step, so the sequence waits on expired rather than counting:\n\nconst BIT_TIME = 103                 # clocks per bit, less one: 9600 baud from 1 MHz\n\n@quartz struct UartTx\n  @in  send::Bool = false\n  @in  data::Bits{8} = 0\n  @out tx::Bool = true\n  @out busy::Bool\n  step::Bits{5} = 0\n  shift::Bits{8} = 0\n  parity::Bool = false\n  baud_timer::Timeout{7}\nend\n\n@on UartTx posedge(clk) begin\n  @sequence Frame step begin\n    @when send                       # wait for send, then\n    shift ← data\n    parity ← isodd(popcount(data))   # a Julia function, computed in hardware\n    tx ← false                       # start bit\n    baud_timer ← BIT_TIME\n    @repeat 8 begin\n      @when expired(baud_timer)      # one bit time later\n      tx ← shift[0]                  # a data bit, LSB first\n      shift ← shift &gt;&gt; 1\n      baud_timer ← BIT_TIME\n    end\n    @then @when expired(baud_timer)\n    tx ← parity                      # even parity\n    baud_timer ← BIT_TIME\n    @then @when expired(baud_timer)\n    tx ← true                        # stop bit\n    baud_timer ← BIT_TIME\n    @then @when expired(baud_timer)  # hold it, then back to waiting for send\n  end\n  busy ← step != Frame.START\nend\n\nThe @repeat 8 unrolls into eight steps, one per data bit, so step needs five bits for the twelve of them. Run it at its real rate in a simulation and the frame is on the pin:\n\nusing Plots\nsim = Simulation(UartTx(); clocks = (clk = 1MHz,), watch = \"tx\")\nout = @run sim begin\n  sim.data = Bits{8}('A')\n  sim.send = true\n  advance_by(1.2ms)\nend\nplot(out.tx; legend = false)\n\n\n\n\nStart bit low, 'A' is 0x41 sent LSB first, an even parity of 0, then the stop bit high.\n@sequence is @fsm with the bookkeeping done for you, so nothing about simulation or emission changes. Dividers belong at the top level of the sequence or of a @repeat body; one inside an if is an error rather than a guess.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "fsm.html#next",
+    "href": "fsm.html#next",
+    "title": "State machines and sequences",
+    "section": "Next",
+    "text": "Next\nPulses, timeouts and edges: Pulse, Timeout and Edge.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "State machines and sequences"
+    ]
+  },
+  {
+    "objectID": "reference.html",
+    "href": "reference.html",
+    "title": "Reference",
+    "section": "",
+    "text": "Every exported name, from its docstring",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#types",
+    "href": "reference.html#types",
+    "title": "Reference",
+    "section": "Types",
+    "text": "Types\n\n\n\n\n\n\nQuartzModule\nThe supertype of every @quartz struct: a hardware module, whose fields are its registers and instances and whose blocks are declared with @on and @wire.\n\n\n\n\n\n\n\n\n\nBits{N}\nAn unsigned hardware integer N bits wide, the type most registers and ports have. It wraps on overflow and truncates on a slice, as the wire does.\n@quartz struct Ctr\n  n::Bits{8} = 0\nend\n\n\n\n\n\n\n\n\n\nSBits{N}\nA signed (two’s complement) hardware integer N bits wide. Signed and unsigned values never mix in one expression: convert one of them first.\n\n\n\n\n\n\n\n\n\nPulse\nA one-cycle flag: a field declared Pulse is a Bool its own block clears at the top of every cycle, so a write of true is high for exactly one cycle.\n@quartz struct Rx\n  got::Pulse\nend\n\n\n\n\n\n\n\n\n\nTimeout{N}\nA countdown: a field declared Timeout{N} is a Bits{N} its own block decrements each cycle and holds at zero. Write it to arm it and ask expired when it is done.\n@quartz struct Rx\n  wait::Timeout{4} = 0\nend\n\n\n\n\n\n\n\n\n\nEdge\nA Bool register that also remembers the level it held before, so its transitions can be asked about. Write it like any register, e ← x, and read it bare for the level; rose(e) and fell(e) are then true for exactly one cycle.\n@quartz struct Sync\n  sck::Edge\nend\n\n\n\n\n\n\n\n\n\nMetaGuard{K}\nA K-stage synchroniser for a signal that crosses into this clock domain. Feed it with g ← x and read it bare for the value that has settled through all K stages.\n@quartz struct Top\n  @in async::Bool\n  sync::MetaGuard{2}\nend\n\n\n\n\n\n\n\n\n\nPipeline{K,T}\nA K-deep pipeline of T values. A write pushes a value in; reading it bare gives what has come out the far end, or missing before anything has. isnew says a fresh result arrived this cycle and isready says nothing is still inside.\n@quartz struct Mac\n  acc::Pipeline{3,Bits{16}}\nend\n\n\n\n\n\n\n\n\n\nMulticycle{K,T}\nA combinational value whose logic is allowed K clock cycles to settle, on the promise that its sources hold still that long. Drive it from a @wire block, read it bare, and guard the read with isready; the tool is told to relax the path.\n@quartz struct Corr\n  sum::Multicycle{3,Bits{32}}\nend\n\n\n\n\n\n\n\n\n\nPad{N}\nAn inout pin, or a bus of N of them, declared with @io. Write drive(x) or release() to it and read it bare for the level the net settles to – the design’s drive, the outside world’s, and the pull together.\n@quartz struct I2C\n  @io sda::Pad{1} = Pad(:pullup)\nend",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#modules-and-ports",
+    "href": "reference.html#modules-and-ports",
+    "title": "Reference",
+    "section": "Modules and ports",
+    "text": "Modules and ports\n\n\n\n\n\n\n@quartz struct Name ... end\nDeclares a hardware module: a plain Julia struct whose fields are its registers, with @in, @out and @io lines declaring what crosses its boundary. The blocks that drive it are written separately, with @on and @wire.\n@quartz struct Ctr\n  @in en::Bool\n  @out n::Bits{8} = 0\nend\n\n\n\n\n\n\n\n\n\n@in name::T = default\nDeclares an input of a @quartz module. An input has no storage: the blocks receive it as an argument, and a parent wires it from a @wire block.\n@in en::Bool = false\n\n\n\n\n\n\n\n\n\n@out name::T = default\nDeclares an output of a @quartz module. The field is an ordinary register that also reaches a pin. Attributes follow the declaration: active=:low for a pin asserted low, verilog=\"name\" for the name the emitted port takes.\n@out ready::Bool = false  active=:low\n\n\n\n\n\n\n\n\n\n@io name::Pad{N} = Pad(:pullup)\nDeclares an inout pin, or a bus of them, of a @quartz module. The field is a Pad, written with drive/release and read for the level the net settles to.\n@io sda::Pad{1} = Pad(:pullup)\n\n\n\n\n\n\n\n\n\ninterface(T)\nThe declared ports of module T, in declaration order, as PortDecl values.\n\n\n\n\n\n\n\n\n\nportdoc(T, name)\nThe string that documents port name of module T, or nothing if it has none. A string written above an @in/@out/@io line documents that port.\n\n\n\n\n\n\n\n\n\nstatic(v)\nMarks a field’s default as delivered by the bitstream rather than by reset: x::Bits{8} = static(5) powers up at 5 and is left alone by @reset. A field whose block has no @reset is static without saying so; static is how a field opts out of a reset its block does have. In the emitted Verilog a static field keeps its initializer; reset-delivered fields lose theirs, which frees the synthesiser to use the flip-flops’ enable and clear pins.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#blocks",
+    "href": "reference.html#blocks",
+    "title": "Reference",
+    "section": "Blocks",
+    "text": "Blocks\n\n\n\n\n\n\n@on Module posedge(clk) begin ... end\nDeclares clocked logic: the body runs on every rising (or negedge, falling) edge of clock net clk, and its register writes take effect together at the end of the edge, as Verilog’s non-blocking assignment does. Leading @reset, @only_when and @clockout clauses say when it resets, when it runs, and which pin its clock reaches.\n@on Ctr posedge(clk) begin\n  @reset(rst)\n  n ← n + 1\nend\n\n\n\n\n\n\n\n\n\n@wire Module begin ... end\nDeclares continuous logic: the body has no clock and no storage, so every path through it must write every field it drives. It may write @out ports, pads, Multicycle wires, and the inputs and clocks of the module’s instances.\n@wire Top begin\n  ctr.en ← run\n  led ← drive(ctr.n[7])\nend\n\n\n\n\n\n\n\n\n\n@reset(cond)\n@reset(cond; field = value)\nSays when the @on block it heads resets: while cond holds, every field with a default goes back to it. A named override holds a field at a value of its own instead. It belongs at the top of the body, before any statement.\n\n\n\n\n\n\n\n\n\n@only_when(sig)\nSays when the @on block it heads runs: an edge on which sig is false leaves every field the block owns alone. It belongs at the top of the body, before any statement.\n\n\n\n\n\n\n\n\n\n@clockout(name; invert = false, gate = signal)\nForwards the clock of the @on block it heads out of the module as name, so it can reach a pin – an SPI clock, say. invert sends the opposite phase and gate names a signal that must hold for the clock to leave. It belongs at the top of the body, before any statement.\n\n\n\n\n\n\n\n\n\n@method f(a, b) = ...\nDeclares a helper written as if inside a module: bare field names, inputs and register writes all work. It belongs to no one module – the same method serves every module that calls it – and is inlined where it is called. One that writes is a statement; one that only computes a value may be used as one.\n@method arm(t, n) = t ← n\n\n\n\n\n\n\n\n\n\n@check cond\nIn a block: the design’s own assumption, checked every time the block runs. A simulation stops where it fails; Verilog emitted with debug = true raises $error.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#values",
+    "href": "reference.html#values",
+    "title": "Reference",
+    "section": "Values",
+    "text": "Values\n\n\n\n\n\n\nbits(x...)\nJoin hardware values into one word, most significant piece first, as Verilog’s {a, b} does. Every piece must have a known width, so a plain Int is refused.\nbits(true, Bits{4}(0x5), false)    # Bits{6}(0b101010)\n\n\n\n\n\n\n\n\n\na ⊞ b\nbits(a, b): the two values side by side, a in the more significant half.\n\n\n\n\n\n\n\n\n\nbitwidth(x)\nHow many bits a hardware value, or a hardware type, takes on the wire.\nbitwidth(Bits{12})        # 12\nbitwidth(SBits{8}(-1))    # 8\n\n\n\n\n\n\n\n\n\npart(i, Bits{N})\nPart number i of a word, counting from zero, N bits wide: x[part(i, Bits{8})] is the ith byte of x. A computed index is kept as the part number rather than multiplied out, so the emitter can decode it over the parts that fit.\n\n\n\n\n\n\n\n\n\nfirstset(a)\nThe lowest set bit of a, as a value of the same width; zero if a is zero.\n\n\n\n\n\n\n\n\n\nonehot(Bits{N}, i)\nAn N-bit value with bit i set and the rest clear.\n\n\n\n\n\n\n\n\n\npopcount(a)\nHow many bits of a are set. The result is just wide enough to hold the count.\n\n\n\n\n\n\n\n\n\ndrive(x)\ndrive(x, en)\nWhat a block writes to a pad to hold it at x. With en only the bits en marks are driven; the rest are left to whatever else is on the net.\n\n\n\n\n\n\n\n\n\nrelease()\nWhat a block writes to a pad to let go of it, so the net is left to the outside world and the pad’s pull.\n\n\n\n\n\n\n\n\n\nexpired(t)\nWhether a Timeout field has counted down to zero.\n\n\n\n\n\n\n\n\n\nrose(e)\nWhether the Edge field e went from low to high at the last clock edge. True for exactly one cycle.\n\n\n\n\n\n\n\n\n\nfell(e)\nWhether the Edge field e went from high to low at the last clock edge. True for exactly one cycle.\n\n\n\n\n\n\n\n\n\nisrising(e, x)\nWhether the incoming sample x is high while the Edge field e still holds low, so the rise is seen in the cycle it happens rather than the one after.\n\n\n\n\n\n\n\n\n\nisfalling(e, x)\nWhether the incoming sample x is low while the Edge field e still holds high, so the fall is seen in the cycle it happens rather than the one after.\n\n\n\n\n\n\n\n\n\nisnew(p)\nWhether the Pipeline field p delivered a fresh result at the last clock edge, as opposed to still holding the previous one.\n\n\n\n\n\n\n\n\n\nisready(x)\nWhether nothing is in flight, so that what x gives now is the result of its latest input: a Pipeline that has a result out and no write still inside it, or a Multicycle whose sources have been still for the cycles its path is declared.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#encodings-state-machines-and-sequences",
+    "href": "reference.html#encodings-state-machines-and-sequences",
+    "title": "Reference",
+    "section": "Encodings, state machines and sequences",
+    "text": "Encodings, state machines and sequences\n\n\n\n\n\n\n@encoding Name begin ... end\n@encoding Name::W encoding=:onehot begin ... end\nDeclares a named set of values over a Bits – FSM states, protocol tags, command codes. A field declared with the encoding as its type is a register of that width that knows its names, so a bare name resolves where the field is written or compared. W fixes the width and encoding picks :binary, :onehot or :gray.\n@encoding State begin\n  IDLE\n  RUN\nend\n\n\n\n\n\n\n\n\n\nencname(e)\nencname(e, v)\nWith one argument, the name of encoding e. With two, the name e gives the value v, or nothing if it names no such value – which is what logs and waveform dumps show in place of the number.\nencname(State)          # :State\nencname(State, s)       # :IDLE\n\n\n\n\n\n\n\n\n\nstatedoc(e, s)\nWhat value s of encoding e was declared to mean – the string written above its line – or nothing if it has none.\n\n\n\n\n\n\n\n\n\n@fsm reg begin ... end\nDispatches on an encoded register, expanding to the if/elseif chain a person would otherwise write by hand. What it adds is the checking that chain cannot have: every state accounted for, no state named twice, and no name the encoding does not define. Branches are labelled @state NAME, and @otherwise takes the rest.\n@fsm state begin\n  @state IDLE\n    go && (state ← RUN)\n  @state RUN\n    state ← IDLE\nend\n\n\n\n\n\n\n\n\n\n@state NAME\nLabels a branch of an @fsm block: the statements after it run while the register holds NAME.\n\n\n\n\n\n\n\n\n\n@otherwise\nLabels the default branch of an @fsm block, covering every state that has no @state branch of its own.\n\n\n\n\n\n\n\n\n\n@sequence Name field begin ... end\nRuns statements across cycles inside an @on block: @then divides the body into steps, one per clock edge, and field is the register that holds which step is next. @when guards a step, @delay n inserts idle steps, @repeat n unrolls a group, and @goto LABEL jumps to a named step.\n@sequence Xfer step begin\n  cs ← false\n  @then SEND\n  shift ← data\nend\n\n\n\n\n\n\n\n\n\n@then\n@then NAME\n@then NAME @when cond\nDivides one step of a @sequence from the next. NAME labels the step so @goto can reach it, and @when guards it: the step holds until the condition is true.\n\n\n\n\n\n\n\n\n\n@when cond\nGuards the step of a @sequence it heads: the sequence holds there until cond is true. It belongs at the head of the step, right after @then.\n\n\n\n\n\n\n\n\n\n@delay n\nInserts n idle steps into a @sequence, so the next step runs n cycles later. n is a literal count.\n\n\n\n\n\n\n\n\n\n@repeat n begin ... end\nUnrolls the steps in its body n times into a @sequence. n is a literal count, and the steps inside cannot be named, since each copy would take the same name.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#black-boxes-and-clocks",
+    "href": "reference.html#black-boxes-and-clocks",
+    "title": "Reference",
+    "section": "Black boxes and clocks",
+    "text": "Black boxes and clocks\n\n\n\n\n\n\n@blackbox Name verilog=\"VNAME\" begin ... end\nDeclares a Verilog module QuartzHDL does not define – a vendor PLL, a RAM block, an oscillator. The body lists its ports (input, output, clock, clockout) using the datasheet’s names; a clockout also says which clock input it divides, by how much, and under what condition it runs. Nothing is emitted for the module itself, and QuartzHDL.standin supplies whatever behaviour a simulation needs.\n@blackbox PLL verilog=\"EHXPLLL\" begin\n  clock(CLKI)\n  clockout(CLKOP, from=CLKI, divide=2)\nend\n\n\n\n\n\n\n\n\n\nQuartzHDL.standin(::Type{Part}) = Model()\nWhat a black box does in simulation, supplied by the harness rather than the design. The model is stepped by the simulator on every edge of each clock input, as step(model, :clockport; inputs...), and must return the model after the edge; an output of the part reads as the model’s property of the same (lowercase) name. A part whose outputs are all clockouts needs none: its recipes are its behaviour.\n\n\n\n\n\n\n\n\n\nclocklevel(m, net)\nThe level a clock net is resting at, for a design that samples a slow clock as data – a microsecond tick, say. In Verilog this is the net name in an expression; here it is the square wave the tree produces.\n\n\n\n\n\n\n\n\n\n@clocks begin ... end\nNames the rate of every clock a run has, in absolute units, and builds the ClockPlan a Bench takes. A clock whose rate does not divide the slot grid may be marked dithered; grid sets the slot rate by hand.\n@clocks begin\n  clk = 48MHz\n  rtc = 32768Hz, dithered\nend\nA simple plan needs no macro: Bench and Simulation also take a named tuple of rates, clocks = (clk = 1MHz,) (with using QuartzHDL.Units), with (rate, :dithered) for a dithered clock and grid for the slot rate.\n\n\n\n\n\n\n\n\n\nClockPlan\nWhat a run’s clocks do: every clock’s rate, and the slot grid they share. Built by @clocks and handed to a Bench, which advances one slot at a time.\n\n\n\n\n\n\n\n\n\n@multicycle Module n from =&gt; to\nDeclares that the logic between two registers of Module may take n clock cycles to settle, so the tool need not route it for one. The endpoint names are checked against the module and the cell pattern generated, which a hand-written constraint cannot do.\n@multicycle Corr 3 acc =&gt; out\n\n\n\n\n\n\n\n\n\n@primary Module net, net, ...\nNames the clock nets of Module that ride the chip’s global low-skew distribution. Stated once, on the top module.\n\n\n\n\n\n\n\n\n\nstages(T)\nstages(T, name)\nHow each Pipeline of module T, or the one called name, is cut into stages: what each stage takes in, computes, and registers, with the cost of its longest path, and the registers the whole pipeline costs. It is the plan the Verilog emitter follows.\n\n\n\n\n\n\n\n\n\nsimmodels(io, T; scale=NamedTuple())\nsimmodels(path, T; scale=NamedTuple())\nWrite a simmodel for every black box in the design T that declares a clock tree, in declaration order and each one once. scale is per black box, giving the clock overrides simmodel takes.\nsimmodels(\"standins.v\", Top; scale=(PLL = (clk_slow = 4,),))",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#benches-and-boards",
+    "href": "reference.html#benches-and-boards",
+    "title": "Reference",
+    "section": "Benches and boards",
+    "text": "Benches and boards\n\n\n\n\n\n\nBench{D,S,W,K}\nA design plus the models of the things around it – a USB controller, an I2C slave, an ADC chip – advanced together. A bench is a value: step returns a new one, so a run is a list of states to look through afterwards.\nb = Bench(dut; clocks, wiring, rtc = I2CSlave())\nb = step(b, 1000)\nBench(dut; clocks, wiring = Wiring(), stubs...)\nclocks names the rate of every clock that comes from a pin, and of every stub: an @clocks plan, or for a simple plan a named tuple, clocks = (clk = 1MHz,) with using QuartzHDL.Units. wiring is an @wiring function, and defaults to nothing connected. Each remaining keyword is a model of something the design is wired to.\n\n\n\n\n\n\n\n\n\nhistory(b, n)\nRun bench b for n slots and return every state along the way, the starting one first, so a run can be looked through afterwards.\n\n\n\n\n\n\n\n\n\npadnet(m, name)\nWhat the design as a whole drives on pad net name, as a (value, enable) pair, so a peripheral model can resolve the net against its own drive.\n\n\n\n\n\n\n\n\n\nnetlevel(dut, pad, drive)\nWhat a shared net reads: what the design drives on pad, resolved against what the outside drives, with the pad’s pull deciding any bit neither of them holds. A net with no pull reads zero where nobody holds it.\n\n\n\n\n\n\n\n\n\n@wiring begin ... end\nSays what a bench connects to what, with the same arrow a block uses: the left side is an input of a model (or of the design), the right side a value computed from the others’ outputs. A pad of the design names its net, so writing to it is what the outside drives and reading it is what the net settles to.\n@wiring begin\n  dut.rx ← uart.tx\n  dut.sda ← drive(0, rtc.pull)\nend\n\n\n\n\n\n\n\n\n\nWiring\nWhat a @wiring block compiles to: the function that computes each model’s inputs, and which inputs of the design it drives – so a stimulus knows what is left for it to drive. Wiring() is the empty wiring, with nothing connected, and is what a bench or simulation uses when no wiring is given.\n\n\n\n\n\n\n\n\n\n@board Name begin ... end\nDeclares a board: the settings it has (device, raw, and any pin attribute that applies to every pin) and a binding of each port of a design to its site. A port below the top is named by its instance path.\n@board Rev2 begin\n  device = \"LFE5U-25F-6BG381C\"\n  clk =&gt; (pin = \"P3\", osc = 25MHz, io = :LVCMOS33)\nend\n\n\n\n\n\n\n\n\n\nBoard\nWhat a board provides: the part it is built around, which pin each port of a design lands on, and what the buffers there are told. Built by @board, and read by the constraint emitters and by QuartzHDL.problems.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#simulation",
+    "href": "reference.html#simulation",
+    "title": "Reference",
+    "section": "Simulation",
+    "text": "Simulation\n\n\n\n\n\n\nSimulation(dut; clocks, wiring = Wiring(), watch = nothing, stubs...)\nA design with the models around it, ready to be driven. Takes what Bench takes: clocks is an @clocks plan or, for a simple plan, a named tuple of rates (clocks = (clk = 1MHz,) with using QuartzHDL.Units), and wiring defaults to nothing connected, which is all a single-module simulation needs. watch names the nets to record, as a path or pattern (\"usb1.*\", \"*\" for every net) or a list of them; nothing is recorded until something is watched. See watch! and unwatch!.\nsim[\"name\"] and sim.name read a net, sim.name = v drives one, and @run sim begin ... end runs a stimulus against it.\n\n\n\n\n\n\n\n\n\nnets(sim, patterns...)\nThe nets of a simulation: its design’s registers, pads and inputs, the fields of its stubs, and its clocks. A pattern is a path, a bare name (matching any net that ends in it, the way sim[\"name\"] reads it), or a prefix ending in *.\n\n\n\n\n\n\n\n\n\nwatch!(sim, patterns...)\nRecord these nets from now on, as well as those already watched. A pattern is a path, a bare name, or a prefix ending in *; \"*\" is every net. Capture costs time in proportion to the nets watched, so a large design runs faster with fewer.\n\n\n\n\n\n\n\n\n\nunwatch!(sim, patterns...)\nStop capturing these nets. What they did so far stays in the capture.\n\n\n\n\n\n\n\n\n\ncapture(sim)\nWhat a simulation has captured so far, queried by name: capture(sim).x is the signal net x recorded.\n\n\n\n\n\n\n\n\n\nclear!(sim)\nForget the capture so far; the design keeps its state and the time keeps counting.\n\n\n\n\n\n\n\n\n\nreset!(sim)\nBack to time zero: the design and its stubs as they were built, nothing driven, every task stopped, and the capture cleared.\n\n\n\n\n\n\n\n\n\nchanges(signal)\nWhen a signal changed and what it changed to, as time =&gt; value pairs with the time in seconds.\n\n\n\n\n\n\n\n\n\nsampled(signal)\nA signal as frames, one per slot of the clock grid, from the first slot captured to the last: the value held in each, as a number (NaN where there was none). Reads from the changes as it goes, so nothing is built until it is asked for; collect gives the plain vector. With SignalBase loaded it has a frame rate.\n\n\n\n\n\n\n\n\n\nslots(capture)\nThe last slot a capture holds, so slots(c) * c.grid is how long it is in seconds.\n\n\n\n\n\n\n\n\n\nadvance_by(sim, t)\nLet the simulation run for t seconds before the stimulus continues.\n\n\n\n\n\n\n\n\n\nadvance_until(sim, f; timeout = nothing, what = \"for a condition\")\nLet the simulation run until f() holds, or until the time it gives if it is a number. A predicate is looked at every slot; with a timeout in seconds, an error naming what was waited for is raised if it never held.\n\n\n\n\n\n\n\n\n\n@run sim begin ... end\n@run sim expr\nRun a stimulus against sim. Inside it sim.x reads a net and sim.x = v drives one, advance_by(t) and advance_until(cond) let time pass, @task expr starts a concurrent stimulus, and times are written with units: 1ms, 10us. A @task given on its own keeps running after the call returns.\n\n\n\n\n\n\n\n\n\n@stimulus function name(sim, net::Net, args...) ... end\nDefine a reusable stimulus. Its first argument is the simulation; an argument declared ::Net names a net (as a path, or a Net) that the body reads and drives by that name. The body is written as a @run body.\n\n\n\n\n\n\n\n\n\nspawn!(sim, f; persistent = false)\nStart f() as a task of the stimulus, advancing with the simulation. A task made inside a @run block ends with the block; a persistent one keeps going until stop!(sim, task).\n\n\n\n\n\n\n\n\n\nstop!(sim, task)\nEnd a task of the stimulus. stop!(sim) ends every one.\n\n\n\n\n\n\n\n\n\nrun!(sim, f) -&gt; value\nRun f() as the stimulus: the simulation advances while it delays, alongside the tasks it and earlier stimuli started. Returns what f returned, or the capture when that is nothing.\n\n\n\n\n\n\n\n\n\nhook!(sim, f)\nCall f() after every slot, for a model that must react every cycle (a bus peripheral) and would be too slow as a task. f reads nets and drives them like any stimulus; what it drives applies at the next slot. unhook!(sim, f) removes it.\n\n\n\n\n\n\n\n\n\nunhook!(sim, f)\nStop calling f after every slot; it undoes hook!(sim, f).\n\n\n\n\n\n\n\n\n\nsimrepl(sim; key = ')')\nSwitch the REPL to a sim&gt; prompt that drives sim. Lines are @run bodies with bare net names: reset = true, advance_by(1ms), advance_until(busy), result. Backspace on an empty line returns to the Julia prompt, and key at the start of an empty Julia line comes back, as ] does for Pkg.\nA bare name is a net, read or written; sim.name always is. A name that is not a net becomes a variable of the session, gone when simrepl is next called, and a variable of the session shadows a net of the same name; global x = 1 (or Main.x = 1 for one that exists) makes a variable of Main instead. Ambiguous net names are written with their path, ctrl.state.\n\n\n\n\n\n\n\n\n\nshowlogs!(sim; from = nothing, to = nothing, modules = nothing, when = nothing)\nChoose which of sim’s log messages are shown: only between times from and to (seconds), only from the named module types, or only while when() holds. With nothing given, every message of sim is shown again. Each simulation has its own choice, and one simulation’s choice says nothing about another’s.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#formats-and-tools",
+    "href": "reference.html#formats-and-tools",
+    "title": "Reference",
+    "section": "Formats and tools",
+    "text": "Formats and tools\n\n\n\n\n\n\nVerilog(; name=nothing, suffix=true, debug=false, inits=:static)\nVerilog for a design: write(path, T, Verilog()). name is the module’s name, the type’s if not given, and suffix puts _i/_o on the ports. debug emits the design’s log statements as $display. inits = :static initializes only the registers whose value the bitstream delivers – what synthesis needs, and nothing that would cost it a flip-flop’s enable pin; :all initializes every register, for a simulator that would otherwise start them at x.\n\n\n\n\n\n\n\n\n\nVCD()\nA capture as a value change dump: write(path, capture, VCD()), the format a waveform viewer reads.\n\n\n\n\n\n\n\n\n\nLPF(board)\nLattice constraints for a design on a board: write(path, T, LPF(board)). Pin sites, buffer options, clock rates and timing exceptions come from the same declarations the Verilog does, so the two agree.\n\n\n\n\n\n\n\n\n\nDiamond(board; vendor = String[], implementation = \"impl\")\nA Lattice Diamond workspace for a design on a board: write(dir, T, Diamond(board)) fills dir with the Verilog under src/, the constraint file, a project file (.ldf) with a default strategy (.sty), and a build.sh and Makefile that run Diamond from synthesis to the bitstream – and the JEDEC file on a MachXO part – so make there builds the design where Diamond is installed. vendor lists the netlists of the design’s black boxes, copied into src/ and added to the project; a black box with no netlist is listed as src/&lt;Name&gt;.v for the user to supply.\n\n\n\n\n\n\n\n\n\nSurfer()\nThe Surfer waveform viewer (https://surfer-project.org), as a viewer for view and an IO a capture can be written to: what is written to it is what it shows, through a scratch VCD file it is told to load again. One window per Surfer().\n\n\n\n\n\n\n\n\n\nIcarus()\nIcarus Verilog (iverilog/vvp) as the simulator a cosim runs the generated Verilog in. It is the default, and needs iverilog on the PATH.\n\n\n\n\n\n\n\n\n\ncosim(T, stimulus; kwargs...)\nRun the Julia model of module T and the Verilog generated from it on the same per-cycle inputs, and compare every output after every clock.\nstimulus is a vector of NamedTuples, one per cycle, with one entry per input of the module and per pad the outside world drives. A pad entry is a value, or a (value, enable) pair for driving part of a bus.\n\nclocks gives the edges per cycle of each clock of a multi-clock module, e.g. clocks = (clk_i = 4, clk_slow_i = 1): one stimulus entry is one slot, clk_i is pulsed in every slot, clk_slow_i in every fourth. Each count must divide the largest; clocks scheduled in the same slot are pulsed in the order given.\nreference co-simulates against a hand-written Verilog file instead of the generated one – the way a ported design is checked against its original.\nref_init puts that original in the state the struct defaults put the Julia model in, as hierarchical assignments (\"tx_data64\" =&gt; \"64'd0\"), since its registers power up undefined.\nscale divides a black box’s clock faster than the board would, so a few thousand cycles cover many periods of a slow domain.\ndebug emits the design’s log statements as $display in the Verilog.\nname, dir, suffix, extra_sources and timeout name the module, say where the files go, put _i/_o on the ports, add Verilog sources to compile, and bound the run in seconds.\n\nReturns (; ok, mismatches, julia, verilog, dir): whether the two agree, the differing cycles as (cycle, julia line, verilog line), the two sets of output lines, and the directory the files were written to.\nr = cosim(Blinker, [(en_i = true,) for _ in 1:100])\nr.ok || println(r.mismatches[1])\n\n\n\n\n\n\n\n\n\nwrite(path_or_io, x, format)\nWrite x in a format: a design as Verilog(), a capture as VCD(), a design on a board as LPF(board). Returns the path when given one.\n\n\n\n\n\n\n\n\n\nview([viewer], capture_or_sim)\nShow a capture in a waveform viewer, Surfer() unless another is given. Given a simulation, the viewer follows it: refreshed after every @run, and now and then during a long one. close(viewer) closes it.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#library",
+    "href": "reference.html#library",
+    "title": "Reference",
+    "section": "Library",
+    "text": "Library\n\n\n\n\n\n\nUART(sim; rx = nothing, tx = nothing, baud = 115200, stop = 1, parity = :none,\n     frame = nothing, timeout = 1)\nA UART on the design’s pins: rx is the net it listens to (the design’s transmit), tx the net it drives (the design’s receive). frame groups what is received into units for take!, read and on: a byte count, or a delimiter (0x0a, \"\\r\\n\"). timeout bounds a blocking read or write, in seconds. close(u) stops it.\n\n\n\n\n\n\n\n\n\nFT2232H(sim; data, rd, wr, rxf = nothing, txe = nothing, frame = nothing, timeout = 1)\nAn FT2232H USB FIFO on the design’s pins, in FT245 asynchronous mode. data is the bus pad, rd and wr the design’s strobes (as declared, so asserted means true whatever the pin’s polarity), rxf and txe the flags the design reads: rxf holds while there is a byte to read, txe while there is room to write. write(ft, bytes) is the host sending to the design; read(ft, n) is what the design sent to the host. frame = 8 makes take! and on work in 8-byte words. close(ft) takes it off the bus.\n\n\n\n\n\n\n\n\n\nSPIMaster(sim; sclk, mosi = nothing, miso = nothing, cs = nothing, rate = 1MHz,\n          mode = 0, timeout = 1)\nAn SPI master on the design’s pins, driving sclk, mosi and cs and reading miso. transfer(m, bytes) exchanges bytes, holding cs for the whole transfer, and returns what came back; write and read are one-way forms of it.\n\n\n\n\n\n\n\n\n\nSPISlave(sim; sclk, mosi = nothing, miso = nothing, cs = nothing, mode = 0, idle = 0xff,\n         frame = nothing, timeout = 1)\nAn SPI slave on the design’s pins, following the design’s sclk and cs. Bytes queued with put! go out on miso as the master clocks, idle when none is queued; what arrives on mosi is taken with take!, or answered by on – per byte, so a reply to a command byte goes out with the next byte, as a device does. close(sl) takes it off the bus.\n\n\n\n\n\n\n\n\n\ntransfer(master, bytes) -&gt; bytes\nClock bytes out and return the bytes that came in, one per byte sent.\n\n\n\n\n\n\n\n\n\nI2CMaster(sim; scl, sda, rate = 100kHz, timeout = 1)\nAn I2C master on the design’s scl and sda pads. write(m, address, bytes) sends a transaction and returns whether every byte was acknowledged; read(m, address, n) returns n bytes. A register read is write(m, a, [reg]); read(m, a, n), with stop = false on the write for a repeated start.\n\n\n\n\n\n\n\n\n\nI2CSlave(sim; scl, sda, address, frame = nothing, timeout = 1)\nAn I2C slave at address on the design’s scl and sda pads. What the master writes arrives as one unit per transaction, to take! or to on; what the master reads comes from the bytes queued with put! (0xff when none), so a register map is an on closure that answers a write with the bytes to read next. close(sl) takes it off the bus.\n\n\n\n\n\n\n\n\n\nPWM(sim; out, rate, duty = 0.5, phase = 0, count = Inf)\nA pulse train on net out at rate, high for duty of each period, starting phase of a period late, for count periods. duty = 0.5 is a clock; count = 1 a single pulse. pwm.duty and pwm.rate may be changed as it runs; close(pwm) stops it with the output low.\n\n\n\n\n\n\n\n\n\nRAM(depth, width; read = (clock, addr, data, en), write = (clock, addr, data, we, en))\nA memory of depth words of width bits as a black-box stand-in: QuartzHDL.standin(::Type{Part}) = RAM(8192, 16; read = (...), write = (...)). Each port names the part’s pins by role, in lowercase as Julia sees them; en and we may be left out. Several ports of a kind are given as a vector. ram[a] reads a word, ram[a] = v stores one, fill!(ram, 0) clears it; an address counts from zero, as the design’s does. A read port’s output is read under the name its declaration gives it, ram.q.\n\n\n\n\n\n\n\n\n\non(f, link)\nAnswer what the link receives: f(unit) is called with each frame (each byte, with no frame set; each transaction, for a bus), and what it returns is sent back – bytes, a string, or nothing. A unit given to f is not queued for take!.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "rules.html",
+    "href": "rules.html",
+    "title": "Rules and their reasons",
+    "section": "",
+    "text": "What the compiler refuses, and why\nEverything QuartzHDL refuses to compile, it refuses with a message naming the line. The rules exist for one reason: a construct that the Julia model and the Verilog could interpret differently is not allowed, so that the two can never disagree. This page collects them.",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "rules.html#values",
+    "href": "rules.html#values",
+    "title": "Rules and their reasons",
+    "section": "Values",
+    "text": "Values\n\n\n\n\n\n\n\nrule\nwhy\n\n\n\n\nwidths are at most 128 bits\nUInt128 is the widest thing that is fast in Julia\n\n\nnarrowing needs trunc\ndropping bits should be deliberate; the rule is on the width so it fires the same way every run\n\n\nsigned and unsigned do not mix without a conversion\nwhich one wins would be a guess\n\n\na plain integer default must fit the width\na value that wraps at the declaration is a mistake, not a value\n\n\na bit index or slice must lie inside the word\nout of range reads as zero in Julia and as x in Verilog\n\n\na computed-base slice must fit at every base\nsame\n\n\na shift by the width or more is an error\nthe result is zero whatever the input: a statement about a width that is wrong",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "rules.html#declarations",
+    "href": "rules.html#declarations",
+    "title": "Rules and their reasons",
+    "section": "Declarations",
+    "text": "Declarations\n\n\n\n\n\n\n\nrule\nwhy\n\n\n\n\nan input cannot be a Pulse, Timeout or Edge\nan input has no storage\n\n\na field or port name may not be a Verilog keyword\nit is a net inside the emitted module\n\n\na port attribute must be one of verilog, active, ext_pull\na misspelt attribute that was ignored would leave a pin the wrong way round\n\n\na pad’s Verilog name is the same in every module that declares it\nit is one net on both sides\n\n\nan input may not share a field’s name\nit would be two things — except a MetaGuard, which is fed by the input of its name by design\n\n\na Timeout needs a width\nTimeout alone has no size\n\n\nan instance’s constructor takes no arguments\nthe wiring is stated once, in @wire",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "rules.html#blocks",
+    "href": "rules.html#blocks",
+    "title": "Rules and their reasons",
+    "section": "Blocks",
+    "text": "Blocks\n\n\n\n\n\n\n\nrule\nwhy\n\n\n\n\none writer per register\ntwo writers in Verilog is a multiply-driven net\n\n\na @wire drives its outputs on every path\na combinational output that latches is not a wire\n\n\na @wire writes only outputs, pads and instance inputs\nanything else is a register, and registers are clocked\n\n\na field written by @on is not driven by @wire\none net, one kind of driver\n\n\nno while in a block\nit would not have a fixed depth\n\n\nno local assignment inside if\nboth arms exist in hardware; use ifelse\n\n\na condition may not make Julia branch on a hardware value\nJulia would branch; the hardware cannot\n\n\na bare name must be a field, an input, a local, or defined in the module\na typo would otherwise become a port nothing drives\n\n\na local may not shadow a field or an input\na silent shadow\n\n\n← is a statement, never an expression\nx ← c ? a : b would parse as (x ← c) ? a : b and lose the write\n\n\nonly a statement — a write, a log macro, a @check — may sit to the right of cond && (...)\na computed-and-discarded value is a mistake\n\n\na state name may not also be a field, an input or a local\na bare name would mean two things\n\n\nevery state has a @state branch, or there is an @otherwise\nan unhandled state is a stuck machine\n\n\na sequence’s register is wide enough for its steps\nit cannot hold a step it does not have room for\n\n\na sequence divider is at the top level or in a @repeat\none under an if would be a guess\n\n\na clock wire takes a bare net name\na gated or divided clock is a part’s job, not logic’s\n\n\na wire to an instance or a part cannot sit under an if\nthe part sees its pin every cycle; put the condition in the value\n\n\na black box’s inputs are all wired\nan unwired pin is a floating input\n\n\na submodule’s @wire output is read only if it does not depend on the submodule’s inputs\nthe Julia model would be a cycle behind the Verilog wire\n\n\na Multicycle wire reads only registers of its own module\nthe sources must be nets the constraint can name\n\n\na Multicycle is not read before its K-th edge\nthat is the promise the constraint makes",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "rules.html#boards",
+    "href": "rules.html#boards",
+    "title": "Rules and their reasons",
+    "section": "Boards",
+    "text": "Boards\n\n\n\n\n\n\n\nrule\nwhy\n\n\n\n\nevery port has a pin, and every pin names a port\na port with no site is a bug found in the lab\n\n\none port per site\ntwo would short\n\n\na port’s width matches its pin count\nsame\n\n\na pad’s ext_pull is provided by the board\nan open-drain bus with no pull never reads high\n\n\nsetting and attribute names are a closed set\nan attribute nothing reads is a buffer configured by a tool default\n\n\n@primary names clocks the design has\na constraint on a net that does not exist",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "rules.html#simulation",
+    "href": "rules.html#simulation",
+    "title": "Rules and their reasons",
+    "section": "Simulation",
+    "text": "Simulation\n\n\n\n\n\n\n\nrule\nwhy\n\n\n\n\ncombinational logic must settle within a bound\npast it, the logic has a loop; the error names the fields in it\n\n\na clock plan’s rates share a grid, or the clock is dithered\nan exact grid for two unrelated oscillators is usually an accident\n\n\nonly an input or an unwired pad can be driven from a stimulus\neverything else is the design’s\n\n\nadvance_until with a timeout that passes is an error\na condition that never comes is a failed test",
+    "crumbs": [
+      "<b>Appendices</b>",
+      "Rules and their reasons"
+    ]
+  },
+  {
+    "objectID": "domains.html",
+    "href": "domains.html",
+    "title": "Clock domains",
+    "section": "",
+    "text": "Synchronisers, and modules with more than one clock",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Clock domains"
+    ]
+  },
+  {
+    "objectID": "domains.html#metaguardk-a-synchroniser",
+    "href": "domains.html#metaguardk-a-synchroniser",
+    "title": "Clock domains",
+    "section": "MetaGuard{K}: a synchroniser",
+    "text": "MetaGuard{K}: a synchroniser\nA signal that comes from outside the clock domain — a button, a pin from another chip, a flag from a block on another clock — must be resynchronised before the logic looks at it, or metastability will eventually bite. The standard cure is a chain of K flip-flops. A MetaGuard{K} is that chain:\n\n@quartz struct Sampler\n  @in  async_in::Bool\n  async_in::MetaGuard{2}\n  @out safe::Bool\nend\n\n@on Sampler posedge(clk) begin\n  safe ← async_in\nend\n\nDeclare a guard with the same name as an input, and it is fed by that input automatically, from the block that reads it, on that block’s clock. Read bare, the guard is the synchronised bit — async_in inside the block means the output of the chain, two clocks behind the pin. Nothing else has to be said.\n\nm = Sampler()\nsafes = Bool[]\nfor i in 1:5\n  global m = step(m; async_in = i &gt;= 2)\n  push!(safes, m.safe)\nend\nsafes\n\n5-element Vector{Bool}:\n 0\n 0\n 0\n 1\n 1\n\n\nA guard can also be fed by hand, g ← v, when the bit does not come from an input of the same name. A reset flushes it.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nThe emitted code is the two-flop chain you would write, sync0 &lt;= pin; sync1 &lt;= sync0;, with the block reading sync1. What you get on top is a declaration that says this input is asynchronous, in one place, which is the fact a reviewer wants to know.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Clock domains"
+    ]
+  },
+  {
+    "objectID": "domains.html#modules-with-several-clocks",
+    "href": "domains.html#modules-with-several-clocks",
+    "title": "Clock domains",
+    "section": "Modules with several clocks",
+    "text": "Modules with several clocks\nA module may have blocks on different clocks. Each @on names its own:\n\n@quartz struct TwoClocks\n  @in  x::Bits{8}\n  fast::Bits{8} = 0\n  slow::Bits{8} = 0\n  @out y::Bits{8}\nend\n\n@on TwoClocks posedge(clk) begin\n  fast ← x\nend\n\n@on TwoClocks posedge(clk_slow) begin\n  slow ← fast\n  y ← slow\nend\n\nEach clock becomes a clock port. step then takes the clock’s name, and one call is one edge of that clock:\n\nm = TwoClocks()\nm = step(m, :clk; x = Bits{8}(7))\nm = step(m, :clk_slow; x = Bits{8}(7))\nm.slow\n\nBits{8}(07h)\n\n\nThe keywords of step are the union of every block’s inputs; a block only reads the ones it names. Several blocks on the same clock behave like Verilog’s concurrent always blocks: all read the old state, all write together.\nFor a design with several clocks, stepping by hand quickly gets tedious. A Bench or Simulation takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Clock domains"
+    ]
+  },
+  {
+    "objectID": "domains.html#crossing-safely",
+    "href": "domains.html#crossing-safely",
+    "title": "Clock domains",
+    "section": "Crossing safely",
+    "text": "Crossing safely\nA single bit crossing domains goes through a MetaGuard. A multi-bit value should not: the bits may arrive on different cycles. The usual pattern is to cross a flag through a guard and hold the data still until the flag has been seen:\n@on Producer posedge(clk_a) begin\n  if !busy\n    data ← next            # hold data still...\n    flag ← !flag           # ...and toggle a flag\n  end\nend\n\n@on Consumer posedge(clk_b) begin\n  flag_e ← flag            # flag::MetaGuard{2} feeds flag_e::Edge\n  rose(flag_e) && (got ← data)\nend\nA Multicycle wire, in a later chapter, is the tool for a wide value that is known to hold still for a number of cycles: the compiler then writes the timing constraint that tells the vendor tools so.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Clock domains"
+    ]
+  },
+  {
+    "objectID": "domains.html#next",
+    "href": "domains.html#next",
+    "title": "Clock domains",
+    "section": "Next",
+    "text": "Next\nPipelines: arithmetic that takes several cycles, cut into stages for you.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Clock domains"
+    ]
+  },
+  {
+    "objectID": "emitters.html",
+    "href": "emitters.html",
+    "title": "Custom emitters",
+    "section": "",
+    "text": "New output formats, viewers and simulators\nEverything that leaves the package goes through three small abstract types, and each is open:\nA new one is a type and its methods, in your own package if you like. This chapter shows one of each.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom emitters"
+    ]
+  },
+  {
+    "objectID": "emitters.html#a-new-format",
+    "href": "emitters.html#a-new-format",
+    "title": "Custom emitters",
+    "section": "A new format",
+    "text": "A new format\nA format is a struct that subtypes QuartzHDL.Format, and a Base.write method that takes it. Let’s write a port list as CSV — the kind of thing a board designer asks for:\n\nstruct PortCSV &lt;: QuartzHDL.Format end\n\nfunction Base.write(io::IO, T::Type{&lt;:QuartzModule}, ::PortCSV)\n  println(io, \"name,direction,type,doc\")\n  for p in interface(T)\n    doc = something(portdoc(T, p.name), \"\")\n    println(io, p.name, \",\", p.dir, \",\", p.typeexpr, \",\\\"\", doc, \"\\\"\")\n  end\nend\n\n@quartz struct Uart\n  \"the serial input\"\n  @in  rx::Bool\n  \"clocks per bit, less one\"\n  @in  divisor::Bits{16}\n  @out tx::Bool\n  state::Bits{3} = 0\nend\n\nwrite(stdout, Uart, PortCSV());\n\nname,direction,type,doc\nrx,in,Bool,\"the serial input\"\ndivisor,in,Bits{16},\"clocks per bit, less one\"\ntx,out,Bool,\"\"\n\n\nwrite(path, T, fmt) — the path form — already works for any format, since it opens the file and calls the IO method. If your format should be reachable from the command line’s --emit option, add an extension method:\nQuartzHDL.extension(::PortCSV) = \"csv\"\n\nWhat a format can read\nThe declarations are all reachable through ordinary functions:\n\ninterface(T) — every port with its name, direction, type expression, default and attributes (active, verilog, ext_pull).\nportdoc(T, name) — a port’s documentation.\nfieldnames(T) and fieldtypes(T) — the registers, with the hardware types telling you widths (bitwidth), signedness and which are instances, pads, pipelines and so on.\nQuartzHDL.blocks(T) — the @on and @wire blocks: their clock, edge, the fields they own, and their reset and enable conditions.\nQuartzHDL.encodings(T) — the encodings the module’s fields use.\nQuartzHDL.clockouts(T) — the clocks a black box makes, with their recipes.\nstages(T) — how each pipeline is cut.\n\nThe traced expression graph — what each block actually computes — is what the Verilog emitter walks. It is not yet a stable interface: the node types live in src/core/trace.jl, and an emitter for another HDL would read src/emitters/verilog.jl as the worked example. If you write one, say so; making that graph public is the natural next step.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom emitters"
+    ]
+  },
+  {
+    "objectID": "emitters.html#a-new-viewer",
+    "href": "emitters.html#a-new-viewer",
+    "title": "Custom emitters",
+    "section": "A new viewer",
+    "text": "A new viewer\nA viewer is a subtype of QuartzHDL.Viewer, which is an IO. view(v, capture) writes the capture to it, and view(v, sim) keeps it current as the simulation runs. The minimum is a write method that accepts a capture in some format and a close:\n\nmutable struct TextView &lt;: QuartzHDL.Viewer\n  io::IO\nend\n\nBase.write(v::TextView, out::QuartzHDL.Capture, ::VCD) = write(v.io, out, VCD())\nBase.close(v::TextView) = nothing\n\n@quartz struct Ctr\n  n::Bits{2} = 0\nend\n@on Ctr posedge(clk) n ← n + 1\n\nsim = Simulation(Ctr(); clocks = (clk = 1MHz,), watch = \"*\")\nout = @run sim advance_by(4us)\nview(TextView(stdout), out);\n\n$timescale 1ns $end\n$scope module dut $end\n$var wire 2 ! n $end\n$upscope $end\n$scope module clocks $end\n$var wire 1 # clk $end\n$upscope $end\n$enddefinitions $end\n#0\nb00 !\n1#\n#500\n0#\n#1000\nb01 !\n1#\n#1500\n0#\n#2000\nb10 !\n1#\n#2500\n0#\n#3000\nb11 !\n1#\n#3500\n0#\n#4000\nb00 !\n1#\n#4500\n0#\n#5000\n\n\nThe Surfer viewer in the package is the model for a live one: it holds a process and a socket, rewrites the VCD on each update, and sends a reload command. view(sim) calls the viewer after every @run and periodically during a long one, so a viewer only has to answer “show this file again”.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom emitters"
+    ]
+  },
+  {
+    "objectID": "emitters.html#a-new-simulator",
+    "href": "emitters.html#a-new-simulator",
+    "title": "Custom emitters",
+    "section": "A new simulator",
+    "text": "A new simulator\ncosim runs the generated Verilog under a Tool. Icarus is the one shipped; another simulator is a type and one method:\nstruct Verilator &lt;: QuartzHDL.Tool end\n\nfunction QuartzHDL._cosim(::Verilator, T::Type, stimulus::AbstractVector; kwargs...)\n  # write the Verilog, the stand-ins (`simmodels`) and a testbench that reads\n  # the stimulus file; run the tool; compare its trace with the Julia model\nend\nThe Icarus implementation in src/emitters/icarus.jl is written in stages that a second tool can reuse: the port discovery, the stimulus file, the Julia reference run and the comparison are tool-independent; only the testbench and the command line are Icarus’s own. That split is deliberate, and the stage functions are the ones to call.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom emitters"
+    ]
+  },
+  {
+    "objectID": "emitters.html#what-to-keep-in-mind",
+    "href": "emitters.html#what-to-keep-in-mind",
+    "title": "Custom emitters",
+    "section": "What to keep in mind",
+    "text": "What to keep in mind\nWhatever you emit is a second statement of the design, and the whole package is built on the idea that a second statement will one day drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design does — a simulation model, a different HDL — needs a co-simulation test that proves it does.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom emitters"
+    ]
+  },
+  {
+    "objectID": "visualizing.html",
+    "href": "visualizing.html",
+    "title": "Waveforms and plots",
+    "section": "",
+    "text": "Waveforms in a viewer, signals in a plot\nLet’s make a capture to look at:\n@encoding Phase begin IDLE; WARM; RUN end\n\n@quartz struct Heater\n  @in  go::Bool = false\n  phase::Phase = IDLE\n  temp::Bits{8} = 0\n  @out on::Bool\nend\n\n@on Heater posedge(clk) begin\n  @fsm phase begin\n    @state IDLE\n      go && (phase ← WARM)\n    @state WARM\n      temp ← temp + 3\n      temp &gt; 60 && (phase ← RUN)\n    @state RUN\n      temp ← temp - 1\n      temp &lt; 20 && (phase ← IDLE)\n  end\n  on ← phase == WARM\nend\n\nsim = Simulation(Heater(); clocks = (clk = 1MHz,), watch = \"*\")\nout = @run sim begin\n  advance_by(5us)\n  sim.go = true\n  advance_by(1us)\n  sim.go = false\n  advance_by(80us)\nend\n\nCapture(5 signals, 86.0us)",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Waveforms and plots"
+    ]
+  },
+  {
+    "objectID": "visualizing.html#plots",
+    "href": "visualizing.html#plots",
+    "title": "Waveforms and plots",
+    "section": "Plots",
+    "text": "Plots\nWith Plots loaded, a signal plots as a step plot against time in seconds, and an encoded register is labelled by state name:\n\nplot(out.temp)\n\n\n\n\n\nplot(out.phase)\n\n\n\n\nplot(out, \"a\", \"b\", ...) stacks several nets as lanes:\n\nplot(out, \"go\", \"phase\", \"temp\", \"on\"; size = (650, 500))",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Waveforms and plots"
+    ]
+  },
+  {
+    "objectID": "visualizing.html#vcd-and-surfer",
+    "href": "visualizing.html#vcd-and-surfer",
+    "title": "Waveforms and plots",
+    "section": "VCD and Surfer",
+    "text": "VCD and Surfer\nwrite(\"run.vcd\", out, VCD()) writes the capture as a VCD file — real time on the axis, a lane per clock, and encoded registers written twice, as bits and as the state’s name, which viewers show as text. Any waveform viewer opens it.\nSurfer is the one QuartzHDL talks to directly. With surfer on your path:\nview(out)             # open the capture in Surfer\nview(sim)             # a live view: refreshed after every @run, and during long ones\nview(Surfer(), x) names the viewer explicitly. A viewer is an IO, so write(Surfer(), out, VCD()) is the same thing, and close(v) closes it. The live view keeps its zoom and the signals you have added across refreshes, so a typical debugging loop is: open the view, @run a bit, look, @run a bit more.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Waveforms and plots"
+    ]
+  },
+  {
+    "objectID": "visualizing.html#signals-as-signals",
+    "href": "visualizing.html#signals-as-signals",
+    "title": "Waveforms and plots",
+    "section": "Signals as signals",
+    "text": "Signals as signals\nsampled(out.temp) gives the net as one value per clock, and with SignalAnalysis.jl loaded it has a frame rate, so the rest of that package’s tools — spectra, filters, psd, specgram — take it directly:\n\nusing SignalAnalysis\nx = sampled(out.temp)\nframerate(x), length(x)\n\n(1.0e6, 87)\n\n\nThis is the step that makes porting a signal-processing algorithm pleasant: the hardware’s output is a signal like any other, and can be compared against the floating-point reference with the same tools.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Waveforms and plots"
+    ]
+  },
+  {
+    "objectID": "visualizing.html#next",
+    "href": "visualizing.html#next",
+    "title": "Waveforms and plots",
+    "section": "Next",
+    "text": "Next\nLibrary components: the chips around the design.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Waveforms and plots"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html",
+    "href": "timekeeping.html",
+    "title": "Pulses, timeouts and edges",
+    "section": "",
+    "text": "Pulse, Timeout and Edge: the bookkeeping you no longer write\nThree patterns come up in almost every design: a flag that should be true for exactly one cycle, a countdown, and “did this signal just change?”. Each is a few lines of Verilog that are easy to get slightly wrong. QuartzHDL gives each a register type that does the bookkeeping itself. All three are stored as plain registers; the block that writes one advances it before its own statements run, so the block’s own write always wins the cycle.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html#pulse-true-for-one-cycle",
+    "href": "timekeeping.html#pulse-true-for-one-cycle",
+    "title": "Pulses, timeouts and edges",
+    "section": "Pulse: true for one cycle",
+    "text": "Pulse: true for one cycle\nA Pulse is a Bool that clears itself. Write true and it is true for one cycle, then false again until the next write:\n\n@quartz struct Strobe\n  @in  go::Bool = false\n  @out fire::Pulse\nend\n\n@on Strobe posedge(clk) begin\n  go && (fire ← true)\nend\n\nm = Strobe()\nfires = Bool[]\nfor i in 1:5\n  global m = step(m; go = i == 2)\n  push!(fires, m.fire)\nend\nfires\n\n5-element Vector{Bool}:\n 0\n 1\n 0\n 0\n 0\n\n\nIt replaces the fire && (fire ← false) line you would otherwise write at the top of every block, and the bug where you forget it.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html#timeoutn-a-countdown",
+    "href": "timekeeping.html#timeoutn-a-countdown",
+    "title": "Pulses, timeouts and edges",
+    "section": "Timeout{N}: a countdown",
+    "text": "Timeout{N}: a countdown\nA Timeout{N} is a Bits{N} that counts down to zero and holds there. Write a value to start it; expired(t) is true from the moment it reaches zero. Read bare, it is the count.\n\n@quartz struct Divider\n  @in  period::Bits{4} = 3\n  div::Timeout{4}\n  @out tick::Pulse\n  hold::Timeout{4}\n  @in  arm::Bool = false\nend\n\n@on Divider posedge(clk) begin\n  if expired(div)\n    div ← period           # reload on expiry: a divider\n    tick ← true\n  end\n  arm && (hold ← 5)        # a one-shot: runs down and stays expired\nend\n\nm = Divider()\nfor i in 1:10\n  global m = step(m; arm = i == 5)\n  println(\"edge $i: div = $(Int(m.div))  tick = $(m.tick)  hold = $(Int(m.hold))\")\nend\n\nedge 1: div = 3  tick = true  hold = 0\nedge 2: div = 2  tick = false  hold = 0\nedge 3: div = 1  tick = false  hold = 0\nedge 4: div = 0  tick = false  hold = 0\nedge 5: div = 3  tick = true  hold = 5\nedge 6: div = 2  tick = false  hold = 4\nedge 7: div = 1  tick = false  hold = 3\nedge 8: div = 0  tick = false  hold = 2\nedge 9: div = 3  tick = true  hold = 1\nedge 10: div = 2  tick = false  hold = 0\n\n\nWritten 3, the timeout expires four edges later, so a divider written with period has a period of period + 1 clocks. A timeout that has run down stays at zero: expired keeps answering true until it is written again.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nPulse and Timeout are ordinary registers in the emitted Verilog — a reg with a clear or a decrement at the top of the always block, followed by your writes. Look at the output of write(stdout, Divider, Verilog()) and you will find exactly the code you would have written by hand.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html#edge-did-it-just-change",
+    "href": "timekeeping.html#edge-did-it-just-change",
+    "title": "Pulses, timeouts and edges",
+    "section": "Edge: did it just change?",
+    "text": "Edge: did it just change?\nAn Edge is a Bool register that also remembers the value it held before, so its transitions can be queried. Write it like any register and read it bare as the level:\n\n@quartz struct Detect\n  @in  x::Bool = false\n  xe::Edge\n  @out rises::Bits{8} = 0\n  @out falls::Bits{8} = 0\nend\n\n@on Detect posedge(clk) begin\n  xe ← x\n  rose(xe) && (rises ← rises + 1)\n  fell(xe) && (falls ← falls + 1)\nend\n\nm = Detect()\nfor i in 1:12\n  m = step(m; x = 4 &lt;= i &lt;= 8)\nend\nm.rises, m.falls\n\n(Bits{8}(01h), Bits{8}(01h))\n\n\n\nrose(e) and fell(e) are the transition the last clock edge registered — exactly x_q && !x_qq — glitch-free, one cycle after the sample that made it, and true for exactly one cycle. On a cycle that leaves the edge unwritten the history settles by itself, so a gated feed (en && (e ← x)) cannot latch an event.\nisrising(e, x) and isfalling(e, x) compare an incoming sample with the level instead — x && !e — and see the transition as it happens, with no cycle of delay. Keep them to signals already on this clock, and take an asynchronous pin through a MetaGuard first.\n\nThe default of an Edge is the level seen so far, so power-up and reset manufacture no event.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html#what-they-cannot-be",
+    "href": "timekeeping.html#what-they-cannot-be",
+    "title": "Pulses, timeouts and edges",
+    "section": "What they cannot be",
+    "text": "What they cannot be\nAn input cannot be a Pulse, a Timeout or an Edge, since an input has no storage. A @wire block cannot write one, since they advance on a clock. And an Edge is written whole — e[0] ← x is an error.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "timekeeping.html#next",
+    "href": "timekeeping.html#next",
+    "title": "Pulses, timeouts and edges",
+    "section": "Next",
+    "text": "Next\nClock domains: MetaGuard, and modules with more than one clock.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pulses, timeouts and edges"
+    ]
+  },
+  {
+    "objectID": "simulating.html",
+    "href": "simulating.html",
+    "title": "Simulation",
+    "section": "",
+    "text": "Driving a design over time",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#two-ways-to-run",
+    "href": "simulating.html#two-ways-to-run",
+    "title": "Simulation",
+    "section": "Two ways to run",
+    "text": "Two ways to run\nstep(m; inputs...) is the simplest: one call, one clock edge, a new state back. Everything is a value, so a run is a list of states, and a unit test is a loop:\n\n@quartz struct Blinker\n  @in  en::Bool = true\n  n::Bits{4} = 0\n  @out led::Bool\nend\n\n@on Blinker posedge(clk) begin\n  en && (n ← n + 1)\n  led ← n[3]\nend\n\nm = Blinker()\nleds = Bool[]\nfor _ in 1:20\n  global m = step(m)\n  push!(leds, m.led)\nend\nleds\n\n20-element Vector{Bool}:\n 0\n 0\n 0\n 0\n 0\n 0\n 0\n 0\n 1\n 1\n 1\n 1\n 1\n 1\n 1\n 1\n 0\n 0\n 0\n 0\n\n\nFor anything with real time in it — several clocks, peripherals, a stimulus that waits for things — a Simulation wraps the design with a clock plan and a recorder, and you drive it with @run.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#a-simulation",
+    "href": "simulating.html#a-simulation",
+    "title": "Simulation",
+    "section": "A Simulation",
+    "text": "A Simulation\n\nsim = Simulation(Blinker(); clocks = (clk = 1MHz,), watch = \"*\")\n\nSimulation(Blinker, 4 nets, 4 watched, t = 0s)\n\n\nclocks gives every pin clock a rate — a named tuple is enough for a simple plan, and @clocks handles several clocks (benches has the details); wiring connects the design to models around it, and is left out when there is nothing to connect, as here; watch says which nets to record. Any stubs — models of chips on the board — come as further keywords.\nEvery register, pad, input and clock is a net, named by its path:\n\nnets(sim)\n\n4-element Vector{QuartzHDL.Net}:\n Net(en::input[1])\n Net(n::reg[4])\n Net(led::reg[1])\n Net(clocks.clk::clock[1])\n\n\nsim[\"n\"] reads a net, and sim.n is the same thing unquoted. Only an input, or a pad the wiring leaves alone, can be driven; everything can be read.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#run-a-stimulus",
+    "href": "simulating.html#run-a-stimulus",
+    "title": "Simulation",
+    "section": "@run: a stimulus",
+    "text": "@run: a stimulus\nA stimulus is a @run body. Inside it, sim.x = v drives a net, advance_by and advance_until let time pass, and times carry units:\n\nout = @run sim begin\n  sim.en = false\n  advance_by(3us)\n  sim.en = true\n  advance_until(sim.led)                # a condition, looked at every slot\n  advance_until(20us)                   # or an absolute time\n  advance_until(!sim.led; timeout = 50us)\nend\n\nCapture(4 signals, 20.0us)\n\n\n@run returns what the body returned, or the capture when the body returns nothing. Outside a macro, using QuartzHDL.Units gives ms, us, MHz and so on.\nadvance_until with a condition is a breakpoint: the simulation runs until the condition is true, or the timeout passes, which is an error.\n\nTasks\nA @task inside a @run body runs alongside it and ends with it. Given on its own, @run sim @task ... end keeps running until stop!(sim, task):\n\nt = @run sim @task begin\n  while true\n    advance_by(7us)\n    sim.en = !sim.en\n  end\nend\n@run sim advance_by(30us)\nstop!(sim, t)\nfloat(time(sim))\n\n5.0e-5\n\n\nThis is how a background model — a clock source, a device answering a bus — lives beside the main stimulus. The components chapter builds on it.\n\n\nReusable stimuli\nA stimulus that will be used more than once is a function. @stimulus makes a function whose body is a @run body; an argument declared ::Net names a net by its path. It is called from inside a @run, or as one:\n\n@stimulus function pulse(sim, pin::Net, width)\n  pin = true\n  advance_by(width)\n  pin = false\nend\n\n@run sim pulse(sim, \"en\", 10us)\n\nfalse",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#the-capture",
+    "href": "simulating.html#the-capture",
+    "title": "Simulation",
+    "section": "The capture",
+    "text": "The capture\nThe capture — what @run returned above, or capture(sim) at any time — holds every watched net’s history. Query it by name or path, and by time:\n\nout = capture(sim)\nout.led[5us]                      # its value at 5 us\n\nfalse\n\n\n\nchanges(out.led)[1:4]             # when it changed, and to what\n\n4-element Vector{Pair{Float64, Union{Missing, Bool}}}:\n    0.0 =&gt; 0\n 1.2e-5 =&gt; 1\n 2.0e-5 =&gt; 0\n 2.8e-5 =&gt; 1\n\n\n\nout[\"n\"][12us]\n\nBits{4}(9h)\n\n\nAn encoded register gives its state’s name rather than a number. sampled(signal) gives one value per clock, for signal-processing packages; slots(signal) the raw slot indices.\nwatch!(sim, \"ctr.*\") adds nets to record and unwatch! takes them away; recording every net costs a few percent. clear!(sim) forgets the capture; reset!(sim) puts the simulation back to time zero, as built.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#the-repl-prompt",
+    "href": "simulating.html#the-repl-prompt",
+    "title": "Simulation",
+    "section": "The REPL prompt",
+    "text": "The REPL prompt\nAt the REPL, simrepl(sim) switches to a sim&gt; prompt where each line is a @run body and nets are named bare:\nsim 0s&gt; en = true\nsim 0s&gt; advance_by(1ms)\nsim 1.0ms&gt; advance_until(led)\nsim 1.0ms&gt; n\n0x0008\nsim 1.0ms&gt; @task pulse(sim, \"en\", 10us)\nBackspace on an empty line returns to Julia. This is the fastest way to find out what a design does: poke it, look, poke again.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#logging",
+    "href": "simulating.html#logging",
+    "title": "Simulation",
+    "section": "Logging",
+    "text": "Logging\n@info, @debug, @warn and @error work inside a block, with the simulation time and the module’s name added to each message:\n\n@quartz struct Talker\n  n::Bits{4} = 0\nend\n\n@on Talker posedge(clk) begin\n  n ← n + 1\n  n == 15 && @info \"wrapping\" n\n  @check n ≤ 15\nend\n\nsim = Simulation(Talker(); clocks = (clk = 1MHz,))\n@run sim advance_by(40us)\n\n\n┌ Info: wrapping\n│   time = \"15.0us\"\n└   n = Bits{4}(fh)\n┌ Info: wrapping\n│   time = \"31.0us\"\n└   n = Bits{4}(fh)\n\n\n\n\nCapture(0 signals, 40.0us)\n\n\nA message is part of the design’s meaning and stays in the code; what to show right now is chosen from outside and never touches the design: showlogs!(sim; from = 10us, to = 12us, modules = [:Talker], when = () -&gt; sim.n &gt; 3) narrows what is printed, and showlogs!(sim) shows everything again.\n@check cond is the design’s own assumption: a simulation stops where it fails, with the time and the module in the error.\nNone of this reaches the Verilog unless asked for. Verilog(; debug = true) and cosim(T, stim; debug = true) emit messages as $display and a failed check as $error, for simulation-only builds; synthesis output is untouched.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#lower-level-pieces",
+    "href": "simulating.html#lower-level-pieces",
+    "title": "Simulation",
+    "section": "Lower-level pieces",
+    "text": "Lower-level pieces\nUnder @run sit a few functions that components and harnesses use directly: spawn!(sim, f) starts a task, run!(sim, f) runs a function as a stimulus and returns its value, hook!(sim, f) registers a function called after every slot (for a model that must watch a bus every cycle) and unhook! removes it. They appear again in custom components.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "simulating.html#next",
+    "href": "simulating.html#next",
+    "title": "Simulation",
+    "section": "Next",
+    "text": "Next\nBenches: clocks with real rates, and wiring the design to models of what surrounds it.",
+    "crumbs": [
+      "<b>Simulating</b>",
+      "Simulation"
+    ]
+  },
+  {
+    "objectID": "pipelines.html",
+    "href": "pipelines.html",
+    "title": "Pipelines",
+    "section": "",
+    "text": "Pipeline{K,T}: a computation spread over K cycles\nSome arithmetic will not fit in one clock. A wide multiply, a sum of many terms, a popcount over a long register: the logic is too deep for the clock period, and the fix is to register it in the middle — a pipeline. Writing pipelines by hand means deciding where the cuts go, declaring a register for every value that crosses one, and keeping the stages in step. A Pipeline{K,T} does that for you.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "pipelines.html#writing-to-a-pipeline",
+    "href": "pipelines.html#writing-to-a-pipeline",
+    "title": "Pipelines",
+    "section": "Writing to a pipeline",
+    "text": "Writing to a pipeline\n\n@quartz struct Mac\n  @in  a::Bits{16}, b::Bits{16}, c::Bits{16}, d::Bits{16}\n  p::Pipeline{2,Bits{33}}\n  @out y::Bits{33}\n  @out valid::Bool\nend\n\n@on Mac posedge(clk) begin\n  p ← Bits{33}(a) * b + Bits{33}(c) * d      # two multiplies and an add, over two cycles\n  y ← coalesce(p, 0)                         # the latest result, or 0 before the first\n  valid ← isnew(p)\nend\n\nWrite an expression into the pipeline and the result comes out K cycles later. Here the multiplies land in the first stage and the add in the second; the result written at edge 1 is readable at edge 3, and copied to y at edge 4. The compiler cuts the traced expression into K stages of roughly equal depth, and every value that crosses a cut becomes a register.\n\nm = Mac()\nfor i in 1:5\n  m = step(m; a = Bits{16}(i), b = Bits{16}(10), c = Bits{16}(1), d = Bits{16}(i))\n  println(\"edge $i: y = $(Int(m.y)), valid = $(m.valid)\")\nend\n\nedge 1: y = 0, valid = false\nedge 2: y = 0, valid = false\nedge 3: y = 0, valid = false\nedge 4: y = 11, valid = true\nedge 5: y = 22, valid = true",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "pipelines.html#reading-from-a-pipeline",
+    "href": "pipelines.html#reading-from-a-pipeline",
+    "title": "Pipelines",
+    "section": "Reading from a pipeline",
+    "text": "Reading from a pipeline\n\nRead bare, p is the most recent output, or missing before the first one has arrived — so coalesce(p, 0) gives a value either way.\nisnew(p) is true on the cycle a new result appears.\nisready(p) is true when a result is out and no write is still on its way through, so what p gives is the result of the last write.\n\nWrite to a pipeline every cycle and you get a result every cycle, K cycles late. Write to it occasionally and isnew tells you when to look.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "pipelines.html#seeing-the-cuts",
+    "href": "pipelines.html#seeing-the-cuts",
+    "title": "Pipelines",
+    "section": "Seeing the cuts",
+    "text": "Seeing the cuts\nstages shows what the compiler did:\n\nstages(Mac, :p)\n\nPipeline p :: Pipeline{2,Bits{33}} of Mac     path cost 99, cut into 2 stages\n\nstage 1                        cost   66\n  in    a, b, c, d\n        t1 = Bits{33}(a)         33-bit   [0]\n        t2 = t1 * b              33-bit   [66]\n        t3 = Bits{33}(c)         33-bit   [0]\n        t4 = t3 * d              33-bit   [66]\n  out   t2 (33), t4 (33)           66 flops\n\nstage 2                        cost   33\n  in    t2, t4\n        p = t2 + t4              33-bit   [33]\n  out   p (33)                     33 flops\n\noutput  p_out (33), p_valid (2), p_hasout (1), p_isnew (1)   37 flops\ntotal   99 + 37 = 136 flops\n\n\nEach stage lists what it takes in, what it computes, what it registers, and the cost of its longest path; the last line is what the whole pipeline costs in registers. stages(Mac) reports every pipeline in the module.\nA single operation cannot be split. If K is larger than the computation can use, the extra stages only delay, the report says so, and writing the Verilog warns:\n\n@quartz struct TooDeep\n  @in  a::Bits{8}, b::Bits{8}\n  s::Pipeline{3,Bits{9}}\nend\n\n@on TooDeep posedge(clk) s ← Bits{9}(a) + b\n\nstages(TooDeep, :s)\n\nPipeline s :: Pipeline{3,Bits{9}} of TooDeep     path cost 9, cut into 3 stages\n\nstage 1   (computes nothing)   cost    0\n  in    a, b\n        t1 = Bits{9}(a)           9-bit   [0]\n  out   b (8), t1 (9)              17 flops\n\nstage 2   (computes nothing)   cost    0\n  in    b, t1\n  out   b (8), t1 (9)              17 flops\n\nstage 3                        cost    9\n  in    b, t1\n        s = t1 + b                9-bit   [9]\n  out   s (9)                       9 flops\n\noutput  s_out (9), s_valid (3), s_hasout (1), s_isnew (1)   14 flops\ntotal   43 + 14 = 57 flops\nwarning: pipeline s of TooDeep: stage 1 of 3 computes nothing; 3 stages is more than the computation can use\nwarning: pipeline s of TooDeep: stage 2 of 3 computes nothing; 3 stages is more than the computation can use\n\n\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nThe Verilog contains the stage registers and an always block per stage, plus a valid bit that travels with the data — the same code you would write, except the cuts were chosen by measuring the logic rather than by eye. Change the expression and the cuts move with it.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "pipelines.html#what-goes-in-a-pipeline",
+    "href": "pipelines.html#what-goes-in-a-pipeline",
+    "title": "Pipelines",
+    "section": "What goes in a pipeline",
+    "text": "What goes in a pipeline\nThe expression written into a pipeline may use registers, inputs, locals and helper functions, like any other expression. What it may not do is depend on its own output: a feedback path through a pipeline is a loop with K cycles of delay, and that is a state machine, not a pipeline. Write the feedback as ordinary registers around the pipeline instead.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "pipelines.html#next",
+    "href": "pipelines.html#next",
+    "title": "Pipelines",
+    "section": "Next",
+    "text": "Next\nMulticycle paths: the other answer to slow logic, when the inputs are slower still.",
+    "crumbs": [
+      "<b>Going further</b>",
+      "Pipelines"
+    ]
+  },
+  {
+    "objectID": "components.html",
+    "href": "components.html",
+    "title": "Custom components",
+    "section": "",
+    "text": "Models of the chips the library does not have\nA component is a Julia object that holds a Simulation and reads and drives its nets over time. There is no base class to inherit from and no interface to implement: the building blocks are the same ones a @run body uses, so a component is a stimulus that has been given a name and a home.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "components.html#two-ways-to-run",
+    "href": "components.html#two-ways-to-run",
+    "title": "Custom components",
+    "section": "Two ways to run",
+    "text": "Two ways to run\n\nA task acts at its own pace: it sleeps with advance_by, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. spawn!(sim, f; persistent = true) starts one that outlives any @run.\nA hook runs after every slot and looks at the bus: a FIFO that must see a strobe on the cycle it happens. hook!(sim, f) registers one; unhook!(sim, f) removes it.\n\nMost components are tasks. Reach for a hook only when a task’s advance_until would have to poll every slot anyway.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "components.html#a-task-based-component",
+    "href": "components.html#a-task-based-component",
+    "title": "Custom components",
+    "section": "A task-based component",
+    "text": "A task-based component\nHere is a component that models a sensor with a “data ready” line: it pulses drdy at a fixed rate, and holds a sample on a bus that the design reads:\n\n@quartz struct Reader\n  @in  drdy::Bool = false\n  @in  data::Bits{12} = 0\n  last::Bits{12} = 0\n  count::Bits{8} = 0\nend\n\n@on Reader posedge(clk) begin\n  if drdy\n    last ← data\n    count ← count + 1\n  end\nend\n\nmutable struct Sensor\n  sim::Simulation\n  drdy::String\n  data::String\n  period::Rational{Int}\n  samples::Vector{Int}\n  task::Union{Nothing,QuartzHDL.SimTask}\nend\n\nfunction Sensor(sim; drdy, data, rate, samples)\n  s = Sensor(sim, drdy, data, 1 // Int(rate), samples, nothing)\n  s.task = spawn!(sim, () -&gt; _run(s); persistent = true)\n  s\nend\n\nfunction _run(s::Sensor)\n  t0 = time(s.sim)\n  for (k, v) in enumerate(s.samples)\n    advance_until(s.sim, () -&gt; t0 + k * s.period)      # absolute times: no drift\n    s.sim[s.data] = v\n    s.sim[s.drdy] = true\n    advance_by(s.sim, 1 // 48_000_000)\n    s.sim[s.drdy] = false\n  end\nend\n\nBase.close(s::Sensor) = (s.task === nothing || stop!(s.sim, s.task); s.task = nothing)\n\nOutside a @run body, the net accessors and the timing functions take the simulation as their first argument: sim[\"net\"] = v, advance_by(sim, t), advance_until(sim, f). Everything else is ordinary Julia.\n\nsim = Simulation(Reader(); clocks = (clk = 48MHz,))\nsensor = Sensor(sim; drdy = \"drdy\", data = \"data\", rate = 10kHz, samples = [100, 200, 300])\n@run sim advance_by(1ms)\nInt(sim.count), Int(sim.last)\n\n(3, 300)\n\n\nTwo habits worth copying from the library:\n\nCompute edge times from the start, never by accumulating. t0 + k * period keeps the error within half a slot however long the run; t += period drifts.\nTake the sim’s own clock as the unit of a strobe. A pulse one slot wide is seen by exactly one edge of the clock it is meant for.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "components.html#a-hook-based-component",
+    "href": "components.html#a-hook-based-component",
+    "title": "Custom components",
+    "section": "A hook-based component",
+    "text": "A hook-based component\nA hook is a function of no arguments, called after every slot. It typically watches a strobe and reacts on the same cycle:\n\n@quartz struct Sender\n  @out wr::Bool = false\n  @out byte::Bits{8} = 0\n  n::Bits{8} = 0\nend\n\n@on Sender posedge(clk) begin\n  n ← n + 1\n  wr ← n[2:3] == 0            # a strobe every fourth cycle\n  byte ← n\nend\n\nsim = Simulation(Sender(); clocks = (clk = 48MHz,))\nreceived = Int[]\nwas_wr = false\nh = hook!(sim, () -&gt; begin\n  wr = sim.wr\n  wr && !was_wr && push!(received, Int(sim.byte))\n  global was_wr = wr\nend)\n@run sim advance_by(2us)\nunhook!(sim, h)\nreceived\n\n6-element Vector{Int64}:\n  0\n 16\n 32\n 48\n 64\n 80",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "components.html#making-it-feel-like-the-library",
+    "href": "components.html#making-it-feel-like-the-library",
+    "title": "Custom components",
+    "section": "Making it feel like the library",
+    "text": "Making it feel like the library\nThe library’s streams and transaction links share a little more machinery — byte queues, framing, blocking read/write in simulation time, on closures. That layer is internal for now; the pieces above are enough for most device models, and a model that has to look like a UART can wrap one from the library instead of re-implementing the wire protocol.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "components.html#next",
+    "href": "components.html#next",
+    "title": "Custom components",
+    "section": "Next",
+    "text": "Next\nTests and CI: cosim, test sets, and running it all on every push.",
+    "crumbs": [
+      "<b>Extending</b>",
+      "Custom components"
+    ]
+  },
+  {
+    "objectID": "modules.html",
+    "href": "modules.html",
+    "title": "Modules and registers",
+    "section": "",
+    "text": "The @quartz struct: what a module is made of\nA module is a struct. Its fields are the registers; its ports say what crosses the boundary. This chapter is about the declaration — the types you can use, what a default means, and how ports are named and documented.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#registers",
+    "href": "modules.html#registers",
+    "title": "Modules and registers",
+    "section": "Registers",
+    "text": "Registers\n\n@quartz struct Regs\n  n::Bits{8} = 0          # 8 bits, unsigned, reset to 0\n  limit::Bits{8} = 200    # a plain integer default, checked against the width\n  seen::SBits{12} = -1    # 12 bits, signed\n  armed::Bool = false     # one bit\n  buffer::Bits{64}        # no default: powers up at zero, and a reset leaves it alone\nend\n\nRegs\n\n\nEvery field is a register unless the declaration says otherwise. Its type gives the width, its default gives the power-up value — and the default is also what a reset restores. A field without a default powers up at zero and is not touched by a reset, which is how data registers in an FPGA usually behave: you rarely want the reset network fanned out to a 64-bit buffer that the logic will fill before anyone reads it.\nThe value types are:\n\n\n\ntype\nis\n\n\n\n\nBool\none bit\n\n\nBits{N}\nN bits, unsigned, N ≤ 128\n\n\nSBits{N}\nN bits, signed (two’s complement), N ≤ 128\n\n\n\nplus the special registers of later chapters — Pulse, Timeout{N}, Edge, MetaGuard{K}, Pipeline{K,T}, Multicycle{K,T}, Pad{N} — and other @quartz modules, which make an instance.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nreg [7:0] n; is n::Bits{8}. There is no wire type in the struct: a wire is a local variable inside a block, or an output driven by @wire, as the wires chapter shows. Signedness is part of the type rather than a property you attach later, so SBits{12} arithmetic is signed everywhere it appears.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#values-and-widths",
+    "href": "modules.html#values-and-widths",
+    "title": "Modules and registers",
+    "section": "Values and widths",
+    "text": "Values and widths\nBits and SBits are ordinary Julia values outside a block too, which is handy for building test data:\n\na = Bits{8}(200)\nb = Bits{8}(100)\na + b            # wraps at 8 bits\n\nBits{8}(2ch)\n\n\n\nBits{8}(200) + Bits{12}(100)   # mixed widths: the result takes the wider one\n\nBits{12}(12ch)\n\n\nThe width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.\nWhat QuartzHDL will not do silently is throw bits away. Narrowing has to be written down:\n\nwide = Bits{16}(0x1234)\ntrunc(Bits{8}, wide)\n\nBits{8}(34h)\n\n\n\nBits{8}(wide)\n\n\nArgumentError: QuartzHDL.Bits{8}(...) would drop bits from a 16-bit value; write trunc(QuartzHDL.Bits{8}, x) if that is what you mean\nStacktrace:\n [1] _checkwiden(::Type{Bits{8}}, x::Bits{16})\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/core/reg.jl:601\n [2] Bits{8}(x::Bits{16})\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/core/reg.jl:55\n [3] top-level scope\n   @ ~/Projects/QuartzHDL.jl/qdocs/modules.qmd:70\n\n\n\nThe same goes for mixing signed and unsigned: convert explicitly, so a reader can see where the sign is decided.\nA plain integer is accepted wherever a Bits is expected, and checked against the width:\n\n@quartz struct TooBig\n  n::Bits{4} = 20\nend\n\n\nInexactError: convert(Bits{4}, 20)\nStacktrace:\n [1] _lift\n   @ ~/Projects/QuartzHDL.jl/src/core/reg.jl:621 [inlined]\n [2] convert\n   @ ~/Projects/QuartzHDL.jl/src/core/reg.jl:168 [inlined]\n [3] TooBig\n   @ ./&lt;missing&gt;:-1 [inlined]\n [4] TooBig(; n::Int64, #inputs::@NamedTuple{})\n   @ Main.Notebook ~/Projects/QuartzHDL.jl/src/core/quartz.jl:357\n [5] _validate(T::Type{TooBig})\n   @ QuartzHDL ~/Projects/QuartzHDL.jl/src/core/quartz.jl:541\n [6] top-level scope\n   @ ~/Projects/QuartzHDL.jl/src/core/quartz.jl:380",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#bit-indexing",
+    "href": "modules.html#bit-indexing",
+    "title": "Modules and registers",
+    "section": "Bit indexing",
+    "text": "Bit indexing\nBits are numbered from 0, the least significant, and a range is lo:hi:\n\nw = Bits{16}(0xabcd)\nw[0], w[15], w[4:7]\n\n(true, true, Bits{4}(ch))\n\n\nw[part(i, Bits{8})] picks part number i of a word made of equal fields — byte i, here — and w[base .+ (0:7)] picks eight bits from a computed base:\n\nw[part(1, Bits{8})]\n\nBits{8}(abh)\n\n\nBoth forms work on the left of a register write too, to write part of a register; the clocked logic chapter has the details. A base that would run off the end of the word is an error rather than something Julia and Verilog might read differently.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#joining-and-splitting",
+    "href": "modules.html#joining-and-splitting",
+    "title": "Modules and registers",
+    "section": "Joining and splitting",
+    "text": "Joining and splitting\nbits(hi, ..., lo) concatenates, most significant first, and so does the operator ⊞ (type \\boxplus). split takes a word apart by widths:\n\nid = Bits{4}(0xa); tag = Bits{4}(0x5); payload = Bits{8}(0x33)\nword = id ⊞ tag ⊞ payload\n\nBits{16}(a533h)\n\n\n\nsplit(word, 4, 4, 8)\n\n(Bits{4}(ah), Bits{4}(5h), Bits{8}(33h))\n\n\n⊞ binds like +, so a piece that is itself arithmetic wants parentheses: a ⊞ (b - 1).\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\n{a, b, c} is a ⊞ b ⊞ c. Indexing is x[3] for a bit and x[0:3] for a slice — low first, unlike Verilog’s x[3:0] — and x[base .+ (0:7)] is x[base +: 8].",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#the-interface",
+    "href": "modules.html#the-interface",
+    "title": "Modules and registers",
+    "section": "The interface",
+    "text": "The interface\nWhat crosses the module’s boundary is declared, not inferred from a name:\n\n@quartz struct Uart\n  @in  rx::Bool, baud::Bits{16}\n  @in  rst::Bool = false  active=:low\n  @out tx::Bool\n  @out busy::Bool\n  @io  sda::Pad{1}  ext_pull=:up\n  state::Bits{3}          # not declared: an internal register\nend\n\nUart\n\n\n\n@in declares an input. An input has no storage; a block reads it by name. With a default it is optional at step; without one, every step must supply it. Several inputs of the same kind can share a line.\n@out declares an output register — storage, like any field, that is also visible outside.\n@io declares a pad, a pin the module both drives and reads; see wires and pads.\n\n\nPolarity\nactive=:low says the pin is asserted low. Inside the module, and everywhere in the Julia model, the value means asserted: rst is true while the design is held in reset, whatever the wire is doing. The inversion happens where the port meets the outside — in the emitted Verilog, and in co-simulation — and nowhere else. This is what lets you write if rst without ever again thinking about whether it was rst_n.\n\n\nPin names\nThe Verilog port is named after the Julia port with its direction on the end: rx_i, tx_o, sda_io, and rst_ni for an input asserted low. verilog=\"...\" names the pin something else entirely:\n\n@quartz struct Named\n  @in  go::Bool  verilog=\"START_N\"  active=:low\n  @out y::Bool\nend\n\nNamed\n\n\nThe suffixes are an option of the emission, on by default; Verilog(; suffix = false) turns them off, as Verilog output describes.\n\n\nDocumenting ports\nA string before a port or a field documents it. portdoc reads the documentation back, and the emitted Verilog carries it as a comment on the port:\n\n@quartz struct Documented\n  \"clocks per bit, less one\"\n  @in  divisor::Bits{16}\n  \"true for one cycle per received byte\"\n  @out ready::Bool\nend\nportdoc(Documented, :divisor)\n\n\"clocks per bit, less one\"\n\n\ninterface(T) lists every port with its kind and type, which is what the CLI and the constraint writer use.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#static-values",
+    "href": "modules.html#static-values",
+    "title": "Modules and registers",
+    "section": "Static values",
+    "text": "Static values\nSome registers hold a value that must be right before the first reset — the reset generator itself, or a configuration word the bitstream delivers. Declare those with static:\n\n@quartz struct PowerUp\n  ready::Bool = static(false)\n  timer::Bits{4} = static(15)\nend\n\nPowerUp\n\n\nA static field powers up at its value and @reset leaves it alone. In the emitted Verilog it is the one kind of field that gets an initializer, since the synthesiser then guarantees the power-up value.\n\n\n\n\n\n\nTipIf you know Verilog\n\n\n\nA default that is not static is restored by @reset and does not appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. Verilog(; inits = :all) initializes everything, for simulators that would otherwise start at x — co-simulation uses that.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#parametric-modules",
+    "href": "modules.html#parametric-modules",
+    "title": "Modules and registers",
+    "section": "Parametric modules",
+    "text": "Parametric modules\nA module may take type parameters, the way a Verilog module takes parameters:\n\n@quartz struct Shift{N}\n  @in  x::Bool\n  sr::Bits{N} = 0\n  @out y::Bool\nend\n\n@on Shift{N} posedge(clk) begin\n  sr ← sr &lt;&lt; 1 | x\n  y ← sr[N - 1]\nend\n\nm = step(Shift{4}(); x = true)\n\nShift{4}(Bits{4}(1h), false, (x = false,))\n\n\nThe parameters the block body uses are named on the @on line. Each concrete instantiation — Shift{4}, Shift{16} — is emitted as its own Verilog module.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  },
+  {
+    "objectID": "modules.html#next",
+    "href": "modules.html#next",
+    "title": "Modules and registers",
+    "section": "Next",
+    "text": "Next\nClocked logic: the @on block, and everything you can say inside it.",
+    "crumbs": [
+      "<b>Writing hardware</b>",
+      "Modules and registers"
+    ]
+  }
+]

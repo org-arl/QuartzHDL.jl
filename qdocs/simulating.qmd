@@ -1,0 +1,176 @@
+---
+title: "Simulation"
+engine: julia
+---
+
+**Driving a design over time**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+## Two ways to run
+
+`step(m; inputs...)` is the simplest: one call, one clock edge, a new state back. Everything is a value, so a run is a list of states, and a unit test is a loop:
+
+```{julia}
+@quartz struct Blinker
+  @in  en::Bool = true
+  n::Bits{4} = 0
+  @out led::Bool
+end
+
+@on Blinker posedge(clk) begin
+  en && (n ← n + 1)
+  led ← n[3]
+end
+
+m = Blinker()
+leds = Bool[]
+for _ in 1:20
+  global m = step(m)
+  push!(leds, m.led)
+end
+leds
+```
+
+For anything with real time in it — several clocks, peripherals, a stimulus that waits for things — a `Simulation` wraps the design with a clock plan and a recorder, and you drive it with `@run`.
+
+## A `Simulation`
+
+```{julia}
+sim = Simulation(Blinker(); clocks = (clk = 1MHz,), watch = "*")
+```
+
+`clocks` gives every pin clock a rate — a named tuple is enough for a simple plan, and `@clocks` handles several clocks ([benches](benches.qmd) has the details); `wiring` connects the design to models around it, and is left out when there is nothing to connect, as here; `watch` says which nets to record. Any stubs — models of chips on the board — come as further keywords.
+
+Every register, pad, input and clock is a *net*, named by its path:
+
+```{julia}
+nets(sim)
+```
+
+`sim["n"]` reads a net, and `sim.n` is the same thing unquoted. Only an input, or a pad the wiring leaves alone, can be driven; everything can be read.
+
+## `@run`: a stimulus
+
+A stimulus is a `@run` body. Inside it, `sim.x = v` drives a net, `advance_by` and `advance_until` let time pass, and times carry units:
+
+```{julia}
+out = @run sim begin
+  sim.en = false
+  advance_by(3us)
+  sim.en = true
+  advance_until(sim.led)                # a condition, looked at every slot
+  advance_until(20us)                   # or an absolute time
+  advance_until(!sim.led; timeout = 50us)
+end
+```
+
+`@run` returns what the body returned, or the capture when the body returns nothing. Outside a macro, `using QuartzHDL.Units` gives `ms`, `us`, `MHz` and so on.
+
+`advance_until` with a condition is a breakpoint: the simulation runs until the condition is true, or the timeout passes, which is an error.
+
+### Tasks
+
+A `@task` inside a `@run` body runs alongside it and ends with it. Given on its own, `@run sim @task ... end` keeps running until `stop!(sim, task)`:
+
+```{julia}
+t = @run sim @task begin
+  while true
+    advance_by(7us)
+    sim.en = !sim.en
+  end
+end
+@run sim advance_by(30us)
+stop!(sim, t)
+float(time(sim))
+```
+
+This is how a background model — a clock source, a device answering a bus — lives beside the main stimulus. The [components chapter](components.qmd) builds on it.
+
+### Reusable stimuli
+
+A stimulus that will be used more than once is a function. `@stimulus` makes a function whose body is a `@run` body; an argument declared `::Net` names a net by its path. It is called from inside a `@run`, or as one:
+
+```{julia}
+@stimulus function pulse(sim, pin::Net, width)
+  pin = true
+  advance_by(width)
+  pin = false
+end
+
+@run sim pulse(sim, "en", 10us)
+```
+
+## The capture
+
+The capture — what `@run` returned above, or `capture(sim)` at any time — holds every watched net's history. Query it by name or path, and by time:
+
+```{julia}
+out = capture(sim)
+out.led[5us]                      # its value at 5 us
+```
+
+```{julia}
+changes(out.led)[1:4]             # when it changed, and to what
+```
+
+```{julia}
+out["n"][12us]
+```
+
+An encoded register gives its state's *name* rather than a number. `sampled(signal)` gives one value per clock, for signal-processing packages; `slots(signal)` the raw slot indices.
+
+`watch!(sim, "ctr.*")` adds nets to record and `unwatch!` takes them away; recording every net costs a few percent. `clear!(sim)` forgets the capture; `reset!(sim)` puts the simulation back to time zero, as built.
+
+## The REPL prompt
+
+At the REPL, `simrepl(sim)` switches to a `sim>` prompt where each line is a `@run` body and nets are named bare:
+
+```
+sim 0s> en = true
+sim 0s> advance_by(1ms)
+sim 1.0ms> advance_until(led)
+sim 1.0ms> n
+0x0008
+sim 1.0ms> @task pulse(sim, "en", 10us)
+```
+
+Backspace on an empty line returns to Julia. This is the fastest way to find out what a design does: poke it, look, poke again.
+
+## Logging {#logging}
+
+`@info`, `@debug`, `@warn` and `@error` work inside a block, with the simulation time and the module's name added to each message:
+
+```{julia}
+@quartz struct Talker
+  n::Bits{4} = 0
+end
+
+@on Talker posedge(clk) begin
+  n ← n + 1
+  n == 15 && @info "wrapping" n
+  @check n ≤ 15
+end
+
+sim = Simulation(Talker(); clocks = (clk = 1MHz,))
+@run sim advance_by(40us)
+```
+
+A message is part of the design's meaning and stays in the code; what to *show* right now is chosen from outside and never touches the design: `showlogs!(sim; from = 10us, to = 12us, modules = [:Talker], when = () -> sim.n > 3)` narrows what is printed, and `showlogs!(sim)` shows everything again.
+
+`@check cond` is the design's own assumption: a simulation stops where it fails, with the time and the module in the error.
+
+None of this reaches the Verilog unless asked for. `Verilog(; debug = true)` and `cosim(T, stim; debug = true)` emit messages as `$display` and a failed check as `$error`, for simulation-only builds; synthesis output is untouched.
+
+## Lower-level pieces
+
+Under `@run` sit a few functions that components and harnesses use directly: `spawn!(sim, f)` starts a task, `run!(sim, f)` runs a function as a stimulus and returns its value, `hook!(sim, f)` registers a function called after every slot (for a model that must watch a bus every cycle) and `unhook!` removes it. They appear again in [custom components](components.qmd).
+
+## Next
+
+[Benches](benches.qmd): clocks with real rates, and wiring the design to models of what surrounds it.

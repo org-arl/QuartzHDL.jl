@@ -1,0 +1,122 @@
+---
+title: "Custom components"
+engine: julia
+---
+
+**Models of the chips the library does not have**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+A component is a Julia object that holds a `Simulation` and reads and drives its nets over time. There is no base class to inherit from and no interface to implement: the building blocks are the same ones a `@run` body uses, so a component is a stimulus that has been given a name and a home.
+
+## Two ways to run
+
+- **A task** acts at its own pace: it sleeps with `advance_by`, wakes, drives some nets, sleeps again. A clock source, a device that answers after a delay, a stream that sends bytes at a baud rate. `spawn!(sim, f; persistent = true)` starts one that outlives any `@run`.
+- **A hook** runs after every slot and looks at the bus: a FIFO that must see a strobe on the cycle it happens. `hook!(sim, f)` registers one; `unhook!(sim, f)` removes it.
+
+Most components are tasks. Reach for a hook only when a task's `advance_until` would have to poll every slot anyway.
+
+## A task-based component
+
+Here is a component that models a sensor with a "data ready" line: it pulses `drdy` at a fixed rate, and holds a sample on a bus that the design reads:
+
+```{julia}
+@quartz struct Reader
+  @in  drdy::Bool = false
+  @in  data::Bits{12} = 0
+  last::Bits{12} = 0
+  count::Bits{8} = 0
+end
+
+@on Reader posedge(clk) begin
+  if drdy
+    last ← data
+    count ← count + 1
+  end
+end
+
+mutable struct Sensor
+  sim::Simulation
+  drdy::String
+  data::String
+  period::Rational{Int}
+  samples::Vector{Int}
+  task::Union{Nothing,QuartzHDL.SimTask}
+end
+
+function Sensor(sim; drdy, data, rate, samples)
+  s = Sensor(sim, drdy, data, 1 // Int(rate), samples, nothing)
+  s.task = spawn!(sim, () -> _run(s); persistent = true)
+  s
+end
+
+function _run(s::Sensor)
+  t0 = time(s.sim)
+  for (k, v) in enumerate(s.samples)
+    advance_until(s.sim, () -> t0 + k * s.period)      # absolute times: no drift
+    s.sim[s.data] = v
+    s.sim[s.drdy] = true
+    advance_by(s.sim, 1 // 48_000_000)
+    s.sim[s.drdy] = false
+  end
+end
+
+Base.close(s::Sensor) = (s.task === nothing || stop!(s.sim, s.task); s.task = nothing)
+```
+
+Outside a `@run` body, the net accessors and the timing functions take the simulation as their first argument: `sim["net"] = v`, `advance_by(sim, t)`, `advance_until(sim, f)`. Everything else is ordinary Julia.
+
+```{julia}
+sim = Simulation(Reader(); clocks = (clk = 48MHz,))
+sensor = Sensor(sim; drdy = "drdy", data = "data", rate = 10kHz, samples = [100, 200, 300])
+@run sim advance_by(1ms)
+Int(sim.count), Int(sim.last)
+```
+
+Two habits worth copying from the library:
+
+- **Compute edge times from the start, never by accumulating.** `t0 + k * period` keeps the error within half a slot however long the run; `t += period` drifts.
+- **Take the sim's own clock as the unit of a strobe.** A pulse one slot wide is seen by exactly one edge of the clock it is meant for.
+
+## A hook-based component
+
+A hook is a function of no arguments, called after every slot. It typically watches a strobe and reacts on the same cycle:
+
+```{julia}
+@quartz struct Sender
+  @out wr::Bool = false
+  @out byte::Bits{8} = 0
+  n::Bits{8} = 0
+end
+
+@on Sender posedge(clk) begin
+  n ← n + 1
+  wr ← n[2:3] == 0            # a strobe every fourth cycle
+  byte ← n
+end
+
+sim = Simulation(Sender(); clocks = (clk = 48MHz,))
+received = Int[]
+was_wr = false
+h = hook!(sim, () -> begin
+  wr = sim.wr
+  wr && !was_wr && push!(received, Int(sim.byte))
+  global was_wr = wr
+end)
+@run sim advance_by(2us)
+unhook!(sim, h)
+received
+```
+
+## Making it feel like the library
+
+The library's streams and transaction links share a little more machinery — byte queues, framing, blocking `read`/`write` in simulation time, `on` closures. That layer is internal for now; the pieces above are enough for most device models, and a model that has to look like a UART can wrap one from the library instead of re-implementing the wire protocol.
+
+## Next
+
+[Tests and CI](testing.qmd): `cosim`, test sets, and running it all on every push.

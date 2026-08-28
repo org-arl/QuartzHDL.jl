@@ -1,0 +1,100 @@
+---
+title: "Introduction"
+engine: julia
+---
+
+**Write FPGA logic in Julia, simulate it in Julia, compile it to Verilog.**
+
+## What QuartzHDL is
+
+QuartzHDL is a small language for describing synchronous digital hardware, embedded in Julia. You write a module as a `struct` whose fields are the registers, and a block that says what those registers become on each clock edge. The same source then does two things:
+
+- it **runs as ordinary Julia**, one function call per clock edge, so you can poke at it, print it, plot it and test it like any other Julia code; and
+- it **compiles to Verilog**, ready for your FPGA vendor's tools.
+
+And because both come from one source, QuartzHDL can drive the Julia model and the generated Verilog with the same stimulus and check, cycle by cycle, that they agree.
+
+::: {.callout-note title="What QuartzHDL is not"}
+QuartzHDL does not turn arbitrary Julia code into hardware, and it is not a replacement for Verilog or VHDL. It is a hardware description language that happens to be written in Julia, with the restrictions that hardware needs. If you know how to write an `always @(posedge clk)` block, you already know most of what QuartzHDL lets you say.
+:::
+
+## Why you might want it
+
+**It reads like the design, not like the wiring.** Registers are typed fields with defaults, ports are declared with their direction and polarity, a state machine is a `@fsm`, a multi-step transaction is a `@sequence`, a handshake bit is a `Pulse`. Each of these is one line where Verilog needs several, and each is checked at the declaration rather than found in the lab.
+
+**You debug it in Julia.** A module is a value. Step it, inspect a field, set a breakpoint on a condition, log from inside a block with `@info`, and look at waveforms in a viewer or in a plot. There is a REPL prompt for talking to a running simulation. None of this needs a simulator licence or a testbench in another language.
+
+**Porting a signal-processing algorithm becomes a sequence of small steps.** If the reference implementation is Julia — a filter, a correlator, a demodulator — you can move it into fixed-width hardware one piece at a time, running the hardware model and the floating-point reference side by side on the same data and comparing the two at every stage. The helper functions you write along the way are plain Julia, traced into the Verilog without annotations.
+
+**The surrounding chips are in the library.** A UART, a USB FIFO, SPI and I2C masters and slaves, a PWM source and a block RAM come as ready-made models that attach to your design's pins, so a system test talks to the design the way a host would: `write(uart, "AT\r\n")`, `readline(uart)`.
+
+**Testing and CI are just Julia testing and CI.** A hardware test is a `@testset`. The Verilog co-simulation runs under Icarus Verilog on any CI machine. A pull request that changes a module runs the whole system test before anyone looks at it.
+
+## A first look
+
+Here is a complete module: an 8-bit counter with an enable input and a `tick` output that fires when it wraps around.
+
+```{julia}
+using QuartzHDL
+
+@quartz struct Counter
+  @in  en::Bool = true
+  @in  rst::Bool = false
+  count::Bits{8} = 0
+  @out tick::Bool
+end
+
+@on Counter posedge(clk) begin
+  @reset(rst)
+  if en
+    count ← count + 1
+    tick ← count == 255
+  else
+    tick ← false
+  end
+end
+```
+
+The `@quartz struct` declares the registers and ports. `@on` says what happens on each rising edge of `clk`: `←` is a register write that lands at the end of the cycle, exactly like Verilog's `<=`. To simulate, we make a module and step it:
+
+```{julia}
+m = Counter()
+for i in 1:300
+  m = step(m; en = true)
+  m.tick && println("wrapped after $i clocks")
+end
+m.count
+```
+
+And to get Verilog, we write the module type out:
+
+```{julia}
+write(stdout, Counter, Verilog());
+```
+
+That is the whole loop: describe, simulate, compile. The rest of this manual walks through it slowly.
+
+## Installation
+
+QuartzHDL needs Julia 1.10 or later.
+
+```julia
+using Pkg
+Pkg.add("QuartzHDL")
+```
+
+Some features need tools on your path, and the manual says so where it uses them: [Icarus Verilog](https://steveicarus.github.io/iverilog/) (`iverilog`, `vvp`) for co-simulation, and [Surfer](https://surfer-project.org) for live waveforms. On a Mac with Homebrew, `brew install icarus-verilog surfer` gets both.
+
+## Where to go next
+
+- [Quickstart](quickstart.qmd) builds a small design end to end: write it, simulate it, test it against the generated Verilog.
+- **Writing hardware** covers the language a construct at a time, starting with [modules and registers](modules.qmd).
+- **Going further** adds the constructs that make real designs short: [pulses, timeouts and edges](timekeeping.qmd), [clock domains](domains.qmd), [pipelines](pipelines.qmd), [multicycle paths](multicycle.qmd), [submodules](composing.qmd) and [black boxes](blackbox.qmd).
+- **Simulating** covers [driving a simulation](simulating.qmd), [benches](benches.qmd), [waveforms and plots](visualizing.qmd), the [component library](library.qmd) and [tests and CI](testing.qmd).
+- **Building** covers [Verilog output](compiling.qmd) and [boards and constraints](boards.qmd).
+- **Extending** shows how to write [custom components](components.qmd) and [custom emitters](emitters.qmd).
+- The appendices hold a [side-by-side with Verilog](verilog.qmd), the [rules the compiler enforces](rules.qmd), a look [under the hood](internals.qmd), and the [API reference](reference.qmd).
+
+::: {.callout-tip title="If you know Verilog"}
+Boxes like this one appear throughout the manual to point out where QuartzHDL differs from what a Verilog author would expect.
+:::

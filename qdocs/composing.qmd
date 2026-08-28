@@ -1,0 +1,93 @@
+---
+title: "Submodules"
+engine: julia
+---
+
+**Modules inside modules**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+## An instance is a field
+
+A field whose type is another `@quartz` module is an instance of it. Wire its inputs and clock in a `@wire` block, and read its outputs by name:
+
+```{julia}
+@quartz struct Counter
+  @in  en::Bool = true
+  n::Bits{4} = 0
+  @out wrap::Bool
+end
+
+@on Counter posedge(clk) begin
+  en && (n ← n + 1)
+  wrap ← n == 15
+end
+
+@quartz struct Top
+  @in  run::Bool = true
+  ctr::Counter = Counter()
+  @out wraps::Bits{8} = 0
+end
+
+@wire Top begin
+  ctr.clk ← clk               # a clock input takes a net name
+  ctr.en  ← run               # a data input takes a value
+end
+
+@on Top posedge(clk) begin
+  ctr.wrap && (wraps ← wraps + 1)
+end
+
+m = Top()
+for _ in 1:64
+  m = step(m; run = true)
+end
+Int(m.wraps)
+```
+
+Three kinds of wire, all with the same arrow:
+
+- `inst.clk ← net` binds a clock input to a net of this module: a pin clock, another block's clock, or a net a black box drives. The right side must be a bare net name — a gated or divided clock is made by a [black box](blackbox.qmd), not by logic — and the wire cannot sit under an `if`.
+- `inst.port ← value` drives a data input, like any `@out` port: it may use `ifelse` and the rest, but not an `if` around it, since the instance sees its pin every cycle.
+- `net ← part.clkout` names the net a black box's clock output drives; the next chapter.
+
+## What an instance sees
+
+A constructor never wires: `Counter()` takes no arguments, and a keyword there is an error. Nothing steps an instance from a block. The simulator steps it on every edge of each net its clock is wired to, *after* the enclosing module's own blocks on that edge, so the instance sees the values the wires held before the edge — as hardware does.
+
+Only an instance's `@out` ports may be read. An output the instance drives with `@wire` may be read too, as long as it does not depend on the instance's own inputs: where it does, the Julia model would be a cycle behind the Verilog wire, so the compiler refuses instead of guessing.
+
+::: {.callout-tip title="If you know Verilog"}
+`ctr::Counter = Counter()` plus the `@wire` lines is `Counter ctr(.clk(clk), .en(run), .wrap(...))`. The difference is that the connections are checked: an input left unwired is an error, a wire to a port that does not exist is an error, and the direction of every connection is known from the instance's declaration.
+:::
+
+## Pads through the hierarchy
+
+A pad declared in a submodule reaches the top by name: the same `sda` pad in a module and in the module that instantiates it is one net. Every module that declares it must give it the same Verilog name, since it is one pin.
+
+## Instances used twice
+
+Two fields of the same type are two instances with their own state:
+
+```julia
+@quartz struct Pair
+  a::Counter = Counter()
+  b::Counter = Counter()
+end
+
+@wire Pair begin
+  a.clk ← clk; a.en ← true
+  b.clk ← clk; b.en ← a.wrap
+end
+```
+
+A [board description](boards.qmd) addresses a port of an instance by its path, `a.wrap`, so a module used twice gets two pin bindings.
+
+## Next
+
+[Black boxes and the clock tree](blackbox.qmd): the parts QuartzHDL does not describe.

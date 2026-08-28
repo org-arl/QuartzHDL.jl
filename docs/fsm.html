@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>State machines and sequences – QuartzHDL</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-c0d8b526fa222858bf56437ad6d5e615.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">QuartzHDL</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/org-arl/QuartzHDL.jl"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./modules.html"><b>Writing hardware</b></a></li><li class="breadcrumb-item"><a href="./fsm.html">State machines and sequences</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Getting started</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./quickstart.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Quickstart</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Writing hardware</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./modules.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Modules and registers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./clocked.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Clocked logic</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./wires.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Wires and pads</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./fsm.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">State machines and sequences</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Going further</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./timekeeping.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Pulses, timeouts and edges</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./domains.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Clock domains</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./pipelines.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Pipelines</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./multicycle.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Multicycle paths</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./composing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Submodules</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./blackbox.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Black boxes and the clock tree</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Simulating</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./simulating.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./benches.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benches</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./visualizing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Waveforms and plots</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./library.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Library components</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tests and CI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Building</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./compiling.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Verilog output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./boards.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Boards and constraints</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Extending</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./components.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Custom components</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./emitters.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Custom emitters</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Appendices</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./verilog.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">For Verilog users</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./rules.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Rules and their reasons</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./internals.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Under the hood</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reference</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#encodings" id="toc-encodings" class="nav-link active" data-scroll-target="#encodings">Encodings</a></li>
+  <li><a href="#state-machines" id="toc-state-machines" class="nav-link" data-scroll-target="#state-machines">State machines</a></li>
+  <li><a href="#sequences" id="toc-sequences" class="nav-link" data-scroll-target="#sequences">Sequences</a></li>
+  <li><a href="#a-uart-transmitter" id="toc-a-uart-transmitter" class="nav-link" data-scroll-target="#a-uart-transmitter">A UART transmitter</a></li>
+  <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./modules.html"><b>Writing hardware</b></a></li><li class="breadcrumb-item"><a href="./fsm.html">State machines and sequences</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">State machines and sequences</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><strong>Named states, <code>@fsm</code>, and multi-step transactions with <code>@sequence</code></strong></p>
+<section id="encodings" class="level2">
+<h2 class="anchored" data-anchor-id="encodings">Encodings</h2>
+<p>An <code>@encoding</code> names a set of values over a <code>Bits{N}</code>:</p>
+<div id="4" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@encoding</span> Phase <span class="cf">begin</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  IDLE <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  RUN  <span class="op">=</span> <span class="fl">1</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  DONE <span class="op">=</span> <span class="fl">2</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>Phase(IDLE = Bits{2}(0h), RUN = Bits{2}(1h), DONE = Bits{2}(2h))</code></pre>
+</div>
+</div>
+<p>Give the values where they matter — a protocol tag, or a state whose bits drive something directly — or leave them out and let them be numbered. <code>encoding = :onehot</code> or <code>:gray</code> picks a scheme when the values do not matter but the layout does:</p>
+<div id="6" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@encoding</span> Lamp encoding<span class="op">=:</span>onehot <span class="cf">begin</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  RED; AMBER; GREEN</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Lamp.AMBER</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>Bits{3}(2h)</code></pre>
+</div>
+</div>
+<p>Outside a module, a value of the encoding is written with its name, <code>Phase.RUN</code>, since there it is a number. <code>encname(Phase, v)</code> gives a value’s name back, and a state may carry a docstring that <code>statedoc</code> reads.</p>
+</section>
+<section id="state-machines" class="level2">
+<h2 class="anchored" data-anchor-id="state-machines">State machines</h2>
+<p>A register declared with an encoding as its type is a <code>Bits</code> of the encoding’s width that knows its encoding. Inside a block, a bare state name then means the state wherever it meets that register — assigned to it, compared with it, as its default, in a <code>@state</code> label:</p>
+<div id="8" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Machine</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  go<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  state<span class="op">::</span><span class="dt">Phase </span><span class="op">=</span> IDLE</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> y<span class="op">::</span><span class="dt">Bits{8}</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Machine <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@fsm</span> state <span class="cf">begin</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@state</span> IDLE</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>      go <span class="op">&amp;&amp;</span> (state <span class="op">←</span> RUN)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@state</span> RUN</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>      n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>      n <span class="op">==</span> <span class="fl">5</span> <span class="op">&amp;&amp;</span> (state <span class="op">←</span> DONE)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@otherwise</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>      state <span class="op">←</span> IDLE</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  y <span class="op">←</span> n</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>@fsm</code> expands to the <code>if</code>/<code>elseif</code> chain you would otherwise write, so nothing about simulation or emission changes. What it adds is the checking: every state must have a branch or there must be an <code>@otherwise</code>; no state may appear twice; a name the encoding does not define is an error. The Verilog gets a <code>case</code> over <code>localparam</code>s, so the state machine reads by name there too.</p>
+<p>Let’s run it:</p>
+<div id="10" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Machine</span>()</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(m; go <span class="op">=</span> <span class="cn">true</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  m <span class="op">=</span> <span class="fu">step</span>(m; go <span class="op">=</span> <span class="cn">false</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">encname</span>(Phase, m.state), m.y</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>(:DONE, Bits{8}(05h))</code></pre>
+</div>
+</div>
+<p>A state name that is also a field, an input or a local is an error — a bare name may not mean two things. <code>state ← go ? RUN : IDLE</code> works; so does handing a state to a method that writes it straight into the register: <code>send(DONE)</code> for <code>@method send(s) = (state ← s)</code>.</p>
+<div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>If you know Verilog
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>An <code>@encoding</code> is a set of <code>localparam</code>s and a <code>@fsm</code> is a <code>case</code> statement, with the checks a linter would do. The one difference to remember: a bare state name only resolves against a register <em>of that encoding’s type</em>. Anywhere else, write <code>Phase.RUN</code>.</p>
+</div>
+</div>
+</section>
+<section id="sequences" class="level2">
+<h2 class="anchored" data-anchor-id="sequences">Sequences</h2>
+<p>Logic that does one thing after another over several cycles — a bus transaction, a handshake, a conversion — is a state machine whose states are steps. <code>@sequence</code> writes it as the steps:</p>
+<div id="12" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Writer</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  go<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  nack<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  z<span class="op">::</span><span class="dt">Bits{8}</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  step<span class="op">::</span><span class="dt">Bits{4} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  x<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  y<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> busy<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Writer <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@sequence</span> Xfer step <span class="cf">begin</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@when</span> go                 <span class="co"># START: wait for go, then</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    x <span class="op">←</span> y</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> SEND               <span class="co"># next cycle</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    y <span class="op">←</span> z</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@repeat</span> <span class="fl">4</span> <span class="cf">begin</span>          <span class="co"># four cycles of</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>      y <span class="op">←</span> y <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>      nack <span class="op">&amp;&amp;</span> <span class="pp">@goto</span> START    <span class="co"># unless told to give up</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@delay</span> <span class="fl">2</span>                 <span class="co"># two idle cycles</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> z <span class="op">==</span> <span class="fl">5</span>       <span class="co"># wait here until z is 5</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    x <span class="op">←</span> <span class="fl">4</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span>                        <span class="co"># and back to START</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  busy <span class="op">←</span> step <span class="op">!=</span> Xfer.START</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>step</code> is a field the struct declares, and the only register the sequence uses; it is an error if it is too narrow for the number of steps. The statements between dividers are one step: one cycle, all writes in parallel, then on to the next.</p>
+<ul>
+<li><code>@then</code> starts the next step; <code>@then NAME</code> names it. The first step is always <code>START</code>.</li>
+<li><code>@when cond</code> at the head of a step holds there until <code>cond</code> is true, and runs the step’s body on that cycle. <code>@then NAME @when cond</code> on one line is the same as on two.</li>
+<li><code>@delay n</code> is <code>n</code> idle steps.</li>
+<li><code>@repeat n begin ... end</code> is its body <code>n</code> times over, unrolled — so it is steps rather than a counter, and its steps cannot be named.</li>
+<li><code>@goto NAME</code> in a body goes to that step, guard and all.</li>
+<li>After the last step the sequence goes back to <code>START</code>, so a leading <code>@when go</code> re-arms it.</li>
+</ul>
+<p><code>Xfer</code> is an <code>@encoding</code> of the steps, made by the block: <code>Xfer.START</code>, <code>Xfer.SEND</code>, and <code>Xfer.step_2</code>… for the unnamed ones. Inside the body a label is bare; outside it — in another block, or in a test — it is written with the sequence’s name:</p>
+<div id="14" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">Writer</span>()</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(m; go <span class="op">=</span> <span class="cn">true</span>, nack <span class="op">=</span> <span class="cn">false</span>, z <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">9</span>))</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">step</span>(m; go <span class="op">=</span> <span class="cn">false</span>, nack <span class="op">=</span> <span class="cn">false</span>, z <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="fl">9</span>))</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="fu">encname</span>(Xfer, m.step), m.busy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>(:step_2, true)</code></pre>
+</div>
+</div>
+<p>The trace shows the step by name, and the Verilog is a <code>case</code> over <code>localparam</code>s with a <code>default</code> that returns to <code>START</code>, so a register value that is no step recovers.</p>
+</section>
+<section id="a-uart-transmitter" class="level2">
+<h2 class="anchored" data-anchor-id="a-uart-transmitter">A UART transmitter</h2>
+<p><code>Writer</code> shows every divider once; here is the same construct with a purpose. A byte goes out as a start bit, eight data bits, a parity bit and a stop bit, each held for one bit time — and the bit time is a <a href="./timekeeping.html"><code>Timeout</code></a>, reloaded at every step, so the sequence waits on <code>expired</code> rather than counting:</p>
+<div id="16" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BIT_TIME <span class="op">=</span> <span class="fl">103</span>                 <span class="co"># clocks per bit, less one: 9600 baud from 1 MHz</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> UartTx</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  send<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  data<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> busy<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  step<span class="op">::</span><span class="dt">Bits{5} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  shift<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  parity<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  baud_timer<span class="op">::</span><span class="dt">Timeout{7}</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> UartTx <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@sequence</span> Frame step <span class="cf">begin</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@when</span> send                       <span class="co"># wait for send, then</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    shift <span class="op">←</span> data</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    parity <span class="op">←</span> <span class="fu">isodd</span>(<span class="fu">popcount</span>(data))   <span class="co"># a Julia function, computed in hardware</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> <span class="cn">false</span>                       <span class="co"># start bit</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@repeat</span> <span class="fl">8</span> <span class="cf">begin</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>      <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)      <span class="co"># one bit time later</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>      tx <span class="op">←</span> shift[<span class="fl">0</span>]                  <span class="co"># a data bit, LSB first</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>      shift <span class="op">←</span> shift <span class="op">&gt;&gt;</span> <span class="fl">1</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>      baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> parity                      <span class="co"># even parity</span></span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">←</span> <span class="cn">true</span>                        <span class="co"># stop bit</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    baud_timer <span class="op">←</span> BIT_TIME</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@then</span> <span class="pp">@when</span> <span class="fu">expired</span>(baud_timer)  <span class="co"># hold it, then back to waiting for send</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>  busy <span class="op">←</span> step <span class="op">!=</span> Frame.START</span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The <code>@repeat 8</code> unrolls into eight steps, one per data bit, so <code>step</code> needs five bits for the twelve of them. Run it at its real rate in a <a href="./simulating.html">simulation</a> and the frame is on the pin:</p>
+<div id="18" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">UartTx</span>(); clocks <span class="op">=</span> (clk <span class="op">=</span> <span class="fl">1</span>MHz,), watch <span class="op">=</span> <span class="st">"tx"</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="pp">@run</span> sim <span class="cf">begin</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  sim.data <span class="op">=</span> <span class="fu">Bits</span><span class="dt">{8}</span>(<span class="ch">'A'</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  sim.send <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advance_by</span>(<span class="fl">1.2</span>ms)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(out.tx; legend <span class="op">=</span> <span class="cn">false</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAoQAAAHMCAIAAADDNi6EAAAABmJLR0QA/wD/AP+gvaeTAAAgAElEQVR4nO3deWAURcL38ZqZXCRDDnLf3CEkaJAopzwQuQRRQUUUEWG9VnHVVR991gOf3TwowqM+y6JyCPKICsqhBImiIhCihBvkEkgMCCTkTsjkmKPr/aOfnTebiwBJKoTv56+eSnVPdaXSv+meSrdBSikAAIA6RtUNAADgWkcYAwCgGGEMAIBihDEAAIoRxgAAKEYYAwCgGGEMAIBihDEAAIoRxgAAKNZWwri4uFh1EwAAUKNNhPGJEyfGjh17SatYrVa73d5C7UFNFRUVqptwraCrWw1d3TrsdrvValXdiqtDmwhjm812qckqpeSu2q1D0zTVTbhW0NWthq5uHRyom65NhDEAANcywhgAAMUIYwAAFCOMAQBQjDAGAEAxl6ZUqqqqOnjw4OHDh/v27ZuQkFBvnQ0bNuzcuTM2Nvbee+81Gv8v4/fu3ZuSkhIQEDB16lRvb+9mazUAAO1Ik86MZ86c+fjjj7/++uupqan1Vpg7d+5LL70UGBj4/vvvP/nkk3rh1q1bR48ebTabMzIyhg0b5nA4mq3VAAC0I006M16yZIkQ4sEHH6z3p1ardd68ed9++21CQsKUKVOioqJmzZoVEhIyZ86c//zP/3ziiSeklAkJCampqbfddltzth0AgHahGb4zPnHihM1m0y9fd+rUqXfv3jt37hRCpKenDx8+XAhhMBiGDx+enp5+5e8FAED706Qz48bl5ub6+/s7XwYGBubm5lZWVpaVlTnLAwICMjMzG9rChQsXjh8/npSUpL90dXVNTk6OjY1t5E3X/Ob4Mc/1H/2rr7z9zeu1A6b9xW1xWtwrfRw3+V/OXYcsFkuzNwb1oquby74iw6yDjR3cHA6jyaTg6BHnI9/oew3dx9dms2maZrPZLmPdZZmmdb+3xWNpB5NYMdjmeilNMxqNnp6ejddphjD28vKqrv7/w7qiosLLy8vd3d3FxcVZXllZaTabG9qC2WwOCwv7y1/+or80mUx9+vTx8PBo5E0Hh1e/dNBoNrteefub14959qfjjBFeBtUN+RcLjmhZVa5J5ssc2Y387tC86OpmcSpX83TVnok3NVShsrKyQwe31mySECKvSv5tnzbf3NiRrZ3Rw9jd3f0y1t1d4rg5VNwc0uby+N7NdlOH5g+fZgjjqKiovLy88vJy/TiSlZXVuXNno9EYERGRmZkZGRmpF95www0NbcFgMJjN5hEjRjT9TX1a++/oEgwKNvT0aVthnHJadQuA1hXuZRgR3uCfYXm5Zja39h/p6fJWfsOrXp9Ojf0SVXFrmY8HTdpqVVVVcXFxdXW1vqBfc/j5558/+ugjIURYWNigQYMWLlwohPjqq6+MRuPAgQOFEFOmTFmwYIGUMjMz89tvv500aVKL7AEAAFe5JoXxRx99lJiYuHv37hUrViQmJqalpQkhDh8+/M033+gV3nvvvf/93/8NCwt79tlnP/74Y/3/jF988cWqqqrg4OCBAwfOmTMnOjq65XYDAICrV5MuUz/++OOPP/54rcKHH3744Ycf1pd79ep14MCBqqqqml/0duzYMSUlpaqqyt3d3WBoc5caAABoI5rhO2OneqdcNT4PCwAAtLmJagAAXGsIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxwhgAAMUIYwAAFCOMAQBQjDAGAEAxl6ZXPXbsmMlk6tGjR90flZaWaprmfNmhQwcPDw+r1WqxWJyFvr6+BoPhStoKAEC71KQwrqysHDduXFFRkc1m69at25o1a1xdXWtWuP3228+cOaMvnzp1atGiRTNmzFi9evWjjz4aHBysl//yyy+enp7N23oAANqBJoXx8uXLhRB79+7VNG3QoEFr1qyZPHlyzQpbt27VF3777bf4+PgJEyboL8eMGbN69epmbTAAAO1Nk74zXrt27ZQpU4xGo4uLy+TJk9etW9dQzSVLltx5551+fn76S4vF8tNPP2VnZzdLWwEAaJeadGZ85syZqKgofTkqKmrNmjX1VnM4HB9//PGyZctqrvi3v/3twIEDiYmJX3zxhbu7e70r2my2/Pz8Dz74wFkyceJEf3//RpqkaZqUBofD0ZT2tyYppcPhcDja1rfjUkpNkw6HvIx1HQ5HG+zndomubi6aJqUUjXSmkq7W/wCvqV+xw+HQNO3ydvlKjlotzeFwOC5x9rPJZGq8QpPC2OFwGI1G5xbtdnu91b755huTyTR8+HD95b333nv//fcLISorK4cOHbpw4cI//elP9a5os9mqq6tPnjzpLCkpKfH29m6kSTabTQiTzWZrSvtbk5RGu93R1tqlaUaHQ9pslzOsbTZbG+zndomubi4Oh0HTDDab1lAFJV1ttwspTTZb/cfPdslms2ma5oyPS3IlR60WJaXxUkePwWBonjAODQ3Nzc3Vl3NycsLCwuqttnTp0unTp9eMbX2hQ4cOY8eOPXjwYEPb9/T0jIiImDdvXlMao3O3GwwGg4eHR9NXaR1Go93d3dXDo22dGZtMDldXg4fH5fxJ2O32NtjP7RJd3VxcXTWTSXp4uDVUQUlXu9ulweC4pn7FJpNJ07SGrolebN3LP2q1KIPB5uHh4eF68ZqXpEn7OXr06JSUFH05JSVl1KhRQojKysr9+/c76xQUFKSmpk6bNs1Z4rw0oWlaWlpa9+7dm63VAAC0I006M3700UcHDBgwadKk6urqs2fPTp06VQhx5MiRQYMGVVdX63WWL18+dOjQ6Oho51r3339/dXV1YGDgrl27XF1dn3zyyZbYAQAArnZNCmN/f//9+/d/9913JpNp5MiR+mWW2NjY7du3O+vceeed+jfETu+///7OnTtLSkpmzJjRv3//y/vaAACAdq+pd+Dy8vK68847a5Z4enreeOONzpfdunWrtUqnTp3GjBlzhe0DAKDd42wVAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFCGMAABQjjAEAUIwwBgBAMcIYAADFmhTGVVVVTz75ZPfu3QcNGpSenl63wmOPPTbyn+bPn68X2u32559/vkePHjfddNP333/fnK0GAKAdcWlKpTfeeOO3337LyMjYtm3bhAkTsrOzPT09a1bIyMj485//HBcXJ4QIDAzUC+fPn5+RkfHTTz/t27dv0qRJJ06c8Pf3b/YdAADgatekM+MlS5a88sor/v7+EyZMiImJWbduXd06vXr16tevX79+/aKiopxrvfTSS4GBgaNGjRoyZMjKlSubs+EAALQXFw9ji8Vy7ty5+Ph4/WV8fPyJEyfqVpswYUJkZOQ999yTnZ0thJBSnjx50rlWXFxcvWs5ORyO4hqklJe6JwAAXKUufpm6tLRUCOG8Lm02m4uLi2vVef/99+Pi4mw222uvvXbHHXfs37+/srLSarXWXOvcuXONvMWRI0duuOEGZ8nHH3+ckJDQSKssFqumeZWXl1+0/a1M09wqKqrLTW3rw4TN5lJdLcvLHZexrsViafb2oF50dXOpqjLabMby8sqGKijpaotFaJpbGzxqtRybzaZpms1mu4x17XbXqipHebnW7K26QlK6WSwWo8slHOSNRmOt73brungY+/v7GwyG0tJS/RvfkpKSzp0716ozcOBAfeGdd97p2LHjqVOnOnfu7OnpWVpaqn+FXFJSEhQU1NBb+Pj49OnTZ9euXRdtjFOlqDYajWazuemrtA6j0e7p6Wk2G1Q35F+4ujrc3Q1m82VOnm+D/dxe0dXNwsNDc3WVZrNHI3Vav6u9hDQaHdfUr1gPY3d398tY18XF4eHhetlHrZZjMNi8vLzMrs282Yvvp7u7e2xsbEZGhv4yIyOjkXPWsrIyu92ufwRISEjYuXNnU9YCAOBa1qTZ1E8//fQLL7xgNBq3bdtmtVrHjBkjhFi6dOnmzZtXrFiRnZ39wQcfDBo0yGq1vv3223feead+EvzMM8+8+OKLvr6++/bty87OnjhxYsvuCgAAV6cmhfGjjz7q7u6+fPnykJCQH374wWQyCSFiYmL0aVZ+fn4dOnRYtWqVm5vbQw899NBDD+lr3XPPPUKIFStW+Pv7b926tUOHDi21EwAAXM2aFMZCiGnTpk2bNq1myeDBgwcPHiyE8PHxmTVrVr1r3XPPPXokAwCAhrS578YBALjWEMYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKEcYAAChGGAMAoBhhDACAYoQxAACKuTSx3rFjx1asWGEymaZNm9a1a9daPz1y5Ehqampubm5MTMyUKVM6dOgghDh58uTmzZuddaZPn+7q6tpc7QYAoN1o0plxZmbm4MGDfXx8XF1dBwwYkJOTU6vClClT8vLyunfvvnbt2uHDh9vtdiHEzp0733777ax/klI2f/MBALj6NenMeMGCBQ888MALL7wghDh58uTixYtfe+21mhV2795tMpmEENOnTw8ICDh69GifPn2EEPHx8W+++WYLNBsAgPajSWfGGRkZQ4cO1ZeHDh2akZFRq4KexEKIkpKSqqqqgIAA/eXRo0f/+Mc//vWvf/3999+bqcEAALQ3TTozPn/+fKdOnfTlgICA3Nzceqtpmvbwww8/8cQToaGhQoioqKhp06ZFRkbu2LGjT58+e/bs6datW70rlpWVHT169IYbbtBfGo3Gf/zjH/Hx8Y00yWKxappXeXl5U9rfmjTNraKiutzUtq7J22wu1dWyvNxxGetaLJZmbw/qRVc3l6oqo81mLC+vbKiCkq62WISmubXBo1bLsdlsmqbZbLbLWNdud62qcpSXa83eqiskpZvFYjG6XMJB3mg0enp6Nl6nSWFsNpsrK/9vWFssFm9v7/raJx999FEhxNy5c/WSIUOGDBkyRAhx3333lZSULF68uKFL1t7e3tHR0YsXL3aWXHfddY3P9qoU1Uaj0Ww2N6X9rclotHt6eprNBtUN+Reurg53d4PZfJmT59tgP7dXdHWz8PDQXF2l2ezRSJ3W72ovIY1GxzX1K9bD2N3d/TLWdXFxeHi4XvZRq+UYDDYvLy9zc09HblIYd+nS5cSJE/ryiRMnunTpUquClPLJJ588c+bMV199VW+IRkREFBYWNvIWnp6e/fr1a1qbAQBoV5r0oWPq1KmLFi0qLS3Nz8//6KOPpkyZIoQ4c+aMPqVLCPHMM8/s3bt36dKlFRUVxcXF+kWJ9PT0kpISIcT+/fuXLVs2cuTIFtsLAACuYk0K4wkTJtx22209evSIj4+fPn36LbfcIoQoLS1NTU3VK3z33Xf5+fk333xzYmJiYmJienq6ECI1NTUmJqZjx4533333v//7v991110ttxsAAFy9mnSZ2mAwzJkzZ86cOTUL4+LiDh06pC8fOXKk7lrJycnJyclX3kQAANq3NvfdOAAA1xrCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQDHCGAAAxQhjAAAUI4wBAFCMMAYAQLGmhnFFRUVaWlpWVlZDFYqKitLS0nJycmoWVlVVpaenHz9+/IraCABAu9akMD569GhMTMybb755yy23/Md//EfdCps2bYqLi5s7d26/fv2WLl2qF2ZnZ8fGxiYnJ992221//OMfm7PVAAC0I00K41mzZj322GNff/31zp07Fy5cWPf8+LnnnluwYMH69etTU1NfeOGFyspKIcTs2bPvuuuu1NTU3bt3f/XVV/v27Wv+5gMAcPW7eBhLKVNSUu677z4hRGBgYFJS0oYNG2pWyMzMzMrKGj9+vBDi+uuvDwkJSUtLE0KsX79+8uTJQghvb++xY8euX7++RfYAAICrnMtFaxQWFlZVVYWHh+svIyIizp49W7PC2bNng4ODXV1d9Zfh4eFnz561Wq15eXmNrFVTdXV1bm7u7Nmz9Zeurq733XdfcHBwI62y2+3lNtfZe20XbX8rO18p7Ha7rY21S9PExtMiz+K4jHWtVoObWxvbn3aKrm4u+4uEj5uw2bSGKthsNlur/5Xa7aKwSrTBo1bL0TRNSmkyXc4u/1IkxoYLm+1yjlot7XCBLTHgEuobDAYXl4uk7cXDWEqpb8u5UU3T6lZwMhqNzpJG1qq1BYfDUVxcrL80mUxWq7WR+kKIDgbHn3ubiq1tbjb4H7qLMA/ZaNsVuCva8PUZUWy9nHWtVukm5MXr4YrR1c0l2ixuDRea1mBnaprW+BGmJQS6i8d6Gi7vz/Aq5XBoUkoXl8s5UI8KEzf6t7ljqRDiL9cZNO3SGuaMwkZcPIz9/f3d3NxycnI6d+4shDh37tyAAQNqVggNDc3Pz3c4HCaTSa8QFhbm5ubm7++fk5MTEhKiFzrPkuvy8PAIDw+fO3fuRRtT0yt9jc7TcTRuWIQYFnGZ65aXW81mt2ZtDupHV7cam83m7u7eym/qLsTfbmrl91TMZrNpmubu3q5G9VN9WmSzF//AYjQax4wZs3btWiFEWVnZ5s2bb731ViHE2bNnf/nlFyFEjx49QkNDv/vuOyHE8ePHT58+PWTIECHE2LFj161bJ4SorKz85ptv9LUAAEAtFz8zFkK8/vrrt9566969e/fv33/PPff06tVLCPHFF19s2LDh+++/NxgMc+bMmT59+qhRo7Zs2fLXv/7VbDYLIf7yl78kJSWdOHHi119/HTx4cK3zaQAAoDPU+sa3IUVFRenp6REREX379nWWXLhwITo6Wn/5+++/79+/PyYmpmfPns61SktLt2/fHhgYeOONNzZy0fzIkSPTpk3btWtX09tdXV1tNHKZujWUl5frn67Q0ujqVkNXt45/XqZu7W8ErkZNOjMWQnTq1En/56WaJZ06dXK+jIyMjIyMrLWWj4/PuHHjrrCJAAC0b21uNnIT/fzzz0eOHFHdimvC6tWrS0tLVbfimuC8ex1aVHFxsT4JBi3t0KFDGRkZqltxdbhaw3jDhg1btmxR3YprwqJFizIzM1W34ppQ771m0eyOHz/+4Ycfqm7FNWHz5s0bN25U3Yqrw9UaxgAAtBuEMQAAihHGAAAo1tR/bWpRhw4dSkxM9PT0bPoqVVVVRqPRza1d3dilbbJYLB06dDAa+dzW4srKyry9vVW3ov1zOBxVVVVeXl6qG9L+Wa1WKSX/2uTm5nb06FE/P79G6rSJMAYA4FrG6Q4AAIoRxgAAKEYYAwCgGGEMAIBihDEAAIqZXn/9dSVvXFpa+umnn+7YsSMyMrLex6ecPXt2xYoVhw8f7tatm3NmvMViWbly5fbt20NDQ318fPRCTdNSUlJSU1Pd3NxCQ0OdW/j555/XrFlTXFzcvXt35zOjMjMzP/nkk8zMzB49eri4NPU5GVe1vLy8FStWHDhwoEuXLh06dKhb4eTJk5988klWVlbNPikqKvrkk092794dFRXl/CcQm822Zs2a77//3tfXNyAgQC/89ddf169fn5GR0aFDh6CgIL3wp59+2rFjx5EjR44cOVJUVOR8ulf7tmvXri+++KKgoKBHjx71PqZs06ZNKSkpdrs9KirKWXjgwIGVK1fm5OT07NnT+S9k586d+/jjj2uO//z8/I0bNx75p6ioKL3cOf5dXV3DwsJaZUfV27Jly5dffllRUdGlS5e6P9U0bf369d988427u3vdY0JJSUn37t2dhfoxoeb4z8jI0O9+rysrK4uMjLRYLF999ZWzMCAg4Fp47lNFRcWqVau2bdsWGBhY73/mFBYWfvLJJ3v37o2Ojnb+e6rVal29evXmzZv9/Pz8/f31QpvNduDAge3bt4eFhdU8EB08ePCzzz676Phv99ScGZeXlycmJm7btu348eMJCQmnT5+uVSEzMzMhISErK+uHH37o379/RUWFEMJqtQ4aNGjjxo2nT5++4YYbjh07pld++OGH33zzzZKSkjvuuOPzzz/XC5csWTJlypTS0tJXX331ueee0wv37NnTv3//nJyczz///JZbbtE0rbX2WJlz585df/31hw8f3rFjR79+/UpKSmpV2LVr14ABA3Jzcz/77LORI0fqfVJUVNS3b9+dO3f+8ssvCQkJubm5euXx48d/+OGHhYWFQ4cO3bp1qxAiPT19zJgxe/bsyczM/Ld/+7dly5bpNf/7v/974cKF33///ffff79v375W3GNlVqxYcffdd5eUlCQnJz/xxBN1K7z88ssvvPBCaWnp9OnT58+frxeuX7/+1ltvLS4ufvfddx944AG9MCsrKyEhITMzs+b4P3z48FNPPfX9P+mFQohHHnlEH/933nnnqlWrWmVfFXvrrbcef/zxsrKyp556Kjk5uW6FGTNmzJ07t6SkZPz48atXr9YLFy1apB8TXn755eeff14v3L17d//+/XNzc1euXDlixAh9/B86dMjZz88+++y6deuEEHl5eQ899JCzvKioqLV2VxmHwzFs2LB169adPXv2xhtvPHDgQK0KBQUFCQkJe/fu3bdvX9++ffPz8/XyW2+9dfny5fn5+YMHD05PT9cLY2JiHnrooQceeCArK8u5hZSUlDFjxhQXF//P//zPlClT9MJ6x3/7J1V47733xowZoy/PnDnz+eefr1XhqaeeevbZZ/XlpKSkDz/8UEr56aefDhgwQNM0KeUrr7zy8MMPSymzsrI6duxYWloqpfz666979+4tpdTPPNLS0qSUeXl5Xl5e58+fl1Lefffdb731lpTS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">
+</div>
+</div>
+<p>Start bit low, <code>'A'</code> is <code>0x41</code> sent LSB first, an even parity of <code>0</code>, then the stop bit high.</p>
+<p><code>@sequence</code> is <code>@fsm</code> with the bookkeeping done for you, so nothing about simulation or emission changes. Dividers belong at the top level of the sequence or of a <code>@repeat</code> body; one inside an <code>if</code> is an error rather than a guess.</p>
+</section>
+<section id="next" class="level2">
+<h2 class="anchored" data-anchor-id="next">Next</h2>
+<p><a href="./timekeeping.html">Pulses, timeouts and edges</a>: <code>Pulse</code>, <code>Timeout</code> and <code>Edge</code>.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/org-arl\.github\.io\/QuartzHDL\.jl");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

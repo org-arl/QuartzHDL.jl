@@ -1,0 +1,125 @@
+---
+title: "Black boxes and the clock tree"
+engine: julia
+---
+
+**The parts QuartzHDL does not describe: PLLs, RAM blocks, vendor primitives**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+A vendor PLL, a block RAM, an oscillator: the design has to instantiate them, but what they do on a clock edge is not the design's to say. Declare such a part as a black box. The design states what the part looks like and how it is wired; the behaviour comes from elsewhere.
+
+## Declaring a part
+
+```{julia}
+@blackbox PLL48 begin
+  "the 48 MHz PLL, from the vendor's clock wizard"
+  clock(CLKI)
+  "high puts the PLL to sleep"
+  input(STDBY::Bool)
+  clockout(CLKOP, from = CLKI, divide = 1,  enable = !stdby)
+  clockout(CLKOS, from = CLKI, divide = 48, enable = !stdby)
+end
+```
+
+The declaration transcribes the datasheet. Port names keep the vendor's spelling in the emitted Verilog (`.CLKI(...)`) and appear in Julia as their lowercase (`pll.clki`). A string at the top documents the part; one before a port documents the port. The clauses:
+
+- `clock(NAME, ...)` declares clock inputs.
+- `input(NAME::Type, ...)` declares data inputs.
+- `output(NAME::Type, ...)` declares data outputs.
+- `clockout(NAME; from, divide, phase, enable)` declares a clock output *and how it is made*: an edge every `divide` edges of `from`, offset by `phase`, only while `enable` holds, where `enable` may read the part's inputs.
+- `pragma("...")` is emitted as a synthesis attribute on the instance (`/* synthesis syn_noprune=1 */`) and means nothing to the simulator.
+
+`verilog="Name"` after the part's name sets the Verilog module name when it differs.
+
+## Wiring a part
+
+A black box is wired like a submodule: clock inputs to nets, data inputs to values, and clock outputs *the other way round*, naming the net they drive:
+
+```{julia}
+@quartz struct Top
+  @in  sleep::Bool = false
+  pll::PLL48 = PLL48()
+  fast::Bits{8} = 0
+  slow::Bits{8} = 0
+end
+
+@wire Top begin
+  pll.clki  ← clk_48MHz          # a clock input, on a net
+  clk       ← pll.clkop          # a clock output, naming the net it drives
+  clk_1MHz  ← pll.clkos
+  pll.stdby ← sleep              # a data input, given a value
+end
+
+@on Top posedge(clk) fast ← fast + 1
+@on Top posedge(clk_1MHz) slow ← slow + 1
+```
+
+An input left unwired is an error. A wire to a part cannot sit under an `if`: the part sees its pin every cycle, so put the condition in the value.
+
+## The clock tree is the `clockout` declarations
+
+In simulation the `clockout` recipes *are* the behaviour of the part. Every derived clock — source, divider, phase, enable — is computed from them, and nothing else. A clock that divides holds its counter while gated, as the hardware does. A mux is a part that declares one output twice, once per source, with complementary enables. Switching it is not an edge: the output follows the newly selected source when that is low, and otherwise holds until that source's own next edge, so a switch never adds or loses a cycle in either model.
+
+The design above has two clocks derived from one pin. A [`Simulation`](simulating.qmd) needs the rate of the pin clock only; the rest follows:
+
+```{julia}
+sim = Simulation(Top(); clocks = (clk_48MHz = 48MHz,), watch = "*")
+out = @run sim begin
+  advance_by(10us)
+end
+Int(sim.fast), Int(sim.slow)
+```
+
+In the Verilog the instance is wired to the vendor module. For co-simulation, `simmodels` generates a behavioural Verilog module for each part from the same recipes, so the Verilog testbench and the Julia model cannot disagree about the clock tree:
+
+```{julia}
+simmodels(stdout, Top);
+```
+
+A `clockout` with no `from` — an oscillator, say — is a port and nothing more: it never ticks in simulation.
+
+`clocklevel(this, :clk_1MHz)` reads a clock net as data from inside a block, for the rare design that samples a slow reference.
+
+## Parts with data outputs: stand-ins
+
+A part with outputs that are not clocks — a RAM — needs something to say what those outputs do. That is a *stand-in*, and it belongs to the test harness, not the design:
+
+```{julia}
+@blackbox RAM256 begin
+  input(WrAddress::Bits{8}, RdAddress::Bits{8}, Data::Bits{16}, WE::Bool)
+  clock(WrClock, RdClock)
+  output(Q::Bits{16})
+end
+
+struct Ram256Model
+  mem::Vector{UInt16}
+  q::Bits{16}
+end
+
+QuartzHDL.standin(::Type{RAM256}) = Ram256Model(zeros(UInt16, 256), Bits{16}(0))
+
+function Base.step(r::Ram256Model, clock::Symbol; wraddress, rdaddress, data, we)
+  clock === :rdclock && return Ram256Model(r.mem, Bits{16}(r.mem[Int(rdaddress) + 1]))
+  we || return r
+  mem = copy(r.mem); mem[Int(wraddress) + 1] = UInt16(Int(data))
+  Ram256Model(mem, r.q)
+end
+```
+
+`standin` is called when the part is constructed, so the harness loads before the design is instantiated. The simulator calls `step(model, :port; inputs...)` on each edge of each clock input — in declaration order when two share a net — and reads an output as the model's field of the same name. Without a stand-in the outputs read as zero. The Verilog needs none: there the vendor's netlist does the work.
+
+For the common case, the library's [`RAM`](library.qmd#ram) is a ready-made stand-in with ports named by role, so a block RAM needs no model of its own.
+
+::: {.callout-tip title="If you know Verilog"}
+A `@blackbox` is an instantiation of a module QuartzHDL has no source for. Where Verilog would need a separate simulation model — often a hand-written one that drifts from the real clock tree — QuartzHDL derives the model from the `clockout` recipes and checks it against the Julia simulation in `cosim`.
+:::
+
+## Next
+
+[Simulation](simulating.qmd): driving a design over time.

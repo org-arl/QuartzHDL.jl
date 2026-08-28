@@ -1,0 +1,36 @@
+name = "QuartzHDL"
+uuid = "24fd0add-350c-448f-a74a-c683df4af439"
+version = "0.1.0"
+authors = ["Mandar Chitre <mandar@nus.edu.sg>"]
+
+[deps]
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+
+[weakdeps]
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+SignalBase = "00c44e92-20f5-44bc-8f45-a1dcef76ba38"
+
+[extensions]
+QuartzHDLPlotsExt = "Plots"
+QuartzHDLSignalBaseExt = "SignalBase"
+
+[compat]
+Aqua = "0.8"
+Plots = "1"
+REPL = "1.11"
+Random = "1.11"
+SignalBase = "0.1"
+Sockets = "1.11"
+Test = "1.11"
+julia = "1.11"
+
+[apps.quartz]
+
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Random", "Aqua"]

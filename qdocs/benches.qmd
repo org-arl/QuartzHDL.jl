@@ -1,0 +1,114 @@
+---
+title: "Benches"
+engine: julia
+---
+
+**Clocks with real rates, and the design wired to models of what surrounds it**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+A `Simulation` is built on a `Bench`: the design plus *stubs* — models of the chips around it — advanced together on one clock plan. This chapter is about the two declarations that set a bench up, `@clocks` and `@wiring`, and about the bench itself, which you can also drive directly.
+
+## `@clocks`: the plan
+
+```{julia}
+plan = @clocks begin
+  clk   = 48MHz
+  slow  = 1MHz
+  sensor = 400kHz, dithered
+end
+```
+
+What `@clocks` makes is a `ClockPlan`. Every clock that arrives on a pin gets a rate here, and so does every stub that is stepped at a rate of its own. Rates are absolute, so a run reports the time it covered in seconds, and a capture has a real time axis.
+
+One *slot* is the finest grid every rate divides. A clock that does not divide the grid the others make can be marked `dithered`: it then ticks on the nearest slot, with its mean rate exactly as asked and up to one slot of jitter. An unmarked clock that does not fit is an error naming both ways out, because an exact common grid for two unrelated oscillators is usually an accident.
+
+Clocks a [black box](blackbox.qmd) derives are not listed: they follow from their sources.
+
+A simple plan needs no macro: a named tuple of rates says the same thing, so a one-clock bench is `clocks = (clk = 1MHz,)` (with `using QuartzHDL.Units` for the units). A dithered clock is `(rate, :dithered)`, and `grid` sets the slot rate, as in the block.
+
+## `@wiring`: connections to the outside
+
+```{julia}
+@quartz struct Dut
+  @in  rx::Bool = true
+  @out tx::Bool
+  @io  sda::Pad{1}  ext_pull=:up
+  n::Bits{8} = 0
+end
+
+@on Dut posedge(clk) begin
+  n ← n + 1
+  tx ← n[7]
+end
+
+@wire Dut sda ← ifelse(n[0], drive(false), release())
+
+wiring = @wiring begin
+  dut.rx    ← echo.tx                  # an input of the design, from a stub
+  echo.rx   ← dut.tx                   # an input of a stub, from the design
+  dut.sda   ← drive(false, echo.pull)  # what a stub drives on a pad's net
+  echo.sda  ← dut.sda                  # and the level that net resolves to
+end
+```
+
+The arrow is the design's own: the left side is an input, the right side a value from the others' outputs. Every stub sees the state at the start of the slot, so a combinational path out through a peripheral and back arrives a slot later, as it would on a board.
+
+A pad of the design names its net. Wired *to*, it takes what the outside drives on the net; read, it gives the level the net resolves to — from the design's drive, the outside's and the pull. An input the block leaves out is undriven, and a net with no pull that nobody holds reads zero. A bench with nothing to connect needs no `@wiring` at all: `wiring` defaults to the empty one.
+
+## A stub
+
+A stub is any value with a `step` method — including another `@quartz` module, which is often the easiest way to write one:
+
+```{julia}
+@quartz struct Echo
+  @in  rx::Bool = false
+  @in  sda::Bool = true
+  @out tx::Bool
+  @out pull::Bool = false
+  seen::Bool = false
+end
+
+@on Echo posedge(clk) begin
+  tx ← rx
+  seen ← sda
+end
+```
+
+A hand-written stub is a struct with `Base.step(s::MyStub; inputs...)` returning the new state. Its outputs are its fields.
+
+## The bench
+
+```{julia}
+plan = @clocks begin
+  clk  = 48MHz
+  echo = 48MHz         # a stub is stepped at a rate, like a clock
+end
+
+b = Bench(Dut(); clocks = plan, wiring, echo = Echo())
+b = step(b, 1000)
+float(time(b))
+```
+
+`step(b, n)` advances `n` slots. `b.dut` is the design and `b.stubs.echo` the stub, as values:
+
+```{julia}
+Int(b.dut.n), b.stubs.echo.seen
+```
+
+`padnet(b, :sda)` gives what each side is driving on a pad's net and what it resolves to, and `netlevel` resolves a set of drives against a pull by hand, when a test wants to check the wire itself. `history(b)` is the list of states a bench kept, if it was asked to keep them.
+
+Most of the time you will not touch the bench directly: a `Simulation` takes the same keywords, adds the recorder, the tasks and the net names, and is what the rest of this manual drives. Reach for `Bench` when you want a pure, allocation-free loop — a long Monte Carlo run, say — and nothing else.
+
+::: {.callout-tip title="If you know Verilog"}
+A bench is the testbench, minus the testbench. The clock generators come from `@clocks`, the wiring from `@wiring`, and the stubs are whatever Julia values you like. What there is none of is the `initial` block full of `#10 clk = ~clk;` lines.
+:::
+
+## Next
+
+[Waveforms and plots](visualizing.qmd): waveforms in a viewer and in a plot.

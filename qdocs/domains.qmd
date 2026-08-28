@@ -1,0 +1,106 @@
+---
+title: "Clock domains"
+engine: julia
+---
+
+**Synchronisers, and modules with more than one clock**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+## `MetaGuard{K}`: a synchroniser
+
+A signal that comes from outside the clock domain — a button, a pin from another chip, a flag from a block on another clock — must be resynchronised before the logic looks at it, or metastability will eventually bite. The standard cure is a chain of K flip-flops. A `MetaGuard{K}` is that chain:
+
+```{julia}
+@quartz struct Sampler
+  @in  async_in::Bool
+  async_in::MetaGuard{2}
+  @out safe::Bool
+end
+
+@on Sampler posedge(clk) begin
+  safe ← async_in
+end
+```
+
+Declare a guard with the *same name as an input*, and it is fed by that input automatically, from the block that reads it, on that block's clock. Read bare, the guard is the synchronised bit — `async_in` inside the block means the output of the chain, two clocks behind the pin. Nothing else has to be said.
+
+```{julia}
+m = Sampler()
+safes = Bool[]
+for i in 1:5
+  global m = step(m; async_in = i >= 2)
+  push!(safes, m.safe)
+end
+safes
+```
+
+A guard can also be fed by hand, `g ← v`, when the bit does not come from an input of the same name. A reset flushes it.
+
+::: {.callout-tip title="If you know Verilog"}
+The emitted code is the two-flop chain you would write, `sync0 <= pin; sync1 <= sync0;`, with the block reading `sync1`. What you get on top is a declaration that says *this input is asynchronous*, in one place, which is the fact a reviewer wants to know.
+:::
+
+## Modules with several clocks
+
+A module may have blocks on different clocks. Each `@on` names its own:
+
+```{julia}
+@quartz struct TwoClocks
+  @in  x::Bits{8}
+  fast::Bits{8} = 0
+  slow::Bits{8} = 0
+  @out y::Bits{8}
+end
+
+@on TwoClocks posedge(clk) begin
+  fast ← x
+end
+
+@on TwoClocks posedge(clk_slow) begin
+  slow ← fast
+  y ← slow
+end
+```
+
+Each clock becomes a clock port. `step` then takes the clock's name, and one call is one edge of that clock:
+
+```{julia}
+m = TwoClocks()
+m = step(m, :clk; x = Bits{8}(7))
+m = step(m, :clk_slow; x = Bits{8}(7))
+m.slow
+```
+
+The keywords of `step` are the union of every block's inputs; a block only reads the ones it names. Several blocks on the same clock behave like Verilog's concurrent `always` blocks: all read the old state, all write together.
+
+For a design with several clocks, stepping by hand quickly gets tedious. A [`Bench` or `Simulation`](benches.qmd) takes a clock plan with real rates and advances every clock in the right order, so a slow-clock block sees exactly what it would on the board.
+
+## Crossing safely
+
+A single bit crossing domains goes through a `MetaGuard`. A multi-bit value should not: the bits may arrive on different cycles. The usual pattern is to cross a *flag* through a guard and hold the data still until the flag has been seen:
+
+```julia
+@on Producer posedge(clk_a) begin
+  if !busy
+    data ← next            # hold data still...
+    flag ← !flag           # ...and toggle a flag
+  end
+end
+
+@on Consumer posedge(clk_b) begin
+  flag_e ← flag            # flag::MetaGuard{2} feeds flag_e::Edge
+  rose(flag_e) && (got ← data)
+end
+```
+
+A `Multicycle` wire, in a [later chapter](multicycle.qmd), is the tool for a wide value that is known to hold still for a number of cycles: the compiler then writes the timing constraint that tells the vendor tools so.
+
+## Next
+
+[Pipelines](pipelines.qmd): arithmetic that takes several cycles, cut into stages for you.

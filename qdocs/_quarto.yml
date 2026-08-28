@@ -1,0 +1,64 @@
+project:
+  type: website
+
+website:
+  title: "QuartzHDL"
+  site-url: https://org-arl.github.io/QuartzHDL.jl
+  repo-url: https://github.com/org-arl/QuartzHDL.jl
+  navbar:
+    search: true
+    right:
+      - icon: github
+        href: https://github.com/org-arl/QuartzHDL.jl
+  sidebar:
+    style: "docked"
+    contents:
+    - section: <b>Getting started</b>
+      contents:
+      - index.qmd
+      - quickstart.qmd
+    - section: <b>Writing hardware</b>
+      contents:
+      - modules.qmd
+      - clocked.qmd
+      - wires.qmd
+      - fsm.qmd
+    - section: <b>Going further</b>
+      contents:
+      - timekeeping.qmd
+      - domains.qmd
+      - pipelines.qmd
+      - multicycle.qmd
+      - composing.qmd
+      - blackbox.qmd
+    - section: <b>Simulating</b>
+      contents:
+      - simulating.qmd
+      - benches.qmd
+      - visualizing.qmd
+      - library.qmd
+      - testing.qmd
+    - section: <b>Building</b>
+      contents:
+      - compiling.qmd
+      - boards.qmd
+    - section: <b>Extending</b>
+      contents:
+      - components.qmd
+      - emitters.qmd
+    - section: <b>Appendices</b>
+      contents:
+      - verilog.qmd
+      - rules.qmd
+      - internals.qmd
+      - reference.qmd
+
+execute:
+  echo: true
+  freeze: auto
+
+format:
+  html:
+    theme: cerulean
+    css: styles.css
+    toc: true

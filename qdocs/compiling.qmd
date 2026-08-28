@@ -1,0 +1,102 @@
+---
+title: "Verilog output"
+engine: julia
+---
+
+**Getting the Verilog out**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+Everything that leaves the package goes through one call: `write(path_or_io, thing, format)`. The formats are `Verilog()` for a design, `VCD()` for a capture, `LPF(board)` for constraints, and `Diamond(board)` for a whole Lattice build.
+
+## `Verilog()`
+
+```{julia}
+@quartz struct Blink
+  @in  rst::Bool = false  active=:low
+  n::Bits{24} = 0
+  @out led::Bool
+end
+
+@on Blink posedge(clk) begin
+  @reset(rst)
+  n ← n + 1
+  led ← n[23]
+end
+
+write(stdout, Blink, Verilog());
+```
+
+`write("blink.v", Blink, Verilog())` writes a file. The module is a *type*: a parametric module is written per instantiation, `write(io, Shift{16}, Verilog())`.
+
+The options:
+
+- `name = :blink` names the Verilog module something other than the Julia type.
+- `suffix = false` turns off the direction suffixes on the pins (`n_i`, `led_o`). A pin asserted low then keeps just `_n`, since it cannot share the name of the value behind it.
+- `inits = :all` initializes every register in the Verilog, for a simulator that would otherwise start them at `x`. The default initializes only `static` fields; see [modules](modules.qmd#static-values) for why.
+- `debug = true` emits the block's `@info` and `@check` as `$display` and `$error`.
+
+Submodules and black boxes are written along with the module that instantiates them, one Verilog module each. Black boxes are instantiated, not defined: their definitions come from the vendor.
+
+## What the Verilog looks like
+
+The output is meant to be read. Ports carry their documentation as comments; encodings become `localparam`s and `@fsm` chains become `case`; a pipeline is a set of stage registers with a valid bit; a `Multicycle` is an `assign` with a settle counter; pads are tristate `assign`s. Names are the Julia names, so a synthesis report or a timing path reads back to the source without a mapping table.
+
+::: {.callout-tip title="If you know Verilog"}
+Two things you may be used to doing by hand are done for you and are worth knowing about. Every port asserted low is bridged at the boundary (`assign rst = !rst_ni;`) and used asserted inside, so the module body never mentions `_n`. And registers with a reset default get no initializer, so the synthesiser keeps the flip-flops' enable and clear pins free; only `static` fields carry `initial` values.
+:::
+
+## The command line
+
+The package doubles as an app. `julia -m QuartzHDL design.jl` compiles the `@quartz` modules in a Julia file to Verilog without a driver script:
+
+```
+julia -m QuartzHDL design.jl --top 'Filter{127}' -o filter.v --name filter
+julia -m QuartzHDL design.jl                          # every non-parametric module -> Name.v
+julia -m QuartzHDL design.jl --top Top --board Rev2 --outdir build   # Top.v and Rev2.lpf
+julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace
+```
+
+`Pkg.Apps.develop(path = "...")` (Julia 1.12 or later) installs a `quartz` executable, so the `julia -m QuartzHDL` prefix becomes just `quartz`.
+
+The design file is `include`d in a fresh module, so guard any test or driver code in it:
+
+```julia
+if abspath(PROGRAM_FILE) == @__FILE__
+  # runs only when the file is executed directly, never when compiled
+end
+```
+
+A parametric module needs a concrete `--top`, since Verilog is emitted per instantiation. `--board` also writes the constraint file for that top; the [next chapter](boards.qmd) says what goes in it.
+
+## A Lattice Diamond workspace
+
+`write(dir, Top, Diamond(board))` writes everything Diamond needs into a directory, so the build is `make` and not a session in the GUI:
+
+```
+build/rev2/
+  src/Top.v          the design, and every submodule with it
+  src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
+  Rev2.lpf           the constraints, as `LPF(board)` writes them
+  Top.ldf            the project file: device, top, sources, strategy
+  Top.sty            Diamond's default strategy
+  build.sh           synthesis, translate, map, place-and-route, bitstream
+  Makefile           `make` runs build.sh when a source is newer than the bitstream
+```
+
+The board's `device` must be the full part number Diamond knows, `LCMXO2-7000HE-4TG144I` rather than a family. A MachXO part boots from its own flash, so its `build.sh` also exports the JEDEC file, and `make` targets that. `build.sh` sources `diamond_env` from `/usr/local/lattice/bin/lin64`, or from `$DIAMOND_BIN` when Diamond is elsewhere.
+
+A black box needs its netlist in the workspace. Give the files with `vendor = ["vendor/PLL48.v", ...]` and they are copied into `src/` and listed in the project; a black box with no netlist among them is still listed, as `src/<Name>.v`, with a warning saying where to put the file. `implementation = "impl"` names Diamond's implementation and its directory.
+
+## Simulation models for black boxes
+
+`simmodels(io, Top)` writes a behavioural Verilog module for every black box in the design whose clock tree it knows, from the `clockout` recipes. They stand in for vendor netlists that cannot be simulated, and `cosim` uses them automatically.
+
+## Next
+
+[Boards and constraints](boards.qmd): where each port goes.

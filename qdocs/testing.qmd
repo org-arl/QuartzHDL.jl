@@ -1,0 +1,170 @@
+---
+title: "Tests and CI"
+engine: julia
+---
+
+**Unit tests, co-simulation, and running it all on every push**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using Test
+```
+
+A hardware test in QuartzHDL is a Julia test. That is the whole point of this chapter, but it is worth spelling out what falls out of it.
+
+## Unit tests with `step`
+
+```{julia}
+@quartz struct Gray
+  @in  x::Bits{4} = 0
+  @out g::Bits{4}
+end
+
+@on Gray posedge(clk) g ← x ⊻ (x >> 1)
+
+@testset "gray code" begin
+  m = Gray()
+  for i in 0:15
+    m = step(m; x = Bits{4}(i))
+    @test Int(m.g) == i ⊻ (i >> 1)
+  end
+end;
+```
+
+Because `step` takes a value and returns one, a test can fork a state, run two stimuli from it, and compare — nothing has to be reset between cases.
+
+## Checking against a reference model
+
+Porting an algorithm is where this shines. Keep the floating-point reference beside the hardware and compare on the same data:
+
+```{julia}
+reference(xs) = [sum(xs[max(1, i - 3):i]) for i in eachindex(xs)]   # a 4-tap moving sum
+
+@quartz struct MovSum
+  @in  x::Bits{8} = 0
+  h::Bits{32} = 0            # the last four 8-bit samples
+  @out y::Bits{10}
+end
+
+@on MovSum posedge(clk) begin
+  h ← h << 8 | x
+  y ← Bits{10}(x) + h[0:7] + h[8:15] + h[16:23]     # this sample and the three before it
+end
+
+xs = rand(0:255, 50)
+m = MovSum()
+ys = Int[]
+for x in xs
+  global m = step(m; x = Bits{8}(x))
+  push!(ys, Int(m.y))
+end
+ys == reference(xs)
+```
+
+When the two differ, `findfirst(ys .!= reference(xs))` says at which sample, and you have both models in one process to step through.
+
+### A matched filter against its reference
+
+A fuller example, from the package's own tests: a passband matched filter for a 13-chip Barker code, one chip per sample. The last thirteen 8-bit samples sit in a window register; each is added or subtracted as the code says, and the sum goes through a two-stage [pipeline](pipelines.qmd). The arithmetic is a plain Julia function, unrolled into the Verilog:
+
+```{julia}
+#| echo: false
+#| output: asis
+println("```julia\n", strip(read("../test/correlator.jl", String)), "\n```")
+include("../test/correlator.jl");
+```
+
+The reference is the same dot product in ordinary integers, over a window that starts empty. Bury the code in noise and run both on the same samples:
+
+```{julia}
+using Random
+Random.seed!(4)
+code = [BARKER[k] ? 1 : -1 for k in 0:TAPS-1]
+xs = [rand(-20:20) for _ in 1:60]
+xs[31:43] .+= 100 .* reverse(code)                      # the code, oldest chip first
+
+m = Correlator()
+out = Int[]
+for x in xs
+  global m = step(m; x = SBits{8}(x))
+  m.valid && push!(out, Int(m.mf))
+end
+
+pad = [zeros(Int, TAPS); xs]
+ref = [sum(pad[n - k] * code[k + 1] for k in 0:TAPS-1) for n in TAPS+1:length(pad)]
+out[2:end] == ref[1:length(out)-1], argmax(out), maximum(out)
+```
+
+The two agree sample for sample — the hardware one sample behind, since its block reads the window before this cycle's sample joins it — and the peak stands where the code ends, thirteen times the chip amplitude above the noise. When a change to the filter moves any of that, the comparison says at which sample.
+
+## Co-simulation
+
+`cosim` emits the Verilog for a module, writes a testbench, runs it under Icarus Verilog with the same stimulus as the Julia model, and compares every output and pad after every clock:
+
+```{julia}
+stim = [(x = Bits{8}(rand(0:255)),) for _ in 1:500]
+r = cosim(MovSum, stim)
+r.ok
+```
+
+The stimulus is a vector with one entry per clock edge, each a named tuple of the module's inputs. What comes back has `ok`, `mismatches` (the first disagreements, with cycle, signal and both values), and the paths of the files it made, for looking at by hand.
+
+Options:
+
+- `reference = "movsum.v"` compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.
+- `ref_init = ["state" => "3'd0"]` initializes registers of the reference that the Julia model powers up differently.
+- `clocks = (clk = 48MHz, clk_slow = 1MHz)` for a module with several clocks; the testbench then advances them in the right ratio.
+- `scale = (clk_slow = 10,)` runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.
+- `debug = true` emits `@info` messages and `@check` failures into the Verilog as `$display` and `$error`.
+
+Where a design uses a black box, `simmodels` writes behavioural Verilog for each part from its `clockout` recipes, and `cosim` includes it; a part with a stand-in needs a Verilog model of its own, passed with `extra_sources`.
+
+::: {.callout-note}
+`cosim` needs `iverilog` and `vvp` on the path. It is the one part of QuartzHDL that runs anything but Julia, and it is what makes the claim "the Verilog does what the Julia does" a tested fact rather than an intention.
+:::
+
+## System tests
+
+A system test builds a `Simulation` with the library components around the design and talks to it as a host would. It reads like a description of the board:
+
+```julia
+@testset "the device answers a version request" begin
+  sim = Simulation(Top(); clocks = CLOCKS, wiring = WIRING, flash = W25Q())
+  host = UART(sim; rx = "tx", tx = "rx", baud = 115200)
+  @run sim begin
+    sim.rst = true
+    advance_by(1ms)
+    sim.rst = false
+  end
+  write(host, "V\n")
+  @test readline(host) == "1.2.0"
+end;
+```
+
+## CI
+
+A QuartzHDL package tests like any Julia package, so the standard GitHub Actions workflow works. Add Icarus Verilog for the co-simulation tests:
+
+```yaml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - run: sudo apt-get install -y iverilog
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+```
+
+A pull request that changes a module runs the unit tests, the reference comparisons, the co-simulations and the system tests before anyone reads the diff.
+
+## Next
+
+[Verilog output](compiling.qmd): getting the Verilog out, and the command line.

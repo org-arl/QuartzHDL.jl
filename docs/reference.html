@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Reference – QuartzHDL</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-c0d8b526fa222858bf56437ad6d5e615.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">QuartzHDL</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/org-arl/QuartzHDL.jl"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./verilog.html"><b>Appendices</b></a></li><li class="breadcrumb-item"><a href="./reference.html">Reference</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Getting started</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./quickstart.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Quickstart</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Writing hardware</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./modules.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Modules and registers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./clocked.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Clocked logic</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./wires.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Wires and pads</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./fsm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">State machines and sequences</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Going further</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./timekeeping.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Pulses, timeouts and edges</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./domains.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Clock domains</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./pipelines.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Pipelines</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./multicycle.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Multicycle paths</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./composing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Submodules</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./blackbox.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Black boxes and the clock tree</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Simulating</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./simulating.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./benches.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benches</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./visualizing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Waveforms and plots</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./library.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Library components</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tests and CI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Building</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./compiling.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Verilog output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./boards.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Boards and constraints</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Extending</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./components.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Custom components</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./emitters.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Custom emitters</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true">
+ <span class="menu-text"><b>Appendices</b></span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./verilog.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">For Verilog users</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./rules.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Rules and their reasons</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./internals.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Under the hood</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Reference</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#types" id="toc-types" class="nav-link active" data-scroll-target="#types">Types</a></li>
+  <li><a href="#modules-and-ports" id="toc-modules-and-ports" class="nav-link" data-scroll-target="#modules-and-ports">Modules and ports</a></li>
+  <li><a href="#blocks" id="toc-blocks" class="nav-link" data-scroll-target="#blocks">Blocks</a></li>
+  <li><a href="#values" id="toc-values" class="nav-link" data-scroll-target="#values">Values</a></li>
+  <li><a href="#encodings-state-machines-and-sequences" id="toc-encodings-state-machines-and-sequences" class="nav-link" data-scroll-target="#encodings-state-machines-and-sequences">Encodings, state machines and sequences</a></li>
+  <li><a href="#black-boxes-and-clocks" id="toc-black-boxes-and-clocks" class="nav-link" data-scroll-target="#black-boxes-and-clocks">Black boxes and clocks</a></li>
+  <li><a href="#benches-and-boards" id="toc-benches-and-boards" class="nav-link" data-scroll-target="#benches-and-boards">Benches and boards</a></li>
+  <li><a href="#simulation" id="toc-simulation" class="nav-link" data-scroll-target="#simulation">Simulation</a></li>
+  <li><a href="#formats-and-tools" id="toc-formats-and-tools" class="nav-link" data-scroll-target="#formats-and-tools">Formats and tools</a></li>
+  <li><a href="#library" id="toc-library" class="nav-link" data-scroll-target="#library">Library</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./verilog.html"><b>Appendices</b></a></li><li class="breadcrumb-item"><a href="./reference.html">Reference</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Reference</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><strong>Every exported name, from its docstring</strong></p>
+<section id="types" class="level2">
+<h2 class="anchored" data-anchor-id="types">Types</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>QuartzModule</code></pre>
+<p>The supertype of every <code>@quartz</code> struct: a hardware module, whose fields are its registers and instances and whose blocks are declared with <code>@on</code> and <code>@wire</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Bits{N}</code></pre>
+<p>An unsigned hardware integer <code>N</code> bits wide, the type most registers and ports have. It wraps on overflow and truncates on a slice, as the wire does.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Ctr</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  n<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>SBits{N}</code></pre>
+<p>A signed (two’s complement) hardware integer <code>N</code> bits wide. Signed and unsigned values never mix in one expression: convert one of them first.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Pulse</code></pre>
+<p>A one-cycle flag: a field declared <code>Pulse</code> is a <code>Bool</code> its own block clears at the top of every cycle, so a write of <code>true</code> is high for exactly one cycle.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Rx</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  got<span class="op">::</span><span class="dt">Pulse</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Timeout{N}</code></pre>
+<p>A countdown: a field declared <code>Timeout{N}</code> is a <code>Bits{N}</code> its own block decrements each cycle and holds at zero. Write it to arm it and ask <code>expired</code> when it is done.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Rx</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  wait<span class="op">::</span><span class="dt">Timeout{4} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Edge</code></pre>
+<p>A <code>Bool</code> register that also remembers the level it held before, so its transitions can be asked about. Write it like any register, <code>e ← x</code>, and read it bare for the level; <code>rose(e)</code> and <code>fell(e)</code> are then true for exactly one cycle.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Sync</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  sck<span class="op">::</span><span class="dt">Edge</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>MetaGuard{K}</code></pre>
+<p>A <code>K</code>-stage synchroniser for a signal that crosses into this clock domain. Feed it with <code>g ← x</code> and read it bare for the value that has settled through all <code>K</code> stages.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Top</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span> async<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  sync<span class="op">::</span><span class="dt">MetaGuard{2}</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Pipeline{K,T}</code></pre>
+<p>A <code>K</code>-deep pipeline of <code>T</code> values. A write pushes a value in; reading it bare gives what has come out the far end, or <code>missing</code> before anything has. <code>isnew</code> says a fresh result arrived this cycle and <code>isready</code> says nothing is still inside.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Mac</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  acc<span class="op">::</span><span class="dt">Pipeline{3,Bits{16}}</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Multicycle{K,T}</code></pre>
+<p>A combinational value whose logic is allowed <code>K</code> clock cycles to settle, on the promise that its sources hold still that long. Drive it from a <code>@wire</code> block, read it bare, and guard the read with <code>isready</code>; the tool is told to relax the path.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Corr</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  sum<span class="op">::</span><span class="dt">Multicycle{3,Bits{32}}</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Pad{N}</code></pre>
+<p>An inout pin, or a bus of <code>N</code> of them, declared with <code>@io</code>. Write <code>drive(x)</code> or <code>release()</code> to it and read it bare for the level the net settles to – the design’s drive, the outside world’s, and the pull together.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> I2C</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@io</span> sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span>(<span class="op">:</span>pullup)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+</section>
+<section id="modules-and-ports" class="level2">
+<h2 class="anchored" data-anchor-id="modules-and-ports">Modules and ports</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@quartz struct Name ... end</code></pre>
+<p>Declares a hardware module: a plain Julia struct whose fields are its registers, with <code>@in</code>, <code>@out</code> and <code>@io</code> lines declaring what crosses its boundary. The blocks that drive it are written separately, with <code>@on</code> and <code>@wire</code>.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Ctr</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span> en<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> n<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@in name::T = default</code></pre>
+<p>Declares an input of a <code>@quartz</code> module. An input has no storage: the blocks receive it as an argument, and a parent wires it from a <code>@wire</code> block.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@in</span> en<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@out name::T = default</code></pre>
+<p>Declares an output of a <code>@quartz</code> module. The field is an ordinary register that also reaches a pin. Attributes follow the declaration: <code>active=:low</code> for a pin asserted low, <code>verilog="name"</code> for the name the emitted port takes.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@out</span> ready<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span>  active<span class="op">=:</span>low</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@io name::Pad{N} = Pad(:pullup)</code></pre>
+<p>Declares an inout pin, or a bus of them, of a <code>@quartz</code> module. The field is a <code>Pad</code>, written with <code>drive</code>/<code>release</code> and read for the level the net settles to.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@io</span> sda<span class="op">::</span><span class="dt">Pad{1} </span><span class="op">=</span> <span class="fu">Pad</span>(<span class="op">:</span>pullup)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>interface(T)</code></pre>
+<p>The declared ports of module <code>T</code>, in declaration order, as <code>PortDecl</code> values.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>portdoc(T, name)</code></pre>
+<p>The string that documents port <code>name</code> of module <code>T</code>, or <code>nothing</code> if it has none. A string written above an <code>@in</code>/<code>@out</code>/<code>@io</code> line documents that port.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>static(v)</code></pre>
+<p>Marks a field’s default as delivered by the bitstream rather than by reset: <code>x::Bits{8} = static(5)</code> powers up at 5 and is left alone by <code>@reset</code>. A field whose block has no <code>@reset</code> is static without saying so; <code>static</code> is how a field opts out of a reset its block does have. In the emitted Verilog a static field keeps its initializer; reset-delivered fields lose theirs, which frees the synthesiser to use the flip-flops’ enable and clear pins.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="blocks" class="level2">
+<h2 class="anchored" data-anchor-id="blocks">Blocks</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@on Module posedge(clk) begin ... end</code></pre>
+<p>Declares clocked logic: the body runs on every rising (or <code>negedge</code>, falling) edge of clock net <code>clk</code>, and its register writes take effect together at the end of the edge, as Verilog’s non-blocking assignment does. Leading <code>@reset</code>, <code>@only_when</code> and <code>@clockout</code> clauses say when it resets, when it runs, and which pin its clock reaches.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Ctr <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@reset</span>(rst)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  n <span class="op">←</span> n <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@wire Module begin ... end</code></pre>
+<p>Declares continuous logic: the body has no clock and no storage, so every path through it must write every field it drives. It may write <code>@out</code> ports, pads, <code>Multicycle</code> wires, and the inputs and clocks of the module’s instances.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Top <span class="cf">begin</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  ctr.en <span class="op">←</span> run</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  led <span class="op">←</span> <span class="fu">drive</span>(ctr.n[<span class="fl">7</span>])</span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@reset(cond)
+@reset(cond; field = value)</code></pre>
+<p>Says when the <code>@on</code> block it heads resets: while <code>cond</code> holds, every field with a default goes back to it. A named override holds a field at a value of its own instead. It belongs at the top of the body, before any statement.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@only_when(sig)</code></pre>
+<p>Says when the <code>@on</code> block it heads runs: an edge on which <code>sig</code> is false leaves every field the block owns alone. It belongs at the top of the body, before any statement.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@clockout(name; invert = false, gate = signal)</code></pre>
+<p>Forwards the clock of the <code>@on</code> block it heads out of the module as <code>name</code>, so it can reach a pin – an SPI clock, say. <code>invert</code> sends the opposite phase and <code>gate</code> names a signal that must hold for the clock to leave. It belongs at the top of the body, before any statement.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@method f(a, b) = ...</code></pre>
+<p>Declares a helper written as if inside a module: bare field names, inputs and register writes all work. It belongs to no one module – the same method serves every module that calls it – and is inlined where it is called. One that writes is a statement; one that only computes a value may be used as one.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@method</span> <span class="fu">arm</span>(t, n) <span class="op">=</span> t <span class="op">←</span> n</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@check cond</code></pre>
+<p>In a block: the design’s own assumption, checked every time the block runs. A simulation stops where it fails; Verilog emitted with <code>debug = true</code> raises <code>$error</code>.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="values" class="level2">
+<h2 class="anchored" data-anchor-id="values">Values</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>bits(x...)</code></pre>
+<p>Join hardware values into one word, most significant piece first, as Verilog’s <code>{a, b}</code> does. Every piece must have a known width, so a plain <code>Int</code> is refused.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bits</span>(<span class="cn">true</span>, <span class="fu">Bits</span><span class="dt">{4}</span>(<span class="bn">0x5</span>), <span class="cn">false</span>)    <span class="co"># Bits{6}(0b101010)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>a ⊞ b</code></pre>
+<p><code>bits(a, b)</code>: the two values side by side, <code>a</code> in the more significant half.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>bitwidth(x)</code></pre>
+<p>How many bits a hardware value, or a hardware type, takes on the wire.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb44"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bitwidth</span>(Bits{<span class="fl">12</span>})        <span class="co"># 12</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bitwidth</span>(<span class="fu">SBits</span><span class="dt">{8}</span>(<span class="op">-</span><span class="fl">1</span>))    <span class="co"># 8</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>part(i, Bits{N})</code></pre>
+<p>Part number <code>i</code> of a word, counting from zero, <code>N</code> bits wide: <code>x[part(i, Bits{8})]</code> is the <code>i</code>th byte of <code>x</code>. A computed index is kept as the part number rather than multiplied out, so the emitter can decode it over the parts that fit.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>firstset(a)</code></pre>
+<p>The lowest set bit of <code>a</code>, as a value of the same width; zero if <code>a</code> is zero.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>onehot(Bits{N}, i)</code></pre>
+<p>An <code>N</code>-bit value with bit <code>i</code> set and the rest clear.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>popcount(a)</code></pre>
+<p>How many bits of <code>a</code> are set. The result is just wide enough to hold the count.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>drive(x)
+drive(x, en)</code></pre>
+<p>What a block writes to a pad to hold it at <code>x</code>. With <code>en</code> only the bits <code>en</code> marks are driven; the rest are left to whatever else is on the net.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>release()</code></pre>
+<p>What a block writes to a pad to let go of it, so the net is left to the outside world and the pad’s pull.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>expired(t)</code></pre>
+<p>Whether a <code>Timeout</code> field has counted down to zero.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>rose(e)</code></pre>
+<p>Whether the <code>Edge</code> field <code>e</code> went from low to high at the last clock edge. True for exactly one cycle.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>fell(e)</code></pre>
+<p>Whether the <code>Edge</code> field <code>e</code> went from high to low at the last clock edge. True for exactly one cycle.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>isrising(e, x)</code></pre>
+<p>Whether the incoming sample <code>x</code> is high while the <code>Edge</code> field <code>e</code> still holds low, so the rise is seen in the cycle it happens rather than the one after.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>isfalling(e, x)</code></pre>
+<p>Whether the incoming sample <code>x</code> is low while the <code>Edge</code> field <code>e</code> still holds high, so the fall is seen in the cycle it happens rather than the one after.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>isnew(p)</code></pre>
+<p>Whether the <code>Pipeline</code> field <code>p</code> delivered a fresh result at the last clock edge, as opposed to still holding the previous one.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>isready(x)</code></pre>
+<p>Whether nothing is in flight, so that what <code>x</code> gives now is the result of its latest input: a <code>Pipeline</code> that has a result out and no write still inside it, or a <code>Multicycle</code> whose sources have been still for the cycles its path is declared.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="encodings-state-machines-and-sequences" class="level2">
+<h2 class="anchored" data-anchor-id="encodings-state-machines-and-sequences">Encodings, state machines and sequences</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@encoding Name begin ... end
+@encoding Name::W encoding=:onehot begin ... end</code></pre>
+<p>Declares a named set of values over a <code>Bits</code> – FSM states, protocol tags, command codes. A field declared with the encoding as its type is a register of that width that knows its names, so a bare name resolves where the field is written or compared. <code>W</code> fixes the width and <code>encoding</code> picks <code>:binary</code>, <code>:onehot</code> or <code>:gray</code>.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb59"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@encoding</span> State <span class="cf">begin</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>  IDLE</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>  RUN</span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>encname(e)
+encname(e, v)</code></pre>
+<p>With one argument, the name of encoding <code>e</code>. With two, the name <code>e</code> gives the value <code>v</code>, or <code>nothing</code> if it names no such value – which is what logs and waveform dumps show in place of the number.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb61"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="fu">encname</span>(State)          <span class="co"># :State</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a><span class="fu">encname</span>(State, s)       <span class="co"># :IDLE</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>statedoc(e, s)</code></pre>
+<p>What value <code>s</code> of encoding <code>e</code> was declared to mean – the string written above its line – or <code>nothing</code> if it has none.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@fsm reg begin ... end</code></pre>
+<p>Dispatches on an encoded register, expanding to the if/elseif chain a person would otherwise write by hand. What it adds is the checking that chain cannot have: every state accounted for, no state named twice, and no name the encoding does not define. Branches are labelled <code>@state NAME</code>, and <code>@otherwise</code> takes the rest.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb64"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@fsm</span> state <span class="cf">begin</span></span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@state</span> IDLE</span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a>    go <span class="op">&amp;&amp;</span> (state <span class="op">←</span> RUN)</span>
+<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@state</span> RUN</span>
+<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a>    state <span class="op">←</span> IDLE</span>
+<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@state NAME</code></pre>
+<p>Labels a branch of an <code>@fsm</code> block: the statements after it run while the register holds <code>NAME</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@otherwise</code></pre>
+<p>Labels the default branch of an <code>@fsm</code> block, covering every state that has no <code>@state</code> branch of its own.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@sequence Name field begin ... end</code></pre>
+<p>Runs statements across cycles inside an <code>@on</code> block: <code>@then</code> divides the body into steps, one per clock edge, and <code>field</code> is the register that holds which step is next. <code>@when</code> guards a step, <code>@delay n</code> inserts idle steps, <code>@repeat n</code> unrolls a group, and <code>@goto LABEL</code> jumps to a named step.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb68"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@sequence</span> Xfer step <span class="cf">begin</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>  cs <span class="op">←</span> <span class="cn">false</span></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@then</span> SEND</span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>  shift <span class="op">←</span> data</span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@then
+@then NAME
+@then NAME @when cond</code></pre>
+<p>Divides one step of a <code>@sequence</code> from the next. <code>NAME</code> labels the step so <code>@goto</code> can reach it, and <code>@when</code> guards it: the step holds until the condition is true.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@when cond</code></pre>
+<p>Guards the step of a <code>@sequence</code> it heads: the sequence holds there until <code>cond</code> is true. It belongs at the head of the step, right after <code>@then</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@delay n</code></pre>
+<p>Inserts <code>n</code> idle steps into a <code>@sequence</code>, so the next step runs <code>n</code> cycles later. <code>n</code> is a literal count.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@repeat n begin ... end</code></pre>
+<p>Unrolls the steps in its body <code>n</code> times into a <code>@sequence</code>. <code>n</code> is a literal count, and the steps inside cannot be named, since each copy would take the same name.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="black-boxes-and-clocks" class="level2">
+<h2 class="anchored" data-anchor-id="black-boxes-and-clocks">Black boxes and clocks</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@blackbox Name verilog="VNAME" begin ... end</code></pre>
+<p>Declares a Verilog module QuartzHDL does not define – a vendor PLL, a RAM block, an oscillator. The body lists its ports (<code>input</code>, <code>output</code>, <code>clock</code>, <code>clockout</code>) using the datasheet’s names; a <code>clockout</code> also says which clock input it divides, by how much, and under what condition it runs. Nothing is emitted for the module itself, and <code>QuartzHDL.standin</code> supplies whatever behaviour a simulation needs.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb74"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@blackbox</span> PLL verilog<span class="op">=</span><span class="st">"EHXPLLL"</span> <span class="cf">begin</span></span>
+<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clock</span>(CLKI)</span>
+<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clockout</span>(CLKOP, from<span class="op">=</span>CLKI, divide<span class="op">=</span><span class="fl">2</span>)</span>
+<span id="cb74-4"><a href="#cb74-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>QuartzHDL.standin(::Type{Part}) = Model()</code></pre>
+<p>What a black box does in simulation, supplied by the harness rather than the design. The model is stepped by the simulator on every edge of each clock input, as <code>step(model, :clockport; inputs...)</code>, and must return the model after the edge; an output of the part reads as the model’s property of the same (lowercase) name. A part whose outputs are all <code>clockout</code>s needs none: its recipes are its behaviour.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>clocklevel(m, net)</code></pre>
+<p>The level a clock net is resting at, for a design that samples a slow clock as data – a microsecond tick, say. In Verilog this is the net name in an expression; here it is the square wave the tree produces.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@clocks begin ... end</code></pre>
+<p>Names the rate of every clock a run has, in absolute units, and builds the <code>ClockPlan</code> a <code>Bench</code> takes. A clock whose rate does not divide the slot grid may be marked <code>dithered</code>; <code>grid</code> sets the slot rate by hand.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb78"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@clocks</span> <span class="cf">begin</span></span>
+<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=</span> <span class="fl">48</span>MHz</span>
+<span id="cb78-3"><a href="#cb78-3" aria-hidden="true" tabindex="-1"></a>  rtc <span class="op">=</span> <span class="fl">32768</span>Hz, dithered</span>
+<span id="cb78-4"><a href="#cb78-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A simple plan needs no macro: <code>Bench</code> and <code>Simulation</code> also take a named tuple of rates, <code>clocks = (clk = 1MHz,)</code> (with <code>using QuartzHDL.Units</code>), with <code>(rate, :dithered)</code> for a dithered clock and <code>grid</code> for the slot rate.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>ClockPlan</code></pre>
+<p>What a run’s clocks do: every clock’s rate, and the slot grid they share. Built by <code>@clocks</code> and handed to a <code>Bench</code>, which advances one slot at a time.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@multicycle Module n from =&gt; to</code></pre>
+<p>Declares that the logic between two registers of <code>Module</code> may take <code>n</code> clock cycles to settle, so the tool need not route it for one. The endpoint names are checked against the module and the cell pattern generated, which a hand-written constraint cannot do.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb81"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@multicycle</span> Corr <span class="fl">3</span> acc <span class="op">=&gt;</span> out</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@primary Module net, net, ...</code></pre>
+<p>Names the clock nets of <code>Module</code> that ride the chip’s global low-skew distribution. Stated once, on the top module.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>stages(T)
+stages(T, name)</code></pre>
+<p>How each <code>Pipeline</code> of module <code>T</code>, or the one called <code>name</code>, is cut into stages: what each stage takes in, computes, and registers, with the cost of its longest path, and the registers the whole pipeline costs. It is the plan the Verilog emitter follows.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>simmodels(io, T; scale=NamedTuple())
+simmodels(path, T; scale=NamedTuple())</code></pre>
+<p>Write a <code>simmodel</code> for every black box in the design <code>T</code> that declares a clock tree, in declaration order and each one once. <code>scale</code> is per black box, giving the clock overrides <code>simmodel</code> takes.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb85"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">simmodels</span>(<span class="st">"standins.v"</span>, Top; scale<span class="op">=</span>(PLL <span class="op">=</span> (clk_slow <span class="op">=</span> <span class="fl">4</span>,),))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+</section>
+<section id="benches-and-boards" class="level2">
+<h2 class="anchored" data-anchor-id="benches-and-boards">Benches and boards</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Bench{D,S,W,K}</code></pre>
+<p>A design plus the models of the things around it – a USB controller, an I2C slave, an ADC chip – advanced together. A bench is a value: <code>step</code> returns a new one, so a run is a list of states to look through afterwards.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb87"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb87-1"><a href="#cb87-1" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">Bench</span>(dut; clocks, wiring, rtc <span class="op">=</span> <span class="fu">I2CSlave</span>())</span>
+<span id="cb87-2"><a href="#cb87-2" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> <span class="fu">step</span>(b, <span class="fl">1000</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<pre class="juliajulia"><code>Bench(dut; clocks, wiring = Wiring(), stubs...)</code></pre>
+<p><code>clocks</code> names the rate of every clock that comes from a pin, and of every stub: an <code>@clocks</code> plan, or for a simple plan a named tuple, <code>clocks = (clk = 1MHz,)</code> with <code>using QuartzHDL.Units</code>. <code>wiring</code> is an <code>@wiring</code> function, and defaults to nothing connected. Each remaining keyword is a model of something the design is wired to.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>history(b, n)</code></pre>
+<p>Run bench <code>b</code> for <code>n</code> slots and return every state along the way, the starting one first, so a run can be looked through afterwards.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>padnet(m, name)</code></pre>
+<p>What the design as a whole drives on pad net <code>name</code>, as a <code>(value, enable)</code> pair, so a peripheral model can resolve the net against its own drive.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>netlevel(dut, pad, drive)</code></pre>
+<p>What a shared net reads: what the design drives on <code>pad</code>, resolved against what the outside drives, with the pad’s pull deciding any bit neither of them holds. A net with no pull reads zero where nobody holds it.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@wiring begin ... end</code></pre>
+<p>Says what a bench connects to what, with the same arrow a block uses: the left side is an input of a model (or of the design), the right side a value computed from the others’ outputs. A pad of the design names its net, so writing to it is what the outside drives and reading it is what the net settles to.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb93"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@wiring</span> <span class="cf">begin</span></span>
+<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>  dut.rx <span class="op">←</span> uart.tx</span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>  dut.sda <span class="op">←</span> <span class="fu">drive</span>(<span class="fl">0</span>, rtc.pull)</span>
+<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Wiring</code></pre>
+<p>What a <code>@wiring</code> block compiles to: the function that computes each model’s inputs, and which inputs of the design it drives – so a stimulus knows what is left for it to drive. <code>Wiring()</code> is the empty wiring, with nothing connected, and is what a bench or simulation uses when no <code>wiring</code> is given.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@board Name begin ... end</code></pre>
+<p>Declares a board: the settings it has (<code>device</code>, <code>raw</code>, and any pin attribute that applies to every pin) and a binding of each port of a design to its site. A port below the top is named by its instance path.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb96"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Rev2 <span class="cf">begin</span></span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin <span class="op">=</span> <span class="st">"P3"</span>, osc <span class="op">=</span> <span class="fl">25</span>MHz, io <span class="op">=</span> <span class="op">:</span>LVCMOS33)</span>
+<span id="cb96-4"><a href="#cb96-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Board</code></pre>
+<p>What a board provides: the part it is built around, which pin each port of a design lands on, and what the buffers there are told. Built by <code>@board</code>, and read by the constraint emitters and by <code>QuartzHDL.problems</code>.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="simulation" class="level2">
+<h2 class="anchored" data-anchor-id="simulation">Simulation</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Simulation(dut; clocks, wiring = Wiring(), watch = nothing, stubs...)</code></pre>
+<p>A design with the models around it, ready to be driven. Takes what <code>Bench</code> takes: <code>clocks</code> is an <code>@clocks</code> plan or, for a simple plan, a named tuple of rates (<code>clocks = (clk = 1MHz,)</code> with <code>using QuartzHDL.Units</code>), and <code>wiring</code> defaults to nothing connected, which is all a single-module simulation needs. <code>watch</code> names the nets to record, as a path or pattern (<code>"usb1.*"</code>, <code>"*"</code> for every net) or a list of them; nothing is recorded until something is watched. See <code>watch!</code> and <code>unwatch!</code>.</p>
+<p><code>sim["name"]</code> and <code>sim.name</code> read a net, <code>sim.name = v</code> drives one, and <code>@run sim begin ... end</code> runs a stimulus against it.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>nets(sim, patterns...)</code></pre>
+<p>The nets of a simulation: its design’s registers, pads and inputs, the fields of its stubs, and its clocks. A pattern is a path, a bare name (matching any net that ends in it, the way <code>sim["name"]</code> reads it), or a prefix ending in <code>*</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>watch!(sim, patterns...)</code></pre>
+<p>Record these nets from now on, as well as those already watched. A pattern is a path, a bare name, or a prefix ending in <code>*</code>; <code>"*"</code> is every net. Capture costs time in proportion to the nets watched, so a large design runs faster with fewer.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>unwatch!(sim, patterns...)</code></pre>
+<p>Stop capturing these nets. What they did so far stays in the capture.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>capture(sim)</code></pre>
+<p>What a simulation has captured so far, queried by name: <code>capture(sim).x</code> is the signal net <code>x</code> recorded.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>clear!(sim)</code></pre>
+<p>Forget the capture so far; the design keeps its state and the time keeps counting.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>reset!(sim)</code></pre>
+<p>Back to time zero: the design and its stubs as they were built, nothing driven, every task stopped, and the capture cleared.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>changes(signal)</code></pre>
+<p>When a signal changed and what it changed to, as <code>time =&gt; value</code> pairs with the time in seconds.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>sampled(signal)</code></pre>
+<p>A signal as frames, one per slot of the clock grid, from the first slot captured to the last: the value held in each, as a number (<code>NaN</code> where there was none). Reads from the changes as it goes, so nothing is built until it is asked for; <code>collect</code> gives the plain vector. With SignalBase loaded it has a frame rate.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>slots(capture)</code></pre>
+<p>The last slot a capture holds, so <code>slots(c) * c.grid</code> is how long it is in seconds.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>advance_by(sim, t)</code></pre>
+<p>Let the simulation run for <code>t</code> seconds before the stimulus continues.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>advance_until(sim, f; timeout = nothing, what = "for a condition")</code></pre>
+<p>Let the simulation run until <code>f()</code> holds, or until the time it gives if it is a number. A predicate is looked at every slot; with a <code>timeout</code> in seconds, an error naming <code>what</code> was waited for is raised if it never held.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@run sim begin ... end
+@run sim expr</code></pre>
+<p>Run a stimulus against <code>sim</code>. Inside it <code>sim.x</code> reads a net and <code>sim.x = v</code> drives one, <code>advance_by(t)</code> and <code>advance_until(cond)</code> let time pass, <code>@task expr</code> starts a concurrent stimulus, and times are written with units: <code>1ms</code>, <code>10us</code>. A <code>@task</code> given on its own keeps running after the call returns.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>@stimulus function name(sim, net::Net, args...) ... end</code></pre>
+<p>Define a reusable stimulus. Its first argument is the simulation; an argument declared <code>::Net</code> names a net (as a path, or a <code>Net</code>) that the body reads and drives by that name. The body is written as a <code>@run</code> body.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>spawn!(sim, f; persistent = false)</code></pre>
+<p>Start <code>f()</code> as a task of the stimulus, advancing with the simulation. A task made inside a <code>@run</code> block ends with the block; a persistent one keeps going until <code>stop!(sim, task)</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>stop!(sim, task)</code></pre>
+<p>End a task of the stimulus. <code>stop!(sim)</code> ends every one.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>run!(sim, f) -&gt; value</code></pre>
+<p>Run <code>f()</code> as the stimulus: the simulation advances while it delays, alongside the tasks it and earlier stimuli started. Returns what <code>f</code> returned, or the capture when that is nothing.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>hook!(sim, f)</code></pre>
+<p>Call <code>f()</code> after every slot, for a model that must react every cycle (a bus peripheral) and would be too slow as a task. <code>f</code> reads nets and drives them like any stimulus; what it drives applies at the next slot. <code>unhook!(sim, f)</code> removes it.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>unhook!(sim, f)</code></pre>
+<p>Stop calling <code>f</code> after every slot; it undoes <code>hook!(sim, f)</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>simrepl(sim; key = ')')</code></pre>
+<p>Switch the REPL to a <code>sim&gt;</code> prompt that drives <code>sim</code>. Lines are <code>@run</code> bodies with bare net names: <code>reset = true</code>, <code>advance_by(1ms)</code>, <code>advance_until(busy)</code>, <code>result</code>. Backspace on an empty line returns to the Julia prompt, and <code>key</code> at the start of an empty Julia line comes back, as <code>]</code> does for Pkg.</p>
+<p>A bare name is a net, read or written; <code>sim.name</code> always is. A name that is not a net becomes a variable of the session, gone when <code>simrepl</code> is next called, and a variable of the session shadows a net of the same name; <code>global x = 1</code> (or <code>Main.x = 1</code> for one that exists) makes a variable of Main instead. Ambiguous net names are written with their path, <code>ctrl.state</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>showlogs!(sim; from = nothing, to = nothing, modules = nothing, when = nothing)</code></pre>
+<p>Choose which of <code>sim</code>’s log messages are shown: only between times <code>from</code> and <code>to</code> (seconds), only from the named module types, or only while <code>when()</code> holds. With nothing given, every message of <code>sim</code> is shown again. Each simulation has its own choice, and one simulation’s choice says nothing about another’s.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="formats-and-tools" class="level2">
+<h2 class="anchored" data-anchor-id="formats-and-tools">Formats and tools</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Verilog(; name=nothing, suffix=true, debug=false, inits=:static)</code></pre>
+<p>Verilog for a design: <code>write(path, T, Verilog())</code>. <code>name</code> is the module’s name, the type’s if not given, and <code>suffix</code> puts <code>_i</code>/<code>_o</code> on the ports. <code>debug</code> emits the design’s log statements as <code>$display</code>. <code>inits = :static</code> initializes only the registers whose value the bitstream delivers – what synthesis needs, and nothing that would cost it a flip-flop’s enable pin; <code>:all</code> initializes every register, for a simulator that would otherwise start them at x.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>VCD()</code></pre>
+<p>A capture as a value change dump: <code>write(path, capture, VCD())</code>, the format a waveform viewer reads.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>LPF(board)</code></pre>
+<p>Lattice constraints for a design on a board: <code>write(path, T, LPF(board))</code>. Pin sites, buffer options, clock rates and timing exceptions come from the same declarations the Verilog does, so the two agree.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Diamond(board; vendor = String[], implementation = "impl")</code></pre>
+<p>A Lattice Diamond workspace for a design on a board: <code>write(dir, T, Diamond(board))</code> fills <code>dir</code> with the Verilog under <code>src/</code>, the constraint file, a project file (<code>.ldf</code>) with a default strategy (<code>.sty</code>), and a <code>build.sh</code> and <code>Makefile</code> that run Diamond from synthesis to the bitstream – and the JEDEC file on a MachXO part – so <code>make</code> there builds the design where Diamond is installed. <code>vendor</code> lists the netlists of the design’s black boxes, copied into <code>src/</code> and added to the project; a black box with no netlist is listed as <code>src/&lt;Name&gt;.v</code> for the user to supply.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Surfer()</code></pre>
+<p>The Surfer waveform viewer (https://surfer-project.org), as a viewer for <code>view</code> and an <code>IO</code> a capture can be written to: what is written to it is what it shows, through a scratch VCD file it is told to load again. One window per <code>Surfer()</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Icarus()</code></pre>
+<p>Icarus Verilog (<code>iverilog</code>/<code>vvp</code>) as the simulator a <code>cosim</code> runs the generated Verilog in. It is the default, and needs <code>iverilog</code> on the PATH.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>cosim(T, stimulus; kwargs...)</code></pre>
+<p>Run the Julia model of module <code>T</code> and the Verilog generated from it on the same per-cycle inputs, and compare every output after every clock.</p>
+<p><code>stimulus</code> is a vector of NamedTuples, one per cycle, with one entry per input of the module and per pad the outside world drives. A pad entry is a value, or a <code>(value, enable)</code> pair for driving part of a bus.</p>
+<ul>
+<li><code>clocks</code> gives the edges per cycle of each clock of a multi-clock module, e.g.&nbsp;<code>clocks = (clk_i = 4, clk_slow_i = 1)</code>: one stimulus entry is one slot, <code>clk_i</code> is pulsed in every slot, <code>clk_slow_i</code> in every fourth. Each count must divide the largest; clocks scheduled in the same slot are pulsed in the order given.</li>
+<li><code>reference</code> co-simulates against a hand-written Verilog file instead of the generated one – the way a ported design is checked against its original.</li>
+<li><code>ref_init</code> puts that original in the state the struct defaults put the Julia model in, as hierarchical assignments (<code>"tx_data64" =&gt; "64'd0"</code>), since its registers power up undefined.</li>
+<li><code>scale</code> divides a black box’s clock faster than the board would, so a few thousand cycles cover many periods of a slow domain.</li>
+<li><code>debug</code> emits the design’s log statements as <code>$display</code> in the Verilog.</li>
+<li><code>name</code>, <code>dir</code>, <code>suffix</code>, <code>extra_sources</code> and <code>timeout</code> name the module, say where the files go, put <code>_i</code>/<code>_o</code> on the ports, add Verilog sources to compile, and bound the run in seconds.</li>
+</ul>
+<p>Returns <code>(; ok, mismatches, julia, verilog, dir)</code>: whether the two agree, the differing cycles as <code>(cycle, julia line, verilog line)</code>, the two sets of output lines, and the directory the files were written to.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb126"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb126-1"><a href="#cb126-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">cosim</span>(Blinker, [(en_i <span class="op">=</span> <span class="cn">true</span>,) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">100</span>])</span>
+<span id="cb126-2"><a href="#cb126-2" aria-hidden="true" tabindex="-1"></a>r.ok <span class="op">||</span> <span class="fu">println</span>(r.mismatches[<span class="fl">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>write(path_or_io, x, format)</code></pre>
+<p>Write <code>x</code> in a format: a design as <code>Verilog()</code>, a capture as <code>VCD()</code>, a design on a board as <code>LPF(board)</code>. Returns the path when given one.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>view([viewer], capture_or_sim)</code></pre>
+<p>Show a capture in a waveform viewer, <code>Surfer()</code> unless another is given. Given a simulation, the viewer follows it: refreshed after every <code>@run</code>, and now and then during a long one. <code>close(viewer)</code> closes it.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="library" class="level2">
+<h2 class="anchored" data-anchor-id="library">Library</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>UART(sim; rx = nothing, tx = nothing, baud = 115200, stop = 1, parity = :none,
+     frame = nothing, timeout = 1)</code></pre>
+<p>A UART on the design’s pins: <code>rx</code> is the net it listens to (the design’s transmit), <code>tx</code> the net it drives (the design’s receive). <code>frame</code> groups what is received into units for <code>take!</code>, <code>read</code> and <code>on</code>: a byte count, or a delimiter (<code>0x0a</code>, <code>"\r\n"</code>). <code>timeout</code> bounds a blocking <code>read</code> or <code>write</code>, in seconds. <code>close(u)</code> stops it.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>FT2232H(sim; data, rd, wr, rxf = nothing, txe = nothing, frame = nothing, timeout = 1)</code></pre>
+<p>An FT2232H USB FIFO on the design’s pins, in FT245 asynchronous mode. <code>data</code> is the bus pad, <code>rd</code> and <code>wr</code> the design’s strobes (as declared, so asserted means true whatever the pin’s polarity), <code>rxf</code> and <code>txe</code> the flags the design reads: <code>rxf</code> holds while there is a byte to read, <code>txe</code> while there is room to write. <code>write(ft, bytes)</code> is the host sending to the design; <code>read(ft, n)</code> is what the design sent to the host. <code>frame = 8</code> makes <code>take!</code> and <code>on</code> work in 8-byte words. <code>close(ft)</code> takes it off the bus.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>SPIMaster(sim; sclk, mosi = nothing, miso = nothing, cs = nothing, rate = 1MHz,
+          mode = 0, timeout = 1)</code></pre>
+<p>An SPI master on the design’s pins, driving <code>sclk</code>, <code>mosi</code> and <code>cs</code> and reading <code>miso</code>. <code>transfer(m, bytes)</code> exchanges bytes, holding <code>cs</code> for the whole transfer, and returns what came back; <code>write</code> and <code>read</code> are one-way forms of it.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>SPISlave(sim; sclk, mosi = nothing, miso = nothing, cs = nothing, mode = 0, idle = 0xff,
+         frame = nothing, timeout = 1)</code></pre>
+<p>An SPI slave on the design’s pins, following the design’s <code>sclk</code> and <code>cs</code>. Bytes queued with <code>put!</code> go out on <code>miso</code> as the master clocks, <code>idle</code> when none is queued; what arrives on <code>mosi</code> is taken with <code>take!</code>, or answered by <code>on</code> – per byte, so a reply to a command byte goes out with the next byte, as a device does. <code>close(sl)</code> takes it off the bus.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>transfer(master, bytes) -&gt; bytes</code></pre>
+<p>Clock <code>bytes</code> out and return the bytes that came in, one per byte sent.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>I2CMaster(sim; scl, sda, rate = 100kHz, timeout = 1)</code></pre>
+<p>An I2C master on the design’s <code>scl</code> and <code>sda</code> pads. <code>write(m, address, bytes)</code> sends a transaction and returns whether every byte was acknowledged; <code>read(m, address, n)</code> returns <code>n</code> bytes. A register read is <code>write(m, a, [reg]); read(m, a, n)</code>, with <code>stop = false</code> on the write for a repeated start.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>I2CSlave(sim; scl, sda, address, frame = nothing, timeout = 1)</code></pre>
+<p>An I2C slave at <code>address</code> on the design’s <code>scl</code> and <code>sda</code> pads. What the master writes arrives as one unit per transaction, to <code>take!</code> or to <code>on</code>; what the master reads comes from the bytes queued with <code>put!</code> (<code>0xff</code> when none), so a register map is an <code>on</code> closure that answers a write with the bytes to read next. <code>close(sl)</code> takes it off the bus.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>PWM(sim; out, rate, duty = 0.5, phase = 0, count = Inf)</code></pre>
+<p>A pulse train on net <code>out</code> at <code>rate</code>, high for <code>duty</code> of each period, starting <code>phase</code> of a period late, for <code>count</code> periods. <code>duty = 0.5</code> is a clock; <code>count = 1</code> a single pulse. <code>pwm.duty</code> and <code>pwm.rate</code> may be changed as it runs; <code>close(pwm)</code> stops it with the output low.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>RAM(depth, width; read = (clock, addr, data, en), write = (clock, addr, data, we, en))</code></pre>
+<p>A memory of <code>depth</code> words of <code>width</code> bits as a black-box stand-in: <code>QuartzHDL.standin(::Type{Part}) = RAM(8192, 16; read = (...), write = (...))</code>. Each port names the part’s pins by role, in lowercase as Julia sees them; <code>en</code> and <code>we</code> may be left out. Several ports of a kind are given as a vector. <code>ram[a]</code> reads a word, <code>ram[a] = v</code> stores one, <code>fill!(ram, 0)</code> clears it; an address counts from zero, as the design’s does. A read port’s output is read under the name its declaration gives it, <code>ram.q</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>on(f, link)</code></pre>
+<p>Answer what the link receives: <code>f(unit)</code> is called with each frame (each byte, with no frame set; each transaction, for a bus), and what it returns is sent back – bytes, a string, or nothing. A unit given to <code>f</code> is not queued for <code>take!</code>.</p>
+</div>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/org-arl\.github\.io\/QuartzHDL\.jl");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

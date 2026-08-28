@@ -1,0 +1,10 @@
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+qdocs/.quarto
+qdocs/_site
+qdocs/_freeze
+.claude
+.vscode
+.DS_Store

@@ -1,0 +1,192 @@
+---
+title: "Reference"
+engine: julia
+---
+
+**Every exported name, from its docstring**
+
+{{< include jdoc.snippet >}}
+
+```{julia}
+#| echo: false
+#| output: false
+import QuartzHDL
+```
+
+## Types
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :QuartzModule)
+jdoc(QuartzHDL, :Bits)
+jdoc(QuartzHDL, :SBits)
+jdoc(QuartzHDL, :Pulse)
+jdoc(QuartzHDL, :Timeout)
+jdoc(QuartzHDL, :Edge)
+jdoc(QuartzHDL, :MetaGuard)
+jdoc(QuartzHDL, :Pipeline)
+jdoc(QuartzHDL, :Multicycle)
+jdoc(QuartzHDL, :Pad)
+```
+
+## Modules and ports
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, Symbol("@quartz"))
+jdoc(QuartzHDL, Symbol("@in"))
+jdoc(QuartzHDL, Symbol("@out"))
+jdoc(QuartzHDL, Symbol("@io"))
+jdoc(QuartzHDL, :interface)
+jdoc(QuartzHDL, :portdoc)
+jdoc(QuartzHDL, :static)
+```
+
+## Blocks
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, Symbol("@on"))
+jdoc(QuartzHDL, Symbol("@wire"))
+jdoc(QuartzHDL, Symbol("@reset"))
+jdoc(QuartzHDL, Symbol("@only_when"))
+jdoc(QuartzHDL, Symbol("@clockout"))
+jdoc(QuartzHDL, Symbol("@method"))
+jdoc(QuartzHDL, Symbol("@check"))
+```
+
+## Values
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :bits)
+jdoc(QuartzHDL, :⊞)
+jdoc(QuartzHDL, :bitwidth)
+jdoc(QuartzHDL, :part)
+jdoc(QuartzHDL, :firstset)
+jdoc(QuartzHDL, :onehot)
+jdoc(QuartzHDL, :popcount)
+jdoc(QuartzHDL, :drive)
+jdoc(QuartzHDL, :release)
+jdoc(QuartzHDL, :expired)
+jdoc(QuartzHDL, :rose)
+jdoc(QuartzHDL, :fell)
+jdoc(QuartzHDL, :isrising)
+jdoc(QuartzHDL, :isfalling)
+jdoc(QuartzHDL, :isnew)
+jdoc(QuartzHDL, :isready; filt = s -> !occursin("Channel", s))   # ours, not Base's
+```
+
+## Encodings, state machines and sequences
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, Symbol("@encoding"))
+jdoc(QuartzHDL, :encname)
+jdoc(QuartzHDL, :statedoc)
+jdoc(QuartzHDL, Symbol("@fsm"))
+jdoc(QuartzHDL, Symbol("@state"))
+jdoc(QuartzHDL, Symbol("@otherwise"))
+jdoc(QuartzHDL, Symbol("@sequence"))
+jdoc(QuartzHDL, Symbol("@then"))
+jdoc(QuartzHDL, Symbol("@when"))
+jdoc(QuartzHDL, Symbol("@delay"))
+jdoc(QuartzHDL, Symbol("@repeat"))
+```
+
+## Black boxes and clocks
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, Symbol("@blackbox"))
+jdoc(QuartzHDL, :standin)
+jdoc(QuartzHDL, :clocklevel)
+jdoc(QuartzHDL, Symbol("@clocks"))
+jdoc(QuartzHDL, :ClockPlan)
+jdoc(QuartzHDL, Symbol("@multicycle"))
+jdoc(QuartzHDL, Symbol("@primary"))
+jdoc(QuartzHDL, :stages)
+jdoc(QuartzHDL, :simmodels)
+```
+
+## Benches and boards
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :Bench)
+jdoc(QuartzHDL, :history)
+jdoc(QuartzHDL, :padnet)
+jdoc(QuartzHDL, :netlevel)
+jdoc(QuartzHDL, Symbol("@wiring"))
+jdoc(QuartzHDL, :Wiring)
+jdoc(QuartzHDL, Symbol("@board"))
+jdoc(QuartzHDL, :Board)
+```
+
+## Simulation
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :Simulation)
+jdoc(QuartzHDL, :nets)
+jdoc(QuartzHDL, :watch!)
+jdoc(QuartzHDL, :unwatch!)
+jdoc(QuartzHDL, :capture)
+jdoc(QuartzHDL, :clear!)
+jdoc(QuartzHDL, :reset!)
+jdoc(QuartzHDL, :changes)
+jdoc(QuartzHDL, :sampled)
+jdoc(QuartzHDL, :slots)
+jdoc(QuartzHDL, :advance_by)
+jdoc(QuartzHDL, :advance_until)
+jdoc(QuartzHDL, Symbol("@run"))
+jdoc(QuartzHDL, Symbol("@stimulus"))
+jdoc(QuartzHDL, :spawn!)
+jdoc(QuartzHDL, :stop!)
+jdoc(QuartzHDL, :run!)
+jdoc(QuartzHDL, :hook!)
+jdoc(QuartzHDL, :unhook!)
+jdoc(QuartzHDL, :simrepl)
+jdoc(QuartzHDL, :showlogs!)
+```
+
+## Formats and tools
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :Verilog)
+jdoc(QuartzHDL, :VCD)
+jdoc(QuartzHDL, :LPF)
+jdoc(QuartzHDL, :Diamond)
+jdoc(QuartzHDL, :Surfer)
+jdoc(QuartzHDL, :Icarus)
+jdoc(QuartzHDL, :cosim)
+jdoc(QuartzHDL, :write; filt = s -> occursin("Format", s) || occursin("format", s))
+jdoc(QuartzHDL, :view; filt = s -> occursin("Viewer", s) || occursin("viewer", s))
+```
+
+## Library
+
+```{julia}
+#| echo: false
+#| output: asis
+jdoc(QuartzHDL, :UART)
+jdoc(QuartzHDL, :FT2232H)
+jdoc(QuartzHDL, :SPIMaster)
+jdoc(QuartzHDL, :SPISlave)
+jdoc(QuartzHDL, :transfer)
+jdoc(QuartzHDL, :I2CMaster)
+jdoc(QuartzHDL, :I2CSlave)
+jdoc(QuartzHDL, :PWM)
+jdoc(QuartzHDL, :RAM)
+jdoc(QuartzHDL, :on)
+```

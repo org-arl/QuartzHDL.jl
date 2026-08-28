@@ -1,0 +1,45 @@
+---
+title: "Under the hood"
+---
+
+**How one source becomes both a simulator and a Verilog module**
+
+You do not need this page to use QuartzHDL. It is here for the reader who wants to know what the macros do, and for anyone who wants to work on the package.
+
+## The model
+
+A module is a Julia struct. Its fields are the state: registers, pads, pipelines, synchronisers, instances. Nothing else is state, and there is no state anywhere else. `@on` blocks say what the state becomes on a clock edge: every block reads the state as it was when the edge arrived and produces a set of writes, and the writes are merged afterwards. That is Verilog's non-blocking assignment, and it is the only kind there is. `@wire` blocks say what a wire is at every instant, which is `assign`.
+
+`step(m; inputs...)` returns a new module value. Everything is immutable, so a run is a list of states, and a bench can fork, replay, or keep history without care.
+
+## Five stages
+
+**Capture.** `@on` and `@wire` take the clauses off the top of the body, inline the methods it calls, macro-expand it — so a user macro can perform a register write — and check every bare name against the fields, the inputs and the locals. Then the body is rewritten twice: once into a *collector*, a function that runs the body against the current state and returns the block's write set; and once into a *tracer*. Both rewrites share the rules for what a write is, so a construct cannot be a write in one and not the other. The macro records what the block owns, which clock it runs on, its reset and gating conditions, and registers all of it on the type. A block found again at the same source line replaces the earlier one, so re-including a file does not double it.
+
+**Simulation.** `step` settles the module tree, runs the posedge blocks against the old state, merges their writes, settles again, then does the same for the negedge blocks. A reset restores the defaults of the fields that have them. Combinational blocks iterate to a fixed point with a bound. Pads are resolved against the outside world and the pull once per net across the whole tree, so a pin several modules deep sees what the top sees. Registering a block evaluates, for its struct type, straight-line methods for one clock edge and one settle pass, so a slot of a bench allocates nothing but the value it returns.
+
+**Tracing.** The same body runs again with `Wire` values in place of registers. Every operation on a `Wire` builds a node of an expression graph instead of computing a value; branches become mux trees; a wire to an instance's input becomes a connection on its instantiation; a pad write becomes a value and an enable. The operator tables for `Bits` and for `Wire` mirror each other one for one, which is what makes the graph mean the same thing as the computation.
+
+**Cutting and checking.** A `Pipeline{K,T}` write has its graph split into K stages by depth, weighted so an adder costs its width, a multiplier more, and a popcount as the adder tree it is. Every value that crosses a cut becomes a register. A `Multicycle{K,T}` has its sources and sinks read off the graph: the leaves it reads and the registers written from its value, which give the constraint lines, the settle counter in the Verilog, and the same counter in the simulator.
+
+**Emission.** The graph is written as `wire` declarations and `always` blocks, with `case` where a chain tests one value, `+:` where a slice has a computed base, and `assign` for combinational outputs. A port whose pin is named differently or asserted low is bridged at the boundary and nowhere else — in the module, in an instance connection, and in co-simulation alike. `cosim` then emits the module, writes a testbench that reads the stimulus from a file, runs it under Icarus Verilog, and compares every output and pad after every clock.
+
+## Why the restrictions are what they are
+
+Every rule in the [rules appendix](rules.qmd) is there because a construct could have meant different things in the two worlds. The test of a new feature is the same: if it expands to something the language already has, it cannot make the two disagree; if it does not, it can, and it needs a co-simulation test that proves it does not.
+
+## Where to look
+
+The source is organised as the five stages are:
+
+```
+src/core/       the value types, the struct and block macros, tracing, ports,
+                black boxes, clocks, wiring, benches, boards
+src/sim/        the Simulation: nets, capture, tasks, the REPL prompt, logging
+src/emitters/   Verilog, pipeline stages, multicycle paths, simulation models,
+                VCD, LPF, Surfer, co-simulation under Icarus
+src/library/    the components: UART, FT2232H, SPI, I2C, PWM, RAM
+src/app.jl      the command line
+```
+
+Each file opens with a comment saying what it does and what it must agree with.

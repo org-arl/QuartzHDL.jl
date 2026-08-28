@@ -1,0 +1,70 @@
+---
+title: "For Verilog users"
+---
+
+**The same things, side by side**
+
+If you write Verilog, most of QuartzHDL is a change of spelling. This page collects the correspondences in one place; the chapters have the details, and the callouts in each chapter point out where the semantics differ.
+
+## Declarations
+
+| Verilog | QuartzHDL |
+|---|---|
+| `module Foo(...); ... endmodule` | `@quartz struct Foo ... end` plus its blocks |
+| `parameter N = 8` | `@quartz struct Foo{N}` |
+| `reg [7:0] x;` | `x::Bits{8}` |
+| `reg signed [11:0] x;` | `x::SBits{12}` |
+| `reg x;` | `x::Bool` |
+| `input [7:0] a` | `@in a::Bits{8}` |
+| `output reg y` | `@out y::Bool` |
+| `inout sda` | `@io sda::Pad{1}` |
+| `input rst_n` used as `!rst_n` | `@in rst::Bool active=:low`, used as `rst` |
+| `initial x = 5;` | `x::Bits{8} = static(5)` |
+| `localparam IDLE = 0, RUN = 1;` | `@encoding Phase begin IDLE = 0; RUN = 1 end` |
+| `Foo u(.clk(clk), .a(a));` | `u::Foo = Foo()` and `@wire Top begin u.clk ← clk; u.a ← a end` |
+| a vendor primitive | `@blackbox` |
+
+## Behaviour
+
+| Verilog | QuartzHDL |
+|---|---|
+| `always @(posedge clk) begin ... end` | `@on Foo posedge(clk) begin ... end` |
+| `always @(negedge clk)` | `@on Foo negedge(clk)` |
+| `x <= v;` | `x ← v` (or `x <= v`) |
+| `x = v;` (blocking, as a wire) | `x = v` (a local) |
+| `assign y = expr;` | `@wire Foo y ← expr` |
+| `if (rst) begin x <= 0; ... end` | `@reset(rst)` |
+| `if (en) begin ... end` around the block | `@only_when(en)` |
+| `case (state) ... endcase` | `@fsm state begin @state ... end` |
+| `cond ? a : b` | `ifelse(cond, a, b)` |
+| `{a, b, c}` | `a ⊞ b ⊞ c` or `bits(a, b, c)` |
+| `x[3]` | `x[3]` |
+| `x[7:4]` | `x[4:7]` — low first |
+| `x[base +: 8]` | `x[base .+ (0:7)]` or `x[part(i, Bits{8})]` |
+| `x[7:0]` to narrow | `trunc(Bits{8}, x)` |
+| `$display(...)` | `@info ...` (emitted only with `debug = true`) |
+| `assert` | `@check cond` |
+
+## Patterns that become one line
+
+| Verilog | QuartzHDL |
+|---|---|
+| a flag cleared at the top of the block and set below | `p::Pulse` |
+| a down-counter with a done flag | `t::Timeout{N}`, `expired(t)` |
+| `x_q <= x; x_qq <= x_q;` and `x_q & !x_qq` | `e::Edge`, `rose(e)` |
+| a two-flop synchroniser | `x::MetaGuard{2}` with an input `x` |
+| stage registers and a valid pipeline | `p::Pipeline{K,T}` |
+| a multicycle constraint plus a settle counter | `m::Multicycle{K,T}` |
+| a state register, a case, and a step counter | `@sequence` |
+
+## Where the semantics differ
+
+- **There is no blocking assignment to a register.** `=` makes a local, which is a wire. The write-then-read-in-the-same-block idiom does not exist; read the old value, or use a local.
+- **Widths are types, and narrowing is explicit.** Verilog silently truncates on assignment; QuartzHDL requires `trunc`. Widening is automatic, and mixed-width arithmetic takes the wider width.
+- **Bit ranges are low to high.** `x[0:3]` are the four low bits.
+- **Directions are declared, and a port's name inside the module is its logical name.** The `_i`/`_o`/`_n` suffixes appear on the pins in the emitted Verilog, not in the source.
+- **Values mean asserted.** An `active=:low` port is inverted at the boundary once, and nowhere else.
+- **No latches.** A `@wire` block must drive its outputs on every path, or it is an error.
+- **One writer per register.** Two blocks writing one register is an error at the declaration, not a multiply-driven net found at synthesis.
+- **Instances are never stepped from a block.** The simulator steps them on their wired clocks; the source states the wiring once.
+- **Simulation is the Julia model, not an event simulator.** There are no delays, no `x` or `z` inside the design (a pad reads its resolved level), and no races: every block on a clock reads the state before the edge and writes after it. Co-simulation checks that the Verilog agrees.

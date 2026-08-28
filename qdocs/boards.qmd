@@ -1,0 +1,106 @@
+---
+title: "Boards and constraints"
+engine: julia
+---
+
+**Where each port goes: `@board` and the constraint file**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+The design says nothing about pins, and the board says nothing about logic. A `@board` is the pin map of one physical board; the constraint file is written from the two together, and refuses if they disagree.
+
+## `@board`
+
+```{julia}
+@quartz struct Top
+  @in  rst::Bool = false  active=:low
+  @out led::Bits{4} = 0
+  @io  sda::Pad{1}  ext_pull=:up
+  n::Bits{26} = 0
+end
+
+@on Top posedge(clk) begin
+  @reset(rst)
+  n ← n + 1
+  led ← n[22:25]
+end
+
+@wire Top sda ← release()
+
+@board Rev2 begin
+  "revision 2 of the evaluation board"
+  device  = "LFE5U-25F-6BG381C"
+  io      = :LVCMOS33                  # every pin below, unless it says otherwise
+
+  clk => (pin = "G2", osc = 12MHz)     # a rate belongs with the pin it arrives on
+  rst => (pin = "R1", pull = :up)
+  sda => (pin = "T2", drive = 8, ext_pull = :up)
+  led => (pins = ["A9", "B9", "A10", "B10"], io = :LVCMOS25)
+end
+```
+
+Every line is either a setting — `key = value` — or a binding of a port to its pin. Ports are named as the design names them; the constraint file names the pins as the emitted Verilog does. A port of an instance is addressed by path, `uart.tx`. A site is written the way the datasheet writes it: `"G2"` on a BGA, `pin = 27` on a numbered package.
+
+A setting that is a pin attribute (`io`, `pull`, `drive`, `ext_pull`) applies to every binding; a binding overrides it, `nothing` included — `(pin = 27, io = nothing)` says "left to the tool, on purpose". `pins = [...]` takes `nothing` for a bit with no pin, and an attribute may vary by bit: `pull = (0:2 => :down,)`.
+
+Attribute names are a closed set, checked where they are written, since a misspelt one that was quietly ignored would leave a pin with the wrong buffer. A string at the top documents the board; one before a binding documents the pin.
+
+## `LPF`: the constraint file
+
+```{julia}
+write(stdout, Top, LPF(Rev2));
+```
+
+`LPF` writes the Lattice constraint file: pin sites, buffer settings, the frequency of every clock (from the oscillators and the clock tree, through every black box), the nets that want a global buffer, and the timing exceptions — one for every source and sink of a [`Multicycle`](multicycle.qmd) wire, and any declared by hand with `@multicycle`.
+
+Which clocks ride the chip's global distribution is a choice about the design, made once on the top module:
+
+```julia
+@primary Top clk, clk_fast
+```
+
+Each name must be a clock the design has, and `LPF` writes a `USE PRIMARY NET` line for each. A design that says nothing leaves the choice to the tool.
+
+## What it refuses
+
+The constraint writer checks the design against the board and refuses to write anything if:
+
+- a port has no pin, or a pin names a port that does not exist;
+- two ports sit on one site;
+- a port's width does not match its pin count;
+- the design declares `ext_pull` on a pad and the board does not provide it.
+
+```{julia}
+#| error: true
+@board Wrong begin
+  device = "LFE5U-25F-6BG381C"
+  clk => (pin = "G2", osc = 12MHz)
+  rst => (pin = "R1")
+  led => (pins = ["A9", "B9", "A10"])   # three pins for a 4-bit port
+  sda => (pin = "T2")                   # and no pull-up for an open-drain pad
+end
+write(devnull, Top, LPF(Wrong))
+```
+
+Each of those is a bug that would otherwise be found in the lab, with a scope.
+
+::: {.callout-tip title="If you know Verilog"}
+`@board` plus `LPF` replaces the hand-maintained `.lpf` and keeps it in step with the design: rename a port, and the constraint line follows; add a `Multicycle` wire, and its exception appears. Only Lattice's format is written today; the `@board` description itself holds nothing vendor-specific except the device name.
+:::
+
+## The command line
+
+```
+quartz design.jl --top Top --board Rev2 --outdir build
+```
+
+writes `Top.v` and `Rev2.lpf` together, which is what a build script calls.
+
+## Next
+
+The appendices: a [side-by-side with Verilog](verilog.qmd), the [rules](rules.qmd), a look [under the hood](internals.qmd), and the [reference](reference.qmd).

@@ -1,0 +1,131 @@
+---
+title: "Library components"
+engine: julia
+---
+
+**The chips around the design, ready to attach**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+What sits on the board beside the design — a USB controller, a UART, an SPI flash, an I2C sensor, a block RAM — comes from the library. A component is bound to the design's nets by *role*, and then talked to the way a host would talk to the hardware.
+
+A component needs no wiring and no entry in the clock plan: it reads and drives nets the way a stimulus does, from a task of its own or, for a bus it must watch every cycle, a hook run after every slot. Pins are asserted as `true`, as everywhere in the design; a pin declared `active=:low` is inverted at the pin, not here. `close(c)` takes a component off the bench.
+
+## UART
+
+Let's build a loopback and talk to it:
+
+```{julia}
+@quartz struct Loop
+  @in  rx::Bool = true
+  @out tx::Bool = true
+end
+
+@on Loop posedge(clk) tx ← rx
+
+sim = Simulation(Loop(); clocks = (clk = 48MHz,))
+u = UART(sim; rx = "tx", tx = "rx", baud = 115200)
+```
+
+The roles are the UART's own: its `rx` listens on the design's `tx`. A UART is a stream, and a stream is talked to like a serial port:
+
+```{julia}
+write(u, "hello\n")          # blocks, in simulation time, until it has gone out
+readline(u)                  # advances until a line has come in
+```
+
+```{julia}
+put!(u, [0x01, 0x02]); @run sim advance_by(1ms); take!(u)   # queue and collect, without blocking
+```
+
+A stream is an `IO`, so `print`, `readuntil`, `read` and the rest work on it. A blocking call suspends its task inside a `@run`, or runs the simulation itself at top level, and gives up after the link's `timeout`. `frame = 8` or `frame = "\n"` groups what arrives into units for `take!`, `read(u)` and `on`. `UART(sim; ..., parity = :even, stop = 2)` sets the framing.
+
+## FT2232H
+
+The FT2232H is a USB-to-parallel FIFO, driven on the design's byte bus in FT245 asynchronous mode:
+
+```julia
+ft = FT2232H(sim; data = "usb_data", rd = "usb_rd", wr = "usb_wr",
+                  rxf = "usb_rxf", txe = "usb_txe", frame = 8)
+write(ft, bytes)
+take!(ft)                     # the next 8-byte frame the design sent
+```
+
+It is a stream like the UART, and it watches the bus every slot, so the design's read and write strobes are honoured whenever they come.
+
+## SPI
+
+```julia
+m  = SPIMaster(sim; sclk = "sclk", mosi = "mosi", miso = "miso", cs = "cs", rate = 2MHz, mode = 0)
+sl = SPISlave(sim; sclk = "sclk", mosi = "mosi", miso = "miso", cs = "cs")
+```
+
+A master is a transaction link: `transfer(m, bytes)` selects the chip, clocks the bytes out and returns the bytes that came back. A slave answers each byte with a closure:
+
+```julia
+on(sl) do b
+  b .+ 0x40                   # what to send next, given what just arrived
+end
+```
+
+`mode` is the usual 0–3 (clock polarity and phase).
+
+## I2C
+
+```julia
+i   = I2CMaster(sim; scl = "scl", sda = "sda", rate = 400kHz)
+rtc = I2CSlave(sim; scl = "scl", sda = "sda", address = 0x51)
+```
+
+The master's verbs are `write(i, address, bytes)` and `read(i, address, n)`. A slave answers a transaction with a closure, the way a device would — here, a register file:
+
+```julia
+registers = collect(0x00:0x0f)
+on(rtc) do bytes              # what the master wrote: here, a register address
+  registers[bytes[1] + 1:end] # what the next read will return
+end
+```
+
+The bus is open-drain, so the design's `scl` and `sda` are pads with `ext_pull=:up`. Clock stretching is not modelled.
+
+::: {.callout-warning title="One outside driver per net"}
+A simulation keeps one drive per net from outside the design, so a pad can carry one library component: a slave on the bus the design's master runs, or a master on the bus a design's slave listens to. Two library components on the same pad — two slaves on one bus, or a library master and a library slave with no design between them — overwrite each other's drive, and the transaction fails. A second device on a shared bus has to be a module of the design for now.
+:::
+
+## PWM
+
+A pulse train on a net — a clock, a strobe, a gated burst:
+
+```julia
+p = PWM(sim; out = "ext_clk", rate = 1MHz, duty = 0.5)      # a clock
+p = PWM(sim; out = "trigger", rate = 10kHz, duty = 0.1, count = 3)   # three pulses
+p.duty = 0.25                                                # changed while running
+```
+
+## RAM {#ram}
+
+A memory that stands in for a vendor RAM block behind a [black box](blackbox.qmd). Its ports are named by role, in the lowercase names Julia sees; any number of each:
+
+```julia
+QuartzHDL.standin(::Type{DacRam}) =
+  RAM(8192, 16; read  = (clock = :rdclock, addr = :rdaddress, data = :q, en = :rdclocken),
+                write = (clock = :wrclock, addr = :wraddress, data = :data, we = :we))
+ram[0x10]                     # read a word from the harness
+ram[0x10] = 0xff              # write one
+fill!(ram, 0)
+```
+
+A read port holds the word its address named before the edge, and a read of the address being written sees the old word. The storage is changed in place, and `reset!` does not clear it.
+
+## Answering with a closure
+
+The pattern is the same across the library: `on(component) do unit ... end` is called with each unit as it arrives — a transaction for I2C, a byte or a configured frame for an SPI slave or a stream — and what it returns is queued to send. A unit given to a closure is not kept for `take!`. A slave with nothing queued sends `0xff`.
+
+## Next
+
+[Custom components](components.qmd).

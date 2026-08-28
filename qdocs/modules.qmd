@@ -1,0 +1,212 @@
+---
+title: "Modules and registers"
+engine: julia
+---
+
+**The `@quartz struct`: what a module is made of**
+
+A module is a struct. Its fields are the registers; its ports say what crosses the boundary. This chapter is about the declaration — the types you can use, what a default means, and how ports are named and documented.
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+## Registers
+
+```{julia}
+@quartz struct Regs
+  n::Bits{8} = 0          # 8 bits, unsigned, reset to 0
+  limit::Bits{8} = 200    # a plain integer default, checked against the width
+  seen::SBits{12} = -1    # 12 bits, signed
+  armed::Bool = false     # one bit
+  buffer::Bits{64}        # no default: powers up at zero, and a reset leaves it alone
+end
+```
+
+Every field is a register unless the declaration says otherwise. Its type gives the width, its default gives the power-up value — and the default is also what a reset restores. A field *without* a default powers up at zero and is not touched by a reset, which is how data registers in an FPGA usually behave: you rarely want the reset network fanned out to a 64-bit buffer that the logic will fill before anyone reads it.
+
+The value types are:
+
+| type | is |
+|---|---|
+| `Bool` | one bit |
+| `Bits{N}` | N bits, unsigned, N ≤ 128 |
+| `SBits{N}` | N bits, signed (two's complement), N ≤ 128 |
+
+plus the special registers of later chapters — `Pulse`, `Timeout{N}`, `Edge`, `MetaGuard{K}`, `Pipeline{K,T}`, `Multicycle{K,T}`, `Pad{N}` — and other `@quartz` modules, which make an instance.
+
+::: {.callout-tip title="If you know Verilog"}
+`reg [7:0] n;` is `n::Bits{8}`. There is no `wire` type in the struct: a wire is a local variable inside a block, or an output driven by `@wire`, as the [wires chapter](wires.qmd) shows. Signedness is part of the type rather than a property you attach later, so `SBits{12}` arithmetic is signed everywhere it appears.
+:::
+
+## Values and widths
+
+`Bits` and `SBits` are ordinary Julia values outside a block too, which is handy for building test data:
+
+```{julia}
+a = Bits{8}(200)
+b = Bits{8}(100)
+a + b            # wraps at 8 bits
+```
+
+```{julia}
+Bits{8}(200) + Bits{12}(100)   # mixed widths: the result takes the wider one
+```
+
+The width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.
+
+What QuartzHDL will *not* do silently is throw bits away. Narrowing has to be written down:
+
+```{julia}
+wide = Bits{16}(0x1234)
+trunc(Bits{8}, wide)
+```
+
+```{julia}
+#| error: true
+Bits{8}(wide)
+```
+
+The same goes for mixing signed and unsigned: convert explicitly, so a reader can see where the sign is decided.
+
+A plain integer is accepted wherever a `Bits` is expected, and checked against the width:
+
+```{julia}
+#| error: true
+@quartz struct TooBig
+  n::Bits{4} = 20
+end
+```
+
+## Bit indexing
+
+Bits are numbered from 0, the least significant, and a range is `lo:hi`:
+
+```{julia}
+w = Bits{16}(0xabcd)
+w[0], w[15], w[4:7]
+```
+
+`w[part(i, Bits{8})]` picks part number `i` of a word made of equal fields — byte `i`, here — and `w[base .+ (0:7)]` picks eight bits from a computed base:
+
+```{julia}
+w[part(1, Bits{8})]
+```
+
+Both forms work on the left of a register write too, to write part of a register; the [clocked logic chapter](clocked.qmd) has the details. A base that would run off the end of the word is an error rather than something Julia and Verilog might read differently.
+
+## Joining and splitting
+
+`bits(hi, ..., lo)` concatenates, most significant first, and so does the operator `⊞` (type `\boxplus`). `split` takes a word apart by widths:
+
+```{julia}
+id = Bits{4}(0xa); tag = Bits{4}(0x5); payload = Bits{8}(0x33)
+word = id ⊞ tag ⊞ payload
+```
+
+```{julia}
+split(word, 4, 4, 8)
+```
+
+`⊞` binds like `+`, so a piece that is itself arithmetic wants parentheses: `a ⊞ (b - 1)`.
+
+::: {.callout-tip title="If you know Verilog"}
+`{a, b, c}` is `a ⊞ b ⊞ c`. Indexing is `x[3]` for a bit and `x[0:3]` for a slice — *low first*, unlike Verilog's `x[3:0]` — and `x[base .+ (0:7)]` is `x[base +: 8]`.
+:::
+
+## The interface
+
+What crosses the module's boundary is declared, not inferred from a name:
+
+```{julia}
+@quartz struct Uart
+  @in  rx::Bool, baud::Bits{16}
+  @in  rst::Bool = false  active=:low
+  @out tx::Bool
+  @out busy::Bool
+  @io  sda::Pad{1}  ext_pull=:up
+  state::Bits{3}          # not declared: an internal register
+end
+```
+
+- `@in` declares an **input**. An input has no storage; a block reads it by name. With a default it is optional at `step`; without one, every `step` must supply it. Several inputs of the same kind can share a line.
+- `@out` declares an **output register** — storage, like any field, that is also visible outside.
+- `@io` declares a **pad**, a pin the module both drives and reads; see [wires and pads](wires.qmd).
+
+### Polarity
+
+`active=:low` says the *pin* is asserted low. Inside the module, and everywhere in the Julia model, the value means *asserted*: `rst` is `true` while the design is held in reset, whatever the wire is doing. The inversion happens where the port meets the outside — in the emitted Verilog, and in co-simulation — and nowhere else. This is what lets you write `if rst` without ever again thinking about whether it was `rst_n`.
+
+### Pin names
+
+The Verilog port is named after the Julia port with its direction on the end: `rx_i`, `tx_o`, `sda_io`, and `rst_ni` for an input asserted low. `verilog="..."` names the pin something else entirely:
+
+```{julia}
+@quartz struct Named
+  @in  go::Bool  verilog="START_N"  active=:low
+  @out y::Bool
+end
+```
+
+The suffixes are an option of the emission, on by default; `Verilog(; suffix = false)` turns them off, as [Verilog output](compiling.qmd) describes.
+
+### Documenting ports
+
+A string before a port or a field documents it. `portdoc` reads the documentation back, and the emitted Verilog carries it as a comment on the port:
+
+```{julia}
+@quartz struct Documented
+  "clocks per bit, less one"
+  @in  divisor::Bits{16}
+  "true for one cycle per received byte"
+  @out ready::Bool
+end
+portdoc(Documented, :divisor)
+```
+
+`interface(T)` lists every port with its kind and type, which is what the CLI and the constraint writer use.
+
+## Static values
+
+Some registers hold a value that must be right *before* the first reset — the reset generator itself, or a configuration word the bitstream delivers. Declare those with `static`:
+
+```{julia}
+@quartz struct PowerUp
+  ready::Bool = static(false)
+  timer::Bits{4} = static(15)
+end
+```
+
+A `static` field powers up at its value and `@reset` leaves it alone. In the emitted Verilog it is the one kind of field that gets an initializer, since the synthesiser then guarantees the power-up value.
+
+::: {.callout-tip title="If you know Verilog"}
+A default that is *not* static is restored by `@reset` and does **not** appear as an initializer in the Verilog. An initializer costs the flip-flop its enable and clear pins on many parts, so reset-delivered registers do not carry one; configuration clears every flip-flop anyway. `Verilog(; inits = :all)` initializes everything, for simulators that would otherwise start at `x` — co-simulation uses that.
+:::
+
+## Parametric modules
+
+A module may take type parameters, the way a Verilog module takes `parameter`s:
+
+```{julia}
+@quartz struct Shift{N}
+  @in  x::Bool
+  sr::Bits{N} = 0
+  @out y::Bool
+end
+
+@on Shift{N} posedge(clk) begin
+  sr ← sr << 1 | x
+  y ← sr[N - 1]
+end
+
+m = step(Shift{4}(); x = true)
+```
+
+The parameters the block body uses are named on the `@on` line. Each concrete instantiation — `Shift{4}`, `Shift{16}` — is emitted as its own Verilog module.
+
+## Next
+
+[Clocked logic](clocked.qmd): the `@on` block, and everything you can say inside it.

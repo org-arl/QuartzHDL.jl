@@ -1,0 +1,112 @@
+---
+title: "Pulses, timeouts and edges"
+engine: julia
+---
+
+**`Pulse`, `Timeout` and `Edge`: the bookkeeping you no longer write**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+Three patterns come up in almost every design: a flag that should be true for exactly one cycle, a countdown, and "did this signal just change?". Each is a few lines of Verilog that are easy to get slightly wrong. QuartzHDL gives each a register type that does the bookkeeping itself. All three are stored as plain registers; the block that writes one advances it *before* its own statements run, so the block's own write always wins the cycle.
+
+## `Pulse`: true for one cycle
+
+A `Pulse` is a `Bool` that clears itself. Write `true` and it is true for one cycle, then false again until the next write:
+
+```{julia}
+@quartz struct Strobe
+  @in  go::Bool = false
+  @out fire::Pulse
+end
+
+@on Strobe posedge(clk) begin
+  go && (fire ← true)
+end
+
+m = Strobe()
+fires = Bool[]
+for i in 1:5
+  global m = step(m; go = i == 2)
+  push!(fires, m.fire)
+end
+fires
+```
+
+It replaces the `fire && (fire ← false)` line you would otherwise write at the top of every block, and the bug where you forget it.
+
+## `Timeout{N}`: a countdown
+
+A `Timeout{N}` is a `Bits{N}` that counts down to zero and holds there. Write a value to start it; `expired(t)` is true from the moment it reaches zero. Read bare, it is the count.
+
+```{julia}
+@quartz struct Divider
+  @in  period::Bits{4} = 3
+  div::Timeout{4}
+  @out tick::Pulse
+  hold::Timeout{4}
+  @in  arm::Bool = false
+end
+
+@on Divider posedge(clk) begin
+  if expired(div)
+    div ← period           # reload on expiry: a divider
+    tick ← true
+  end
+  arm && (hold ← 5)        # a one-shot: runs down and stays expired
+end
+
+m = Divider()
+for i in 1:10
+  global m = step(m; arm = i == 5)
+  println("edge $i: div = $(Int(m.div))  tick = $(m.tick)  hold = $(Int(m.hold))")
+end
+```
+
+Written `3`, the timeout expires four edges later, so a divider written with `period` has a period of `period + 1` clocks. A timeout that has run down stays at zero: `expired` keeps answering `true` until it is written again.
+
+::: {.callout-tip title="If you know Verilog"}
+`Pulse` and `Timeout` are ordinary registers in the emitted Verilog — a `reg` with a clear or a decrement at the top of the `always` block, followed by your writes. Look at the output of `write(stdout, Divider, Verilog())` and you will find exactly the code you would have written by hand.
+:::
+
+## `Edge`: did it just change?
+
+An `Edge` is a `Bool` register that also remembers the value it held before, so its transitions can be queried. Write it like any register and read it bare as the level:
+
+```{julia}
+@quartz struct Detect
+  @in  x::Bool = false
+  xe::Edge
+  @out rises::Bits{8} = 0
+  @out falls::Bits{8} = 0
+end
+
+@on Detect posedge(clk) begin
+  xe ← x
+  rose(xe) && (rises ← rises + 1)
+  fell(xe) && (falls ← falls + 1)
+end
+
+m = Detect()
+for i in 1:12
+  m = step(m; x = 4 <= i <= 8)
+end
+m.rises, m.falls
+```
+
+- `rose(e)` and `fell(e)` are the transition the *last* clock edge registered — exactly `x_q && !x_qq` — glitch-free, one cycle after the sample that made it, and true for exactly one cycle. On a cycle that leaves the edge unwritten the history settles by itself, so a gated feed (`en && (e ← x)`) cannot latch an event.
+- `isrising(e, x)` and `isfalling(e, x)` compare an *incoming* sample with the level instead — `x && !e` — and see the transition as it happens, with no cycle of delay. Keep them to signals already on this clock, and take an asynchronous pin through a [`MetaGuard`](domains.qmd) first.
+
+The default of an `Edge` is the level seen so far, so power-up and reset manufacture no event.
+
+## What they cannot be
+
+An input cannot be a `Pulse`, a `Timeout` or an `Edge`, since an input has no storage. A `@wire` block cannot write one, since they advance on a clock. And an `Edge` is written whole — `e[0] ← x` is an error.
+
+## Next
+
+[Clock domains](domains.qmd): `MetaGuard`, and modules with more than one clock.

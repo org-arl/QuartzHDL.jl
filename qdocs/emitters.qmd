@@ -1,0 +1,113 @@
+---
+title: "Custom emitters"
+engine: julia
+---
+
+**New output formats, viewers and simulators**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+Everything that leaves the package goes through three small abstract types, and each is open:
+
+| type | dispatches | examples |
+|---|---|---|
+| `Format` | `write(io, x, ::Format)` | `Verilog`, `VCD`, `LPF` |
+| `Viewer` | `view(::Viewer, x)` | `Surfer` |
+| `Tool` | `cosim(T, stim; tool = ::Tool)` | `Icarus` |
+
+A new one is a type and its methods, in your own package if you like. This chapter shows one of each.
+
+## A new format
+
+A format is a struct that subtypes `QuartzHDL.Format`, and a `Base.write` method that takes it. Let's write a port list as CSV — the kind of thing a board designer asks for:
+
+```{julia}
+struct PortCSV <: QuartzHDL.Format end
+
+function Base.write(io::IO, T::Type{<:QuartzModule}, ::PortCSV)
+  println(io, "name,direction,type,doc")
+  for p in interface(T)
+    doc = something(portdoc(T, p.name), "")
+    println(io, p.name, ",", p.dir, ",", p.typeexpr, ",\"", doc, "\"")
+  end
+end
+
+@quartz struct Uart
+  "the serial input"
+  @in  rx::Bool
+  "clocks per bit, less one"
+  @in  divisor::Bits{16}
+  @out tx::Bool
+  state::Bits{3} = 0
+end
+
+write(stdout, Uart, PortCSV());
+```
+
+`write(path, T, fmt)` — the path form — already works for any format, since it opens the file and calls the `IO` method. If your format should be reachable from the command line's `--emit` option, add an `extension` method:
+
+```julia
+QuartzHDL.extension(::PortCSV) = "csv"
+```
+
+### What a format can read
+
+The declarations are all reachable through ordinary functions:
+
+- `interface(T)` — every port with its name, direction, type expression, default and attributes (`active`, `verilog`, `ext_pull`).
+- `portdoc(T, name)` — a port's documentation.
+- `fieldnames(T)` and `fieldtypes(T)` — the registers, with the hardware types telling you widths (`bitwidth`), signedness and which are instances, pads, pipelines and so on.
+- `QuartzHDL.blocks(T)` — the `@on` and `@wire` blocks: their clock, edge, the fields they own, and their reset and enable conditions.
+- `QuartzHDL.encodings(T)` — the encodings the module's fields use.
+- `QuartzHDL.clockouts(T)` — the clocks a black box makes, with their recipes.
+- `stages(T)` — how each pipeline is cut.
+
+The traced expression graph — what each block actually computes — is what the Verilog emitter walks. It is not yet a stable interface: the node types live in `src/core/trace.jl`, and an emitter for another HDL would read `src/emitters/verilog.jl` as the worked example. If you write one, say so; making that graph public is the natural next step.
+
+## A new viewer
+
+A viewer is a subtype of `QuartzHDL.Viewer`, which is an `IO`. `view(v, capture)` writes the capture to it, and `view(v, sim)` keeps it current as the simulation runs. The minimum is a `write` method that accepts a capture in some format and a `close`:
+
+```{julia}
+mutable struct TextView <: QuartzHDL.Viewer
+  io::IO
+end
+
+Base.write(v::TextView, out::QuartzHDL.Capture, ::VCD) = write(v.io, out, VCD())
+Base.close(v::TextView) = nothing
+
+@quartz struct Ctr
+  n::Bits{2} = 0
+end
+@on Ctr posedge(clk) n ← n + 1
+
+sim = Simulation(Ctr(); clocks = (clk = 1MHz,), watch = "*")
+out = @run sim advance_by(4us)
+view(TextView(stdout), out);
+```
+
+The `Surfer` viewer in the package is the model for a live one: it holds a process and a socket, rewrites the VCD on each update, and sends a reload command. `view(sim)` calls the viewer after every `@run` and periodically during a long one, so a viewer only has to answer "show this file again".
+
+## A new simulator
+
+`cosim` runs the generated Verilog under a `Tool`. `Icarus` is the one shipped; another simulator is a type and one method:
+
+```julia
+struct Verilator <: QuartzHDL.Tool end
+
+function QuartzHDL._cosim(::Verilator, T::Type, stimulus::AbstractVector; kwargs...)
+  # write the Verilog, the stand-ins (`simmodels`) and a testbench that reads
+  # the stimulus file; run the tool; compare its trace with the Julia model
+end
+```
+
+The Icarus implementation in `src/emitters/icarus.jl` is written in stages that a second tool can reuse: the port discovery, the stimulus file, the Julia reference run and the comparison are tool-independent; only the testbench and the command line are Icarus's own. That split is deliberate, and the stage functions are the ones to call.
+
+## What to keep in mind
+
+Whatever you emit is a second statement of the design, and the whole package is built on the idea that a second statement will one day drift from the first. So an emitter should read the declarations rather than re-deriving them, and anything that claims to say what the design *does* — a simulation model, a different HDL — needs a co-simulation test that proves it does.
