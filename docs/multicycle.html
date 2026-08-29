@@ -483,21 +483,21 @@ Stacktrace:
   [3] <span class="ansi-bold">macro expansion</span>
 <span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:36</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [4] <span class="ansi-bold">var"#on#Corr#2"</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">this</span>::Corr, <span class="ansi-bright-black-fg">kw#281</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:334</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:343</span>
   [5] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1133</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1142</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [6] <span class="ansi-bold">_runedge</span><span class="ansi-bold">(</span>::Corr, ::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, ::Vector<span class="ansi-bright-black-fg">{Symbol}</span>, ::Val<span class="ansi-bright-black-fg">{:clk}</span>, ::Val<span class="ansi-bright-black-fg">{:posedge}</span>, ::Val<span class="ansi-bright-black-fg">{(:comb, Symbol(""), Symbol(""), (:xcorr,), (), ())}</span>, ::Val<span class="ansi-bright-black-fg">{(:on, :clk, :posedge, (:mfo, :bb), (:sample, :x), ())}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1127</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1136</span>
   [7] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1125</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [8] <span class="ansi-bold">_runclock</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1125</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [9] <span class="ansi-bold">_runclock</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1122</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1131</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [10] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1065</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1074</span>
  [11] <span class="ansi-bold">_stepwith</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1058</span><span class="ansi-bright-black-fg"> [inlined]</span>
+<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1067</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [12] <span class="ansi-bold">#step#47</span>
 <span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [13] <span class="ansi-bold">step</span>
@@ -513,6 +513,19 @@ Stacktrace:
 <p>A multicycle path between two registers, with no <code>Multicycle</code> wire on it — a slow transfer from one to the other, say — can still be declared for the constraint file, once per module:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@multicycle</span> <span class="bu">Sys</span> <span class="fl">15</span> a <span class="op">=&gt;</span> b</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This writes the exception and nothing else: no counter and no check, since there is no wire to derive them from. Prefer a <code>Multicycle</code> wire where one fits.</p>
+<div class="callout callout-style-default callout-warning callout-titled" title="No retiming">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>No retiming
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The constraints name the design’s own registers, and the settle counter counts from them, so they assume synthesis adds no registers of its own along the path. A tool that retimes or pipelines logic across a multicycle path both moves the endpoints out from under the constraint and adds latency the counter does not know about. The strategy <code>Diamond(board)</code> writes turns Synplify retiming off (<code>PROP_SYN_EdfRunRetiming = None</code>); keep it off in any strategy of your own for a design with a multicycle path.</p>
+</div>
+</div>
 <div class="callout callout-style-default callout-tip callout-titled" title="If you know Verilog">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">

@@ -88,7 +88,7 @@ build/rev2/
   src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
   Rev2.lpf           the constraints, as `LPF(board)` writes them
   Top.ldf            the project file: device, top, sources, strategy
-  Top.sty            Diamond's default strategy
+  Top.sty            Diamond's default strategy, with synthesis retiming off
   build.sh           synthesis, translate, map, place-and-route, bitstream
   Makefile           `make` runs build.sh when a source is newer than the bitstream
 ```

@@ -79,6 +79,10 @@ A multicycle path between two registers, with no `Multicycle` wire on it — a s
 
 This writes the exception and nothing else: no counter and no check, since there is no wire to derive them from. Prefer a `Multicycle` wire where one fits.
 
+::: {.callout-warning title="No retiming"}
+The constraints name the design's own registers, and the settle counter counts from them, so they assume synthesis adds no registers of its own along the path. A tool that retimes or pipelines logic across a multicycle path both moves the endpoints out from under the constraint and adds latency the counter does not know about. The strategy `Diamond(board)` writes turns Synplify retiming off (`PROP_SYN_EdfRunRetiming = None`); keep it off in any strategy of your own for a design with a multicycle path.
+:::
+
 ::: {.callout-tip title="If you know Verilog"}
 The Verilog for a `Multicycle` is an `assign` for the wire, a small counter, and a `ready` bit. The constraint file gets `MULTICYCLE` lines from the same source, so the two cannot disagree about which registers the path runs between — which is the usual way hand-written multicycle constraints go wrong.
 :::

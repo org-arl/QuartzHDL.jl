@@ -1,7 +1,9 @@
 # A Lattice Diamond workspace: everything Diamond needs to take the design to a
 # bitstream, laid out the way the tool expects and driven by a script, so a build
 # is `make` and not a session in the GUI. The project file lists the sources, the
-# strategy is Diamond's default, and the constraint file comes from the board.
+# strategy is Diamond's default with synthesis retiming off, so the registers a
+# multicycle constraint names are the only ones on its path, and the constraint
+# file comes from the board.
 
 function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   b = f.board

@@ -529,7 +529,7 @@ julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2
   src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
   Rev2.lpf           the constraints, as `LPF(board)` writes them
   Top.ldf            the project file: device, top, sources, strategy
-  Top.sty            Diamond's default strategy
+  Top.sty            Diamond's default strategy, with synthesis retiming off
   build.sh           synthesis, translate, map, place-and-route, bitstream
   Makefile           `make` runs build.sh when a source is newer than the bitstream</code></pre>
 <p>The board’s <code>device</code> must be the full part number Diamond knows, <code>LCMXO2-7000HE-4TG144I</code> rather than a family. A MachXO part boots from its own flash, so its <code>build.sh</code> also exports the JEDEC file, and <code>make</code> targets that. <code>build.sh</code> sources <code>diamond_env</code> from <code>/usr/local/lattice/bin/lin64</code>, or from <code>$DIAMOND_BIN</code> when Diamond is elsewhere.</p>
