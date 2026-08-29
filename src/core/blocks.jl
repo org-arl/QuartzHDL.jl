@@ -222,6 +222,14 @@ function _typeparts(t, what)
   error("$what: expected the module type first, e.g. `$what Adc ...`, got $t")
 end
 
+# a block written without the struct's parameters can only mean the struct's own
+function _withstructparams(typeexpr, params, T)
+  typeexpr isa Symbol || return (typeexpr, params)
+  names = [p.name for p in Base.unwrap_unionall(T).parameters]
+  isempty(names) && return (typeexpr, params)
+  (Expr(:curly, typeexpr, names...), names)
+end
+
 function _resolvetype(structname, mod, what)
   isdefined(mod, structname) ||
     error("$what: $structname must be defined before the blocks that use it")
@@ -238,6 +246,7 @@ function _blockcode(kind, typeexpr, clk, edge, body, mod)
   what = kind == :on ? "@on" : "@wire"
   structname, params = _typeparts(typeexpr, what)
   T = _resolvetype(structname, mod, what)
+  typeexpr, params = _withstructparams(typeexpr, params, T)
   fields = setdiff(Set(fieldnames(T)), (INPUTS,))
   :this in fields && error("`this` is reserved for the module state and cannot be a field")
   inports = Set(p.name for p in interface(T) if p.dir === :in)

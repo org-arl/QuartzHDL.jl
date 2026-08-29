@@ -3430,6 +3430,29 @@ end
   @test cosim(Stepped, [(go = rand(Bool), rst = rand() < 0.1) for i in 1:200]).ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct Unnamed{LEN}
+  @in x::Bits{LEN}
+  @out y::Bits{LEN} = 0
+  @out twice::Bits{LEN} = 0
+end
+
+@on Unnamed posedge(clk) begin
+  y ← x
+end
+
+@wire Unnamed begin
+  twice ← y << 1
+end
+
+@testset "a block without the struct's parameters means the struct's own" begin
+  m = step(Unnamed{8}(); x = Bits{8}(3))
+  @test m.y == 3 && m.twice == 6
+  v = sprint(io -> write(io, Unnamed{8}, Verilog()))
+  @test occursin("input wire [7:0] x", v) && occursin("y <= x;", v)
+  Random.seed!(23)
+  @test cosim(Unnamed{8}, [(x = Bits{8}(rand(0:255)),) for _ in 1:100]).ok skip=!HAVE_IVERILOG
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("reference.jl")
