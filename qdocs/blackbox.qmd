@@ -64,6 +64,8 @@ end
 
 An input left unwired is an error. A wire to a part cannot sit under an `if`: the part sees its pin every cycle, so put the condition in the value.
 
+A part that makes a clock — one with a `clockout` — sits in the top module. The whole clock tree is then in one place, and the [constraint file](boards.qmd) can name every clock in it. A module below the top that runs on a derived clock takes it as a clock input, wired from the top like any other (`sub.clk ← clk_1MHz`). The constraint writers refuse a design with a clock-making part below the top. A part that only takes a clock, such as a RAM, can sit anywhere.
+
 ## The clock tree is the `clockout` declarations
 
 In simulation the `clockout` recipes *are* the behaviour of the part. Every derived clock — source, divider, phase, enable — is computed from them, and nothing else. A clock that divides holds its counter while gated, as the hardware does. A mux is a part that declares one output twice, once per source, with complementary enables. Switching it is not an edge: the output follows the newly selected source when that is low, and otherwise holds until that source's own next edge, so a switch never adds or loses a cycle in either model.

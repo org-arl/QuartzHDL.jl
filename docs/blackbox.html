@@ -466,6 +466,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk_1MHz) slow <span class="op">←</span> slow <span class="op">+</span> <span class="fl">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>An input left unwired is an error. A wire to a part cannot sit under an <code>if</code>: the part sees its pin every cycle, so put the condition in the value.</p>
+<p>A part that makes a clock — one with a <code>clockout</code> — sits in the top module. The whole clock tree is then in one place, and the <a href="./boards.html">constraint file</a> can name every clock in it. A module below the top that runs on a derived clock takes it as a clock input, wired from the top like any other (<code>sub.clk ← clk_1MHz</code>). The constraint writers refuse a design with a clock-making part below the top. A part that only takes a clock, such as a RAM, can sit anywhere.</p>
 </section>
 <section id="the-clock-tree-is-the-clockout-declarations" class="level2">
 <h2 class="anchored" data-anchor-id="the-clock-tree-is-the-clockout-declarations">The clock tree is the <code>clockout</code> declarations</h2>

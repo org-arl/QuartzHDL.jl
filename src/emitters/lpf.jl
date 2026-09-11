@@ -1,7 +1,7 @@
 # The Lattice constraint file for a design on a board: where each port sits, how
-# its buffer is configured, what every clock runs at, and the timing exceptions
-# the design declares. Emitted with the Verilog, from the same declarations, so
-# the two agree by construction.
+# its buffer is configured, the rate of every clock the logic runs on, and the
+# timing exceptions the design declares. Emitted with the Verilog, from the same
+# declarations, so the two agree by construction.
 
 Base.write(io::IO, T::Type{<:QuartzModule}, f::LPF) = (buf = IOBuffer(); _lpf(buf, T, f.board); write(io, take!(buf)))
 
@@ -19,17 +19,27 @@ function _lpf(io::IO, T::Type{<:QuartzModule}, b::Board)
     println(io, "IOBUF PORT \"$(_bitname(T, p, i))\" $(_iobufopts(b, p, i - 1));")
   end
   for net in _checkedprimary(T)
-    println(io, "USE PRIMARY NET \"$(_pinname(T, net))\" ;")
+    println(io, "USE PRIMARY NET \"$(_primarynet(T, net))\" ;")
   end
   rates = clockrates(T, b)
+  used = _clocks(T)
   for net in sort(collect(keys(rates)))
-    println(io, "FREQUENCY NET \"$(_pinname(T, net))\" $(_mhz(rates[net])) MHz ;")
+    net in used || continue
+    kind = _onpin(T, net) ? "PORT" : "NET"
+    println(io, "FREQUENCY $kind \"$(_pinname(T, net))\" $(_mhz(rates[net])) MHz ;")
   end
   for M in _allmodules(T), m in _allmulticycles(M)
     println(io, _multicyclestr(T, M, m))
   end
   nothing
 end
+
+# Synthesis puts a buffer behind a clock pin and names the net after it `<port>_c`,
+# so a net-level constraint on the port's own name matches nothing and is dropped.
+# FREQUENCY can name the port instead; USE PRIMARY names only nets, so it takes the
+# buffered name, which is Synplify's, the synthesiser the Diamond workspace selects.
+_onpin(T::Type, net::Symbol) = net in _clocksof(T)
+_primarynet(T::Type, net::Symbol) = string(_pinname(T, net), _onpin(T, net) ? "_c" : "")
 
 # every located bit of a board's pins: the pin, the bit's index, and its site
 _sites(b::Board) = ((p, i, s) for p in b.pins for (i, s) in enumerate(p.sites) if s !== nothing)
