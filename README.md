@@ -104,7 +104,7 @@ end
 plot(out, "clk", "send", "tx", "busy")
 ```
 
-<img src="assets/uart-tx.png" width="640">
+<img src="qdocs/images/uart-tx.png" width="640">
 
 The same file compiles to Verilog from the command line — a `case` over the sequence's steps, the state machine you would have written by hand:
 
