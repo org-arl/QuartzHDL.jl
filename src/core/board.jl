@@ -209,6 +209,27 @@ function problems(b::Board, T::Type)
     name in bound || push!(out, "$name has no pin on $(b.name)")
   end
   append!(out, _pullproblems(b, T))
+  for path in _nestedclocksources(T)
+    push!(out, "$(join(path, ".")) makes a clock below the top; declare it in " *
+               "$(nameof(T)) and pass the clock in")
+  end
+  out
+end
+
+# A clock made below the top has a name only its own module knows, which a
+# constraint cannot reliably reach once synthesis flattens the hierarchy, so every
+# black box that makes a clock sits in the top module.
+function _nestedclocksources(T::Type, path=Symbol[])
+  out = Vector{Symbol}[]
+  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+    FT <: QuartzModule || continue
+    if isblackbox(FT)
+      !isempty(path) && any(p -> p.dir === :clockout, blackbox(FT).ports) &&
+        push!(out, vcat(path, f))
+    else
+      append!(out, _nestedclocksources(FT, vcat(path, f)))
+    end
+  end
   out
 end
 

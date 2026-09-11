@@ -251,7 +251,7 @@ VERSION >= v"1.12" && @testset "app mode" begin
   run(`$julia --project=$proj -m QuartzHDL $boarded --top Blinker --board Demo --outdir $dir`)
   text = read(joinpath(dir, "Demo.lpf"), String)
   @test occursin("LOCATE COMP \"led_o\" SITE \"17\" ;", text)
-  @test occursin("FREQUENCY NET \"clk_i\" 48.000000 MHz ;", text)
+  @test occursin("FREQUENCY PORT \"clk_i\" 48.000000 MHz ;", text)
   @test !success(`$julia --project=$proj -m QuartzHDL $boarded --board Demo --outdir $dir`)
 
   # a Diamond workspace goes to a directory named after the module, or the one given
@@ -2312,10 +2312,11 @@ end
   @test_throws ErrorException sprint(io -> write(io, Timed, LPF(Lab)))
   @primary Timed fast
 
-  # every rate follows from the oscillator and the dividers; nothing is retyped
-  @test occursin("FREQUENCY NET \"clk_ref_i\" 48.000000 MHz ;", text)
+  # every rate follows from the oscillator and the dividers; nothing is retyped. A
+  # clock on a pin is named by its port, and a clock nothing runs on is left out
+  @test occursin("FREQUENCY PORT \"clk_ref_i\" 48.000000 MHz ;", text)
   @test occursin("FREQUENCY NET \"fast\" 48.000000 MHz ;", text)
-  @test occursin("FREQUENCY NET \"slow\" 12.000000 MHz ;", text)
+  @test !occursin("\"slow\"", text) && !occursin("\"odd\"", text)
 
   # a timing exception carries the clock net, not the field's own clock name; the
   # cell patterns come anchored, and in a bare and a `.`-prefixed form, one for
@@ -2335,6 +2336,66 @@ end
   @test_throws Exception @eval @multicycle Shadowed 4 utime => y
   @test occursin("utime_frac",
                  try @eval @multicycle Shadowed 4 utime => y; "" catch e; sprint(showerror, e) end)
+end
+
+@quartz struct Pinned
+  n::Bits{8}
+  @out y::Bits{8}
+end
+
+@on Pinned posedge(clk) begin
+  n ← n + 1
+  y ← n
+end
+
+@primary Pinned clk
+
+@board PinBoard begin
+  device = "LCMXO2-4000HC-4MG132C"
+  clk => (pin = "C1", osc = 12MHz)
+  y   => (pins = ["N13", "M12", "P12", "M11", "P11", "N10", "N9", "P9"])
+end
+
+@quartz struct InnerPll
+  n::Bits{8}
+  @out y::Bits{8}
+  pll::PLLT = PLLT()
+end
+
+@wire InnerPll begin
+  pll.clki ← clk
+  fast ← pll.clkop
+  pll.stdby ← false
+end
+
+@on InnerPll posedge(fast) begin
+  n ← n + 1
+  y ← n
+end
+
+@quartz struct OuterPll
+  inner::InnerPll = InnerPll()
+  @out y::Bits{8}
+end
+
+@wire OuterPll inner.clk ← clk
+@on OuterPll posedge(clk) y ← inner.y
+
+@testset "a clock on a pin is constrained by its port" begin
+  # synthesis renames the net behind a clock pin, so the rate names the port and the
+  # global buffer names the buffered net
+  text = sprint(io -> write(io, Pinned, LPF(PinBoard)))
+  @test occursin("FREQUENCY PORT \"clk_i\" 12.000000 MHz ;", text)
+  @test occursin("USE PRIMARY NET \"clk_i_c\" ;", text)
+  @test !occursin("NET \"clk_i\"", text)
+end
+
+@testset "a clock is made at the top" begin
+  @test QuartzHDL.problems(PinBoard, Pinned) == String[]
+  @test QuartzHDL.problems(PinBoard, OuterPll) ==
+    ["inner.pll makes a clock below the top; declare it in OuterPll and pass the clock in"]
+  @test_throws ErrorException write(devnull, OuterPll, LPF(PinBoard))
+  @test_throws ErrorException write(mktempdir(), OuterPll, Diamond(PinBoard))
 end
 
 @quartz struct Settling
@@ -2884,7 +2945,7 @@ end
   @test occursin("IOBUF PORT \"d_i[0]\" PULLMODE=NONE IO_TYPE=LVCMOS25 ;", text)
   @test occursin("IOBUF PORT \"q_o[0]\" PULLMODE=NONE ;", text)   # io = nothing
   @test occursin("IOBUF PORT \"io_io[0]\" PULLMODE=NONE IO_TYPE=LVCMOS25 DRIVE=8 ;", text)
-  @test occursin("FREQUENCY NET \"clk_ref_i\" 48.000000 MHz ;", text)
+  @test occursin("FREQUENCY PORT \"clk_ref_i\" 48.000000 MHz ;", text)
 end
 
 @quartz struct Methodical

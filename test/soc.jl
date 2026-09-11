@@ -233,7 +233,7 @@ end
   @test occursin("BLOCK RESETPATHS ;", text) && occursin("BLOCK ASYNCPATHS ;", text)
   @test occursin("LOCATE COMP \"clk_ref_i\" SITE \"G2\" ;", text)
   @test occursin("LOCATE COMP \"gp_io[3]\" SITE \"23\" ;", text)
-  @test occursin("FREQUENCY NET \"clk_ref_i\" 48.000000 MHz ;", text)
+  @test occursin("FREQUENCY PORT \"clk_ref_i\" 48.000000 MHz ;", text)
   @test occursin("FREQUENCY NET \"slow\" 6.000000 MHz ;", text)
   # the cell patterns carry the instance path, in every pairing of the bare and the
   # `.`-prefixed form

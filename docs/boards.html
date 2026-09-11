@@ -476,13 +476,14 @@ IOBUF PORT "led_o[0]" PULLMODE=NONE IO_TYPE=LVCMOS25 ;
 IOBUF PORT "led_o[1]" PULLMODE=NONE IO_TYPE=LVCMOS25 ;
 IOBUF PORT "led_o[2]" PULLMODE=NONE IO_TYPE=LVCMOS25 ;
 IOBUF PORT "led_o[3]" PULLMODE=NONE IO_TYPE=LVCMOS25 ;
-FREQUENCY NET "clk_i" 12.000000 MHz ;</code></pre>
+FREQUENCY PORT "clk_i" 12.000000 MHz ;</code></pre>
 </div>
 </div>
-<p><code>LPF</code> writes the Lattice constraint file: pin sites, buffer settings, the frequency of every clock (from the oscillators and the clock tree, through every black box), the nets that want a global buffer, and the timing exceptions — one for every source and sink of a <a href="./multicycle.html"><code>Multicycle</code></a> wire, and any declared by hand with <code>@multicycle</code>.</p>
+<p><code>LPF</code> writes the Lattice constraint file: pin sites, buffer settings, the frequency of every clock the logic runs on (from the oscillators and the clock tree, through every black box), the nets that want a global buffer, and the timing exceptions — one for every source and sink of a <a href="./multicycle.html"><code>Multicycle</code></a> wire, and any declared by hand with <code>@multicycle</code>.</p>
 <p>Which clocks ride the chip’s global distribution is a choice about the design, made once on the top module:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@primary</span> Top clk, clk_fast</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Each name must be a clock the design has, and <code>LPF</code> writes a <code>USE PRIMARY NET</code> line for each. A design that says nothing leaves the choice to the tool.</p>
+<p>A clock that arrives on a pin needs care, because synthesis puts a buffer behind the pin and names the net after it <code>clk_i_c</code>: a constraint on the net <code>clk_i</code> would match nothing, and the tool would drop it with only a warning. So its frequency is written against the port, <code>FREQUENCY PORT "clk_i"</code>, and its global buffer against the buffered net, <code>USE PRIMARY NET "clk_i_c"</code> — the name Synplify gives it, the synthesiser a <a href="./compiling.html">Diamond workspace</a> uses. A clock that nothing runs on, such as one only <a href="./blackbox.html">read as data</a>, gets no frequency line, since there is no logic for it to time.</p>
 </section>
 <section id="what-it-refuses" class="level2">
 <h2 class="anchored" data-anchor-id="what-it-refuses">What it refuses</h2>
@@ -491,7 +492,8 @@ FREQUENCY NET "clk_i" 12.000000 MHz ;</code></pre>
 <li>a port has no pin, or a pin names a port that does not exist;</li>
 <li>two ports sit on one site;</li>
 <li>a port’s width does not match its pin count;</li>
-<li>a pad relies on a pull and the board provides none, neither <code>pull</code> nor <code>ext_pull</code>, or pulls the other way.</li>
+<li>a pad relies on a pull and the board provides none, neither <code>pull</code> nor <code>ext_pull</code>, or pulls the other way;</li>
+<li>a black box that makes a clock sits below the top module, where the constraints cannot reliably name its clocks (see <a href="./blackbox.html">black boxes</a>).</li>
 </ul>
 <div id="8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Wrong <span class="cf">begin</span></span>
@@ -515,7 +517,7 @@ Stacktrace:
  [3] <span class="ansi-bold">write</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">io</span>::Base.DevNull, <span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{Top}</span>, <span class="ansi-bright-black-fg">f</span>::LPF<span class="ansi-bold">)</span>
 <span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/emitters/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">lpf.jl:6</span>
  [4] top-level scope
-<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:90</span></pre>
+<span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:93</span></pre>
 </div>
 </div>
 </div>
