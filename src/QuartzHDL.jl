@@ -17,6 +17,7 @@
 module QuartzHDL
 
 using Sockets
+import JSON
 using REPL
 using REPL: LineEdit
 using Base.CoreLogging: @logmsg, LogLevel, Debug, Info, Warn, Error
@@ -86,6 +87,7 @@ include("emitters/surfer.jl")
 include("emitters/icarus.jl")
 include("timing/flatten.jl")
 include("timing/timing.jl")
+include("timing/json.jl")
 include("app.jl")
 include("library/links.jl")
 include("library/uart.jl")

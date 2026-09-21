@@ -4,6 +4,7 @@ version = "0.2.1"
 authors = ["Mandar Chitre <mandar@nus.edu.sg>"]
 
 [deps]
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 
@@ -17,6 +18,7 @@ QuartzHDLSignalBaseExt = "SignalBase"
 
 [compat]
 Aqua = "0.8"
+JSON = "1"
 Plots = "1"
 REPL = "1.11"
 Random = "1.11"

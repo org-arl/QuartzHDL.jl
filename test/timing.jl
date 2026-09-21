@@ -214,3 +214,35 @@ end
   @test cosim(TimingExcused, [(cmd = Bits{8}(rand((0x00, 0x92, 0x91, 0x12))), go = rand(Bool)) for _ in 1:200]).ok skip=!HAVE_IVERILOG
   @test_throws "only valid inside" @eval @timing_exempt "nowhere"
 end
+
+VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
+  dir = mktempdir()
+  design = joinpath(dir, "counter.jl")
+  write(design, """
+    using QuartzHDL
+    @quartz struct Counter
+      @in cmd::Bits{8}
+      total::Bits{32} = 0
+    end
+    @on Counter posedge(clk) begin
+      if cmd == 7
+        total <= total + 1
+      end
+    end
+    """)
+  julia = `$(joinpath(Sys.BINDIR, "julia")) --startup-file=no --project=$(dirname(@__DIR__)) -m QuartzHDL timing`
+  text = read(`$julia $design`, String)
+  @test occursin("Timing report for Counter", text) && occursin("counter.jl:7", text)
+  @test success(`$julia $design --budget "max_bits = 8 => 16, reject = c -> c.instance == \"elsewhere\""`)
+  @test occursin("8 inputs, controls 32 register bits", read(`$julia $design --condition counter.jl:7`, String))
+  @test occursin("32 bits, clock clk", read(`$julia $design --top Counter --register total`, String))
+  out = IOBuffer()
+  status = run(pipeline(ignorestatus(`$julia $design --json --budget "max_bits = 4 => 16"`); stdout=out))
+  json = String(take!(out))
+  @test status.exitcode == 1
+  @test startswith(json, "{\"version\":1,\"top\":\"Counter\",\"lut_inputs\":4,\"ok\":false,")
+  @test occursin("\"budget\":{\"max_bits\":[[4,16]],\"max_carry\":null,\"max_chain\":null,\"reject\":false}", json)
+  @test occursin("\"rejected\":[\"max_bits\"]", json) && occursin("\"arithmetic\":[[\"add\",32]]", json)
+  @test run(ignorestatus(pipeline(`$julia $design --budget "max_bits = "`; stderr=devnull))).exitcode == 2
+  @test occursin("usage: quartz timing", read(`$julia --help`, String))
+end

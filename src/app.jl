@@ -1,9 +1,12 @@
 # The `quartz` command: it reads the arguments, evaluates the design file in a
 # module of its own, and writes each top module out in the format asked for --
-# with the board's constraint file beside it where a board is named.
+# with the board's constraint file beside it where a board is named. `quartz timing`
+# prints the timing report of a module instead, and is the budget a build can hold
+# a design to.
 
 const USAGE = """
 usage: quartz <design.jl> [options]
+       quartz timing <design.jl> [options]        (quartz timing --help)
 
 Write @quartz modules in a Julia design file out in an emitter's format --
 Verilog unless another is named -- and a design on a board to its constraint file.
@@ -24,6 +27,31 @@ options:
   -h, --help      show this help
 """
 
+const TIMING_USAGE = """
+usage: quartz timing <design.jl> [options]
+
+Print where a @quartz module, with everything below it, is likely to be slow: the
+conditions that read many bits and decide many register bits, and arithmetic in
+series. With --budget the exit status says whether the design is within it.
+
+options:
+  --top T           the module, as a Julia expression evaluated in the design file's
+                    scope; may be left out when the file has one module to compile
+  --budget B        the limits, as `timing` takes them, evaluated in the design
+                    file's scope: 'max_bits = 8 => 128, max_carry = 48'
+
+  --lut-inputs N    the variable bits an operation must exceed to count as
+                    arithmetic (default 4)
+  --count N         how many lines of each table to print (default 12)
+  --condition LINE  print one condition in full, by the line of its `if`: adc.jl:204
+  --register NAME   print everything that ends at one register: adc1.data
+  --json            write the whole report as JSON instead
+  -h, --help        show this help
+
+The exit status is 0 when there is no budget or the design is within it, 1 when the
+budget rejects anything, and 2 when the report could not be made.
+"""
+
 # what the command line asked for, once it has been read
 mutable struct Options
   file::Union{Nothing,String}
@@ -38,6 +66,7 @@ end
 Options() = Options(nothing, String[], nothing, ".", nothing, nothing, "Verilog")
 
 function (@main)(argv)
+  !isempty(argv) && argv[1] == "timing" && return _timingmain(argv[2:end])
   opt = _options(argv)
   opt isa Options || return opt
   opt.file === nothing && return _fail("no design file given")
@@ -52,6 +81,89 @@ function (@main)(argv)
 end
 
 ### helpers
+
+# what `quartz timing` was asked for
+mutable struct TimingOptions
+  file::Union{Nothing,String}
+  top::Union{Nothing,String}
+  budget::String
+  lut_inputs::String
+  count::String
+  condition::Union{Nothing,String}
+  register::Union{Nothing,String}
+  json::Bool
+end
+
+TimingOptions() = TimingOptions(nothing, nothing, "", "4", string(SHOWN), nothing, nothing, false)
+
+# 1 is the budget's answer, so whatever stops the report from being made is 2
+const TIMING_FAILED = 2
+
+function _timingmain(argv)
+  opt = _timingoptions(argv)
+  opt isa TimingOptions || return opt == 0 ? 0 : TIMING_FAILED
+  opt.file === nothing && return _fail("no design file given", TIMING_FAILED)
+  isfile(opt.file) || return _fail("no such file: $(opt.file)", TIMING_FAILED)
+  lut_inputs = tryparse(Int, opt.lut_inputs)
+  count = tryparse(Int, opt.count)
+  lut_inputs === nothing && return _fail("--lut-inputs takes a whole number", TIMING_FAILED)
+  count === nothing && return _fail("--count takes a whole number", TIMING_FAILED)
+  design = _designmodule(opt.file)
+  design isa Module || return TIMING_FAILED
+  Base.invokelatest(_timing, design, opt, lut_inputs, count)
+end
+
+function _timingoptions(argv)
+  opt = TimingOptions()
+  i = 0
+  while i < length(argv)
+    a = argv[i += 1]
+    if a in ("-h", "--help")
+      print(TIMING_USAGE)
+      return 0
+    elseif a == "--json"
+      opt.json = true
+    elseif a in ("--top", "--budget", "--lut-inputs", "--count", "--condition", "--register")
+      i += 1
+      i ≤ length(argv) || return _fail("$a needs an argument")
+      setfield!(opt, Symbol(replace(lstrip(a, '-'), "-" => "_")), argv[i])
+    elseif startswith(a, "-")
+      return _fail("unknown option $a")
+    elseif opt.file === nothing
+      opt.file = a
+    else
+      return _fail("only one design file may be given")
+    end
+  end
+  opt
+end
+
+function _timing(design, opt::TimingOptions, lut_inputs::Int, count::Int)
+  types = opt.top === nothing ? _alltops(design, opt.file) : _namedtops(design, [opt.top])
+  types isa Vector{Type} || return TIMING_FAILED
+  length(types) == 1 ||
+    return _fail("$(opt.file) has $(length(types)) modules to compile; name one with --top", TIMING_FAILED)
+  budget = try
+    Core.eval(design, Meta.parse("(; $(opt.budget))"))
+  catch e
+    return _fail("cannot evaluate --budget $(opt.budget): " * sprint(showerror, e), TIMING_FAILED)
+  end
+  r = try
+    Base.invokelatest(timing, types[1]; lut_inputs, budget...)
+  catch e
+    return _fail(sprint(showerror, e), TIMING_FAILED)
+  end
+  try
+    opt.json ? _writejson(stdout, r) :
+    opt.condition !== nothing ? show(stdout, r; condition=opt.condition) :
+    opt.register !== nothing ? show(stdout, r; register=opt.register) : show(stdout, r; top=count)
+  catch e
+    e isa ArgumentError || rethrow()
+    return _fail(e.msg, TIMING_FAILED)
+  end
+  opt.json || println()
+  r.ok === false ? 1 : 0
+end
 
 # the arguments as options, or the status a bad argument exits with
 function _options(argv)
@@ -186,7 +298,7 @@ function _write(types, opt::Options, format, board)
   0
 end
 
-_fail(msg) = (println(stderr, "quartz: ", msg); 1)
+_fail(msg, status=1) = (println(stderr, "quartz: ", msg); status)
 
 # whether a module has anything to compile: a type that never went through @quartz
 # has no `blocks` method at all, which is a MethodError and not an error to report
