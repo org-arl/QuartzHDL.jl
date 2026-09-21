@@ -38,10 +38,11 @@ Lattice constraints for a design on a board: `write(path, T, LPF(board))`. Pin
 sites, buffer options, clock rates and timing exceptions come from the same
 declarations the Verilog does, so the two agree.
 
-`overconstrain = 1.2` asks of every clock 1.2 times its rate. Place and route
-stops improving a design once it meets its constraints, so a build at the real
-rates does not say how much room is left; one that is asked for more does. It is
-for measuring, and a build that fails it may still meet the real rates.
+`overconstrain = 1.2` constrains every clock at 1.2 times its real rate. Place and
+route stops optimising once a design meets its constraints, so a build at the
+real rates does not show how much margin it has. A build with tighter constraints
+does. Use it only for measurement, because a design that fails it may still meet
+the real rates.
 """
 struct LPF <: Format
   board::Board               # the board the design is placed on
@@ -62,8 +63,9 @@ Diamond from synthesis to the bitstream -- and the JEDEC file on a MachXO part -
 so `make` there builds the design where Diamond is installed. `vendor` lists the
 netlists of the design's black boxes, copied into `src/` and added to the project;
 a black box with no netlist is listed as `src/<Name>.v` for the user to supply.
-`overconstrain` is the constraint file's, see `LPF`, and `paths` is how many paths
-of each constraint the timing report lists, worst first.
+`overconstrain` scales the clock rates in the constraint file, as described under
+`LPF`. `paths` sets how many paths the timing reports list for each constraint,
+starting with the worst.
 """
 struct Diamond <: Format
   board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board

@@ -62,10 +62,11 @@ end
 """
     @timing_exempt "why"
 
-In a block, inside an `if`: the timing budget is to leave the condition alone, and
-every condition nested in it, for the reason given. At the top of a block it
-speaks for the block's `@only_when`. It changes nothing the design does; `timing`
-lists what it excuses, with the reason, in `exempt`.
+Use inside an `if` in a block. The timing budget then does not reject that
+condition, the conditions nested in the same arm, or the paths through them. The
+string gives the reason. At the top of a block, the tag applies to the block's
+`@only_when`. The tag does not change the design. `timing` lists the exempt
+conditions and their reasons in `exempt`.
 """
 macro timing_exempt(args...)
   error("@timing_exempt is only valid inside an @on or @wire block")

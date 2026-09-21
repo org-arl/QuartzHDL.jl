@@ -36,41 +36,50 @@ _isgiven(b::TimingBudget) =
 """
     TimingReport
 
-What `timing` returns. It prints as a summary: the heaviest conditions, one line
-each, and the registers whose arithmetic was flagged; `show(r; top=20)` prints
-more of them, `show(r; condition="adc.jl:204")` prints one condition in full, by
-the line of its `if`, and `show(r; register="adc1.data")` everything that ends at
-one register. `paths` holds one row for each pair
-of places a path starts and ends at, and each way the one reaches the other:
+The result of `timing`. It prints as a summary with the heaviest conditions, one
+line each, and the registers with flagged arithmetic. Three calls print more:
 
-- `from`, `to`: where the path starts and the register it ends at, by full name
-- `role`: `:condition` when `from` decides whether or what `to` takes, `:data`
-  when it is part of the value
-- `read`: how many bits of `from` the path reads
-- `width`: how many bits `to` has
-- `inputs`: for a condition, how many bits the whole condition reads; for data,
-  how many bits the value is computed from
-- `controls`: how many register bits of the design that condition decides
-- `arithmetic`: the compares and adds between the two in series, with their widths
-- `crossings`: how many module boundaries the path crosses
-- `depth`: levels of logic as a synthesis tool maps them, `missing` when none was asked
-- `connected`: whether synthesis left a path between the two at all; where it left
-  none the depth is 0, as it is for a register wired straight to another
+- `show(r; top=20)` prints more lines of the summary
+- `show(r; condition="adc.jl:204")` prints one condition in full, selected by the
+  file and line of its `if`
+- `show(r; register="adc1.data")` prints every path that ends at one register
+
+If a budget was given, the summary shows what the budget rejects and leaves out
+the list of heaviest conditions.
+
+`paths` has one row for each pair of a start point and the register it reaches,
+separately for data and for conditions:
+
+- `from`, `to`: the start point and the register where the path ends, as full names
+- `role`: `:condition` if `from` decides whether or what `to` is written, `:data`
+  if `from` is part of the value written
+- `read`: the number of bits of `from` that the path reads
+- `width`: the number of bits in `to`
+- `inputs`: for a condition, the number of bits the whole condition reads; for
+  data, the number of bits the value is computed from
+- `controls`: the number of register bits in the design that the condition controls
+- `arithmetic`: the compares and adds in series between the two, with their widths
+- `crossings`: the number of module boundaries the path crosses
+- `depth`: the number of logic levels found by a synthesis tool, or `missing` if
+  none was run
+- `connected`: whether synthesis left any path between the two. If it left none,
+  `depth` is 0. A depth of 0 with `connected` true means the two registers are
+  wired directly together.
 - `clock`: the net that clocks `to`
-- `source`: the line of the design that makes the write
-- `condition`: the line of the `if` the condition ends at
-- `flags`: the checks the row trips, `:chained_arithmetic` or `:muxed_arithmetic`
-- `rejected`: the rules of the budget the row breaks
-- `exempt`: every write the path decides stands under a `@timing_exempt`
+- `source`: the file and line of the write
+- `condition`: the file and line of the innermost `if` of the condition
+- `flags`: `:chained_arithmetic` or `:muxed_arithmetic`, if the row has that pattern
+- `rejected`: the budget rules that the row breaks
+- `exempt`: true if every write on the path is under a `@timing_exempt`
 
-Given a budget, the summary shows what it rejects in place of the heaviest. `conditions` holds every `if` of the design once, with the enable and the ifs
-around it: the line it is on and the instance it is in, the `inputs` it reads and
-the register bits it `controls`, what it `reads` and `decides` in full, and the
-compares in it, its `depth`, which is that of the deepest path from anything it
-reads to anything it decides, the rules of the budget it breaks, and the reason a
-`@timing_exempt` gives for leaving it alone. The arms of an `if` with many `elseif`s read the same registers
-and decide much the same ones, so the printed summary shows the heaviest of them
-and counts the rest.
+`conditions` has one entry for each `if` in the design, combined with the block's
+`@only_when` and every `if` around it. An entry holds the line and instance of
+the `if`, its `inputs` and `controls`, the full lists of what it `reads` and
+`decides`, the compares in it, its `depth` (the deepest path from anything it
+reads to anything it decides), the budget rules it breaks, and the reason given
+by a `@timing_exempt`, if any. The arms of a long `elseif` chain read the same
+registers and control similar ones, so the printed summary shows the heaviest arm
+and counts the others.
 """
 struct TimingReport
   top::Type
@@ -93,65 +102,74 @@ end
     timing(T; max_bits, max_carry, max_chain, max_depth, reject, except=String[])
     timing(T; depth=true, board=nothing, synth=nothing)
 
-Where module `T`, with everything below it, is likely to be slow. The design is
-read as one graph, so a path that leaves one module as a wire and ends at a
-register of another is followed like any other. Multicycle paths are left out.
+Report the logic in module `T`, and everything below it, that is most likely to
+limit the clock speed. The design is analysed as one graph, so a path that leaves
+one module through a wire and ends at a register in another module is followed
+like any other path. Multicycle paths are left out.
 
-What costs wiring is a condition that reads many bits and decides many register
-bits, the more so when it is computed in another module. The report judges none
-of them: it puts them in the order of `inputs * controls`, counted once more for
-each module boundary crossed, and shows the heaviest.
+Wiring delay is highest for a condition that reads many bits and controls many
+register bits, especially when it is computed in another module. The report does
+not decide which conditions are a problem. It sorts them by `inputs * controls`,
+multiplied by one more than the number of module boundaries crossed, and shows
+the heaviest.
 
-A compare or an add that reads no more than `lut_inputs` variable bits fits one
-LUT, and costs what any other small piece of logic does; one that reads more needs
-levels of LUTs or a carry chain, and only those count as arithmetic. Four is the
-smallest LUT in common use, so the default counts an operation too many on a part
-with larger ones and never one too few. Two shapes of arithmetic are flagged:
+A compare or an add that reads `lut_inputs` variable bits or fewer fits in one
+LUT, and is treated like any other small piece of logic. One that reads more
+needs several LUT levels or a carry chain, and only these count as arithmetic.
+Four inputs is the smallest LUT in common use. On an FPGA with larger LUTs the
+default may count an operation that would have fit in one LUT, but it will not
+miss any. Two arithmetic patterns are flagged:
 
-- `:chained_arithmetic`: two or more of them in series
+- `:chained_arithmetic`: two or more arithmetic operations in series
 - `:muxed_arithmetic`: the register takes one of several sums, which synthesis may
-  chain
+  build as adders in series
 
-This is a guide to where to look and not a measurement: it cannot see placement.
+The report is a guide to where to look. It is not a timing measurement, because
+it has no information about placement.
 
-With `depth=true` the design is also mapped by yosys, and every row gets its
-`depth`, and every condition: the levels of LUTs on the longest path between its
-two ends, with a carry chain as one level. Where synthesis found the two
-unconnected, as it does for a register that reaches no output and is removed, the
-depth is 0 and the row says it is not `connected`. A depth that was not measured is
-`missing`, so a rule that asks for one that is not there fails, and does not pass
-for want of an answer. Left to itself yosys
-maps to LUTs of `lut_inputs` inputs and nothing of any device. Given the `board`
-the design is for, it runs the flow of the board's part, where one is known for
-it. `synth` names a flow outright, as yosys spells it, `"synth_lattice -family
-xo2"` for a MachXO2, and is what counts when both are given; it has to flatten the
-design. Without yosys there is a warning
+With `depth=true` the design is also mapped by yosys. Every row and every
+condition then gets a `depth`: the number of LUT levels on the longest path
+between its two ends, with a carry chain counted as one level. If synthesis
+leaves no path between the two ends, the depth is 0 and the row's `connected`
+field is false. This happens, for example, when a register does not reach any
+output and is removed. A depth that was not measured is `missing`, so a rule
+that uses it raises an error and cannot pass by mistake.
+
+By default yosys maps to generic LUTs with `lut_inputs` inputs and uses no
+device information. If `board` is given, yosys runs the flow for the board's
+FPGA when one is known. `synth` names a yosys flow directly, for example
+`"synth_lattice -family xo2"` for a MachXO2. It takes priority over `board`, and
+the flow must flatten the design. If yosys is not installed, there is a warning
 and no depths.
 
-Given a budget, the report is also something a test can hold the design to:
+If limits are given, a test can check the design against them:
 
 ```julia
 @test timing(Main; max_bits = 8 => 128, max_carry = 48).ok
 ```
 
-- `max_bits = 8 => 128`: a condition of more than 8 inputs may decide at most 128
-  register bits. Several pairs make a staircase, `(4 => 512, 8 => 128)`.
-- `max_carry`: at most so many bits of compare and add in series on a path
-- `max_chain`: at most so many compares and adds in series on a path
-- `max_depth`: at most so many levels of logic on a path, as yosys maps it
-- `reject = c -> c.crossings > 0 && c.depth > 6`: a rule of the design's own, given
-  a condition as `conditions` holds it, and true for one the budget is to reject
+- `max_bits = 8 => 128`: a condition with more than 8 inputs may control at most
+  128 register bits. Several pairs can be given: `(4 => 512, 8 => 128)`.
+- `max_carry`: the maximum total width of compares and adds in series on a path
+- `max_chain`: the maximum number of compares and adds in series on a path
+- `max_depth`: the maximum number of logic levels on a path, as mapped by yosys
+- `reject = c -> c.crossings > 0 && c.depth > 6`: your own rule. It receives a
+  condition, in the form held in `conditions`, and returns true to reject it.
 
-What the budget rejects is in `rejected`, the conditions, and `rejectedpaths`, the
-paths whose arithmetic breaks a limit; each names the rules it breaks in its own
-`rejected`, and so does every row under a rejected condition. `ok` says there are
-none. A condition the design marks `@timing_exempt` is left alone, with those inside
-it and the paths that run through it, and so is a path that ends at a register
-`except` names; they are in `exempt` and `exemptpaths`. With
-no budget `ok` is `missing`, so a test without one fails and does not pass in
-silence; it is `missing` too where `max_depth` is given and yosys is not there to
-say. The printed report ends with the design's present worst, written as the
-budget that would hold it there.
+`rejected` holds the conditions the budget rejects. `rejectedpaths` holds the
+paths it rejects because of their arithmetic or depth. Each entry lists the rules
+it breaks in its own `rejected` field, and so does every row under a rejected
+condition. `ok` is true when nothing is rejected.
+
+A condition marked `@timing_exempt` in the design is not rejected. The same
+applies to the conditions nested in it and the paths through it. `except` lists
+registers, and the paths that end at them are not rejected. Exempt items are in
+`exempt` and `exemptpaths`.
+
+If no budget is given, `ok` is `missing`, so a test with no limits raises an
+error and cannot pass by mistake. `ok` is also `missing` if `max_depth` is given
+and yosys is not installed. When limits are given, the printed report ends with
+the design's current worst values, written as a budget.
 """
 function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, board=nothing, synth=nothing, max_bits=(), max_carry=nothing,
     max_chain=nothing, max_depth=nothing, reject=nothing, except=String[]
@@ -383,6 +401,7 @@ function _table(io::IO, title, header, rows, numeric; limit=typemax(Int))
     print(io, "\n  ", rstrip(join(cells, "  ")))
   end
   length(rows) > limit && print(io, "\n  ... ", length(rows) - limit, " more")
+  nothing
 end
 
 function _showcondition(io::IO, r::TimingReport, at::AbstractString)
@@ -411,13 +430,17 @@ function _showregister(io::IO, r::TimingReport, name::AbstractString)
     push!(lines, vcat(lead, [p.from, string(p.read), string(p.crossings), _depthstr(p), _arithstr(p.arithmetic), p.source,
                              _checkstr([p])]))
   end
-  _table(io, "Conditions", ["condition", "inputs", "bits", "from", "bits read", "crossings", "depth", "operations",
-                            "written at", "check"], lines, [2, 3, 5, 6, 7])
+  _table(io, "Conditions", _measured(r, ["condition", "inputs", "bits", "from", "bits read", "crossings", "depth",
+                                         "operations", "written at", "check"], 7), _measured.(Ref(r), lines, 7),
+         r.depth ? [2, 3, 5, 6, 7] : [2, 3, 5, 6])
   data = sort(filter(p -> p.role == :data, rows); by = p -> -_chainsum(p.arithmetic))
-  _table(io, "Data", ["from", "bits read", "crossings", "depth", "operations", "written at", "check"],
-         [[p.from, string(p.read), string(p.crossings), _depthstr(p), _arithstr(p.arithmetic), p.source, _checkstr([p])]
-          for p in data], 2:4)
+  _table(io, "Data", _measured(r, ["from", "bits read", "crossings", "depth", "operations", "written at", "check"], 4),
+         [_measured(r, [p.from, string(p.read), string(p.crossings), _depthstr(p), _arithstr(p.arithmetic), p.source,
+                        _checkstr([p])], 4) for p in data], r.depth ? (2:4) : (2:3))
 end
+
+# a line of a table without its depth column, where no depths were measured
+_measured(r::TimingReport, cells, k::Int) = r.depth ? cells : deleteat!(copy(cells), k)
 
 _depthstr(p) = p.depth === missing ? "" : get(p, :connected, true) === false ? "-" : string(p.depth)
 _chainsum(arithmetic) = sum((w for (_, w) in arithmetic); init=0)
