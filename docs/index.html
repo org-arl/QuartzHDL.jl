@@ -2,17 +2,23 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.26">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>Introduction – QuartzHDL</title>
 <style>
-code{white-space: pre-wrap;}
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -67,15 +73,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <meta name="quarto:offset" content="./">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-c0d8b526fa222858bf56437ad6d5e615.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-f84607303771c80386bd6d3edccc808a.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -323,6 +328,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  <span class="menu-text">Boards and constraints</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./timing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Timing</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -456,6 +467,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Simulation</strong> with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C, PWM and RAM, stand-ins for black boxes, live waveforms in Surfer or <code>Plots</code>, and a <code>sim&gt;</code> custom REPL.</li>
 <li><strong>Compiles to Verilog</strong> – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.</li>
 <li><strong>Board to bitstream</strong> — <code>@board</code> describes the pins, and the constraint file and a Lattice Diamond workspace, with a Makefile that builds the bitstream, are generated from it.</li>
+<li><strong>Timing report</strong> — lists the conditions and arithmetic most likely to limit the clock speed, with their source lines; supports limits that a test can check; and can add logic depth from yosys.</li>
 </ul>
 </section>
 <section id="installation" class="level2">
@@ -625,6 +637,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   always @(posedge clk_i) begin
     if (rst) begin
       tx &lt;= 1'h1;
+      step &lt;= Frame_START;
     end else begin
       send_e_prev &lt;= send_e;
       baud_timer &lt;= w14;
@@ -744,7 +757,7 @@ endmodule</code></pre>
 <li><strong>Writing hardware</strong> covers the language a construct at a time, starting with <a href="./modules.html">modules and registers</a>.</li>
 <li><strong>Going further</strong> adds the constructs that make real designs short: <a href="./timekeeping.html">pulses, timeouts and edges</a>, <a href="./domains.html">clock domains</a>, <a href="./pipelines.html">pipelines</a>, <a href="./multicycle.html">multicycle paths</a>, <a href="./composing.html">submodules</a> and <a href="./blackbox.html">black boxes</a>.</li>
 <li><strong>Simulating</strong> covers <a href="./simulating.html">driving a simulation</a>, <a href="./benches.html">benches</a>, <a href="./visualizing.html">waveforms and plots</a>, the <a href="./library.html">component library</a> and <a href="./testing.html">tests and CI</a>.</li>
-<li><strong>Building</strong> covers <a href="./compiling.html">Verilog output</a> and <a href="./boards.html">boards and constraints</a>.</li>
+<li><strong>Building</strong> covers <a href="./compiling.html">Verilog output</a>, <a href="./boards.html">boards and constraints</a> and the <a href="./timing.html">timing report</a>.</li>
 <li><strong>Extending</strong> shows how to write <a href="./components.html">custom components</a> and <a href="./emitters.html">custom emitters</a>.</li>
 <li>The appendices hold a <a href="./verilog.html">side-by-side with Verilog</a>, the <a href="./rules.html">rules the compiler enforces</a>, a look <a href="./internals.html">under the hood</a>, and the <a href="./reference.html">API reference</a>.</li>
 </ul>

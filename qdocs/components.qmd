@@ -3,7 +3,7 @@ title: "Custom components"
 engine: julia
 ---
 
-**Models of the chips the library does not have**
+**Writing a simulation model for a chip the library does not include**
 
 ```{julia}
 #| echo: false

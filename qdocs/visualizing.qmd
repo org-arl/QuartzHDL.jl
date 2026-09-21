@@ -3,7 +3,7 @@ title: "Waveforms and plots"
 engine: julia
 ---
 
-**Waveforms in a viewer, signals in a plot**
+**Viewing waveforms and plotting signals**
 
 ```{julia}
 #| echo: false

@@ -42,6 +42,7 @@ website:
       contents:
       - compiling.qmd
       - boards.qmd
+      - timing.qmd
     - section: <b>Extending</b>
       contents:
       - components.qmd

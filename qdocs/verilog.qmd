@@ -2,7 +2,7 @@
 title: "For Verilog users"
 ---
 
-**The same things, side by side**
+**QuartzHDL constructs and the Verilog they correspond to**
 
 If you write Verilog, most of QuartzHDL is a change of spelling. This page collects the correspondences in one place; the chapters have the details, and the callouts in each chapter point out where the semantics differ.
 

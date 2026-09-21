@@ -1,0 +1,203 @@
+---
+title: "Timing"
+engine: julia
+---
+
+**`timing(T)`: a report of the logic most likely to limit the clock speed**
+
+```{julia}
+#| echo: false
+#| output: false
+using QuartzHDL
+using QuartzHDL.Units
+```
+
+When a design runs close to the maximum clock speed of its FPGA, timing problems are hard to find. A vendor build takes many minutes and reports only the paths that failed on its best placement, and the next build often reports different paths. On an FPGA most of the delay on such a path is wiring, not logic. The paths with the most wiring delay usually have one of two patterns, and both are visible in the source:
+
+- a condition that reads several bits and controls a wide register, often computed in another module
+- an arithmetic operation whose result feeds another arithmetic operation in the same clock cycle
+
+`timing` reads the design and lists these, using the register names and source lines of the design.
+
+The report is not a timing analysis. It has no information about placement, and it cannot tell you whether a design meets its clock. It tells you which `if` statements to look at first, and whether a change made the design better or worse.
+
+## A design to look at
+
+A unit takes commands from a bus: a 16-bit word with a strobe. The top four bits say who the word is for, the next four what to do, and the rest is the value.
+
+```{julia}
+#| output: false
+@quartz struct Unit
+  @in  word::Bits{16}
+  @in  strobe::Bool
+  @out level::Bits{32} = 0
+  @out limit::Bits{32} = 0
+  @out count::Bits{8} = 0
+end
+
+@on Unit posedge(clk) begin
+  if strobe && word[12:15] == 3
+    if word[8:11] == 1
+      level ← Bits{32}(word[0:7])
+    elseif word[8:11] == 2
+      limit ← Bits{32}(word[0:7])
+    end
+  end
+  if level > limit
+    count ← count + 1
+  else
+    count ← count - 1
+  end
+end
+
+@quartz struct Top
+  @in  rx::Bits{16}
+  @in  valid::Bool
+  unit::Unit = Unit()
+  word::Bits{16} = 0
+  strobe::Bool = false
+  @out count::Bits{8} = 0
+end
+
+@wire Top begin
+  unit.clk ← clk
+  unit.word ← word
+  unit.strobe ← strobe
+end
+
+@on Top posedge(clk) begin
+  word ← rx
+  strobe ← valid
+  count ← unit.count
+end
+```
+
+## The report
+
+```{julia}
+r = timing(Top)
+```
+
+The report treats the whole design as one graph, with the modules joined where they are wired together. A path that leaves one module through a wire and ends at a register in another module is followed like any other path. For every register, the report finds two things:
+
+- the *data*: what the register's new value is computed from
+- the *conditions*: what decides whether the register is written, and which write takes effect. These are the `if`s around each write, the block's `@only_when`, and its reset.
+
+The logic is traced bit by bit, so `word[12:15] == 3` counts as reading four bits of `word`, not sixteen.
+
+**Heaviest conditions** has one line for each `if`:
+
+| Column | Meaning |
+|---|---|
+| `condition` | The line of the `if`. `(+2)` says two more conditions of the same module read the same registers, usually the other arms of an `elseif` chain; the heaviest is shown. |
+| `inputs` | The number of register bits the whole condition reads. This includes the `if`, every `if` around it, and the block's `@only_when`. A larger number means more logic in front of the register's enable. |
+| `bits` | The number of register bits written under the `if`. A larger number means a higher fan-out for the enable signal. |
+| `crossings` | The number of module boundaries between what the condition reads and the registers it controls. A larger number suggests longer wires. |
+| `from`, `to` | What the condition reads, with registers from other modules listed first, and what it controls. |
+
+The lines are sorted by `inputs × bits × (1 + crossings)`, largest first. The report does not decide whether a line is a problem, because that depends on your clock and your FPGA. A reset is listed as a separate condition with one input and many bits, because it reaches each register through a separate pin.
+
+If two arms of an `elseif` chain compare the same value against different constants, only one of them can be true. In that case the earlier arm is not counted as a condition on the registers the later arm writes.
+
+**Arithmetic** lists two patterns:
+
+- `chained`: two or more compares or adds in series within one clock cycle.
+- `muxed`: the register takes one of several different sums. A counter that counts both up and down is an example. Synthesis may build these as adders in series. You can avoid this by writing one sum and selecting its operand, as in `count + ifelse(up, 1, -1)`. The selection then happens before the adder and adds no delay.
+
+A compare or an add counts as arithmetic only when it reads more than `lut_inputs` variable bits. The default is 4. An operation that reads fewer bits fits in one LUT and has the same delay as any other small piece of logic. An operation that reads more bits needs several levels of LUTs or a carry chain. Four inputs is the smallest LUT in common use. On an FPGA with larger LUTs, the default may count some operations that would have fit in one LUT, but it will not miss any.
+
+## Looking closer
+
+The report object holds all the results. These calls print more detail from it.
+
+```{julia}
+show(r; condition = r.conditions[1].condition)
+```
+
+```{julia}
+show(r; register = "unit.level")
+```
+
+`show(r; top = 30)` prints more lines of the summary. To select a condition, give the file and line of its `if` as the summary prints it, for example `"adc.jl:204"`.
+
+You can also use the data directly:
+
+- `r.conditions` has one entry for each `if`. It holds the line, the instance, `inputs`, `controls`, `crossings`, the full lists of what it `reads` and `decides`, and the arithmetic in it.
+- `r.paths` has one row for each pair of a start point and the register it reaches, separately for data and for conditions. Registers keep their names through vendor synthesis, so these rows can be matched against the paths in a vendor's timing report.
+- `r.excluded` lists the [multicycle paths](multicycle.qmd). They are left out of the report, because a path that is slow by design would otherwise appear at the top every time.
+
+## A budget, for tests
+
+If you give `timing` some limits, a test can check the design against them. This catches a change that makes timing worse before a vendor build does:
+
+```julia
+@test timing(Top; max_bits = 8 => 128, max_carry = 48).ok
+```
+
+| Limit | Meaning |
+|---|---|
+| `max_bits = 8 => 128` | A condition of more than 8 inputs may decide at most 128 register bits. Several pairs make a staircase: `(4 => 512, 8 => 128)`. |
+| `max_carry = 48` | At most 48 bits of compare and add in series on any path. |
+| `max_chain = 1` | At most one compare or add in series on any path. |
+| `max_depth = 8` | At most 8 levels of logic on any path, as yosys maps it; see below. |
+| `reject = c -> ...` | A rule of your own. It is given a condition, as `r.conditions` holds it, and returns `true` for one to reject. |
+
+```{julia}
+r = timing(Top; max_bits = 8 => 16)
+```
+
+`r.ok` is `true` or `false`. It is `missing` when no limit was given, so a test that has no limits raises an error instead of passing. `r.rejected` holds the conditions the budget rejects. `r.rejectedpaths` holds the paths it rejects because of their arithmetic or depth. Each entry lists the rules it breaks.
+
+The report ends with a line that gives the design's current worst values as a budget. A common way to set a budget is to paste that line into a test, and then tighten it when the design improves.
+
+The limits have no default values. The right numbers depend on the FPGA and the clock. A condition that causes no problem at 12 MHz may be the main problem at 48 MHz.
+
+### Leaving a condition alone
+
+Some wide conditions cause no timing problem. An example is a command that arrives once a second and is held for many cycles. You can mark such a condition in the source, with the reason:
+
+```julia
+if strobe && word[12:15] == 3
+  @timing_exempt "commands are rare and held for many cycles"
+  ...
+end
+```
+
+The tag exempts the condition, every condition nested in the same arm, and the paths through them. In an `elseif` chain it does not apply to the arms that follow. The tag does not change the design. Simulation and the emitted Verilog ignore it. `r.exempt` lists the exempt conditions with their reasons, and the printed report shows them. A tag inside a [`@method`](clocked.qmd) applies at every place the method is called, because methods are inlined.
+
+`except = ["unit.count"]` exempts the paths that end at a register from `max_carry`, `max_chain` and `max_depth`. Use it for arithmetic that is meant to be wide.
+
+## Levels of logic, from yosys
+
+The source shows the structure of the logic, but not how many levels of LUTs it needs after optimisation. Only a synthesis tool can tell you that. With `depth = true`, the design is written out as Verilog and mapped by [yosys](https://github.com/YosysHQ/yosys). Every row and every condition then gets a `depth`: the number of LUT levels on the longest path between its two ends. A carry chain counts as one level, whatever its length.
+
+```{julia}
+r = timing(Top; depth = true)
+```
+
+By default, yosys maps the design to generic LUTs with `lut_inputs` inputs, and uses no information about any device. If you give the board, as in `timing(Top; depth = true, board = Rev2)`, yosys uses the flow for the board's FPGA when QuartzHDL knows one. For a MachXO2 this is `synth_lattice -family xo2`. You can also name a yosys flow directly with `synth = "..."`. This takes priority over the board, and the flow must flatten the design. The report states which flow was used.
+
+Registers keep their names through synthesis, so the depths are matched to the rows by register name. Nothing depends on the names of the nets between registers. Sometimes synthesis leaves no path between two registers. This happens when it proves that one does not affect the other, or when it removes a register that does not reach any output. In that case the depth is 0 and the row's `connected` field is `false`. A depth that was not measured is `missing`. A `reject` rule that uses a missing depth raises an error instead of passing.
+
+If yosys is not on the `PATH`, `timing` prints a warning and gives no depths, and `ok` is `missing` for a budget that uses `max_depth`. As with [co-simulation](testing.qmd), skip such a test when the tool is not installed: `@test timing(Top; max_depth = 8).ok skip = Sys.which("yosys") === nothing`.
+
+The depths are an estimate, because yosys does not map a design the same way a vendor's synthesis tool does. Use them to rank paths, and compare the ranking with a vendor build before you rely on `max_depth` as a budget.
+
+## From the command line
+
+`quartz timing` prints the same report. Its exit status reports the result of the budget, so a build script can use it without a test file:
+
+```
+quartz timing design.jl --top Top
+quartz timing design.jl --top Top --budget 'max_bits = 8 => 128, max_carry = 48'
+quartz timing design.jl --top Top --condition unit.jl:12
+quartz timing design.jl --top Top --register unit.level
+quartz timing design.jl --top Top --depth --board Rev2
+quartz timing design.jl --top Top --json > timing.json
+```
+
+`--budget` takes the same keywords as `timing`. They are evaluated in the scope of the design file, so a `reject` rule works too. The exit status is 0 when there is no budget or the design is within it, 1 when the budget rejects something, and 2 when the report could not be produced. `--json` writes the whole report as JSON for other tools: every condition, every path, the budget and its result, and a `version` field.
+
+## Measuring the timing margin of a vendor build
+
+Two options of a [Diamond workspace](compiling.qmd) help when you work with vendor builds. Place and route stops optimising once a design meets its constraints, so a build at the real clock rates does not show how much margin it has. `Diamond(board; overconstrain = 1.2)` constrains every clock at 1.2 times its real rate, and the slack in that build shows the margin. Use such a build only for measurement, because a design that fails it may still meet the real clock rates. `paths = 200` sets how many paths the vendor's timing report lists for each constraint. A larger number is useful when you compare failing paths across several placement seeds.

@@ -3,7 +3,7 @@ title: "Reference"
 engine: julia
 ---
 
-**Every exported name, from its docstring**
+**The documentation of every exported name**
 
 {{< include jdoc.snippet >}}
 
@@ -57,6 +57,7 @@ jdoc(QuartzHDL, Symbol("@only_when"))
 jdoc(QuartzHDL, Symbol("@clockout"))
 jdoc(QuartzHDL, Symbol("@method"))
 jdoc(QuartzHDL, Symbol("@check"))
+jdoc(QuartzHDL, Symbol("@timing_exempt"))
 ```
 
 ## Values
@@ -171,6 +172,8 @@ jdoc(QuartzHDL, :Diamond)
 jdoc(QuartzHDL, :Surfer)
 jdoc(QuartzHDL, :Icarus)
 jdoc(QuartzHDL, :cosim)
+jdoc(QuartzHDL, :timing)
+jdoc(QuartzHDL, :TimingReport)
 jdoc(QuartzHDL, :write; filt=s -> occursin("Format", s) || occursin("format", s))
 jdoc(QuartzHDL, :view; filt=s -> occursin("Viewer", s) || occursin("viewer", s))
 ```

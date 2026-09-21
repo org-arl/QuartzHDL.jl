@@ -3,7 +3,7 @@ title: "Black boxes and the clock tree"
 engine: julia
 ---
 
-**The parts QuartzHDL does not describe: PLLs, RAM blocks, vendor primitives**
+**Using vendor parts in a design: PLLs, RAM blocks and other primitives**
 
 ```{julia}
 #| echo: false

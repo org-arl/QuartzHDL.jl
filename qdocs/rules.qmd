@@ -2,7 +2,7 @@
 title: "Rules and their reasons"
 ---
 
-**What the compiler refuses, and why**
+**The constructs the compiler does not allow, and the reason for each**
 
 Everything QuartzHDL refuses to compile, it refuses with a message naming the line. The rules exist for one reason: a construct that the Julia model and the Verilog could interpret differently is not allowed, so that the two can never disagree. This page collects them.
 

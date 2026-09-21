@@ -3,7 +3,7 @@ title: "Boards and constraints"
 engine: julia
 ---
 
-**Where each port goes: `@board` and the constraint file**
+**`@board`: pin assignments and the constraint file**
 
 ```{julia}
 #| echo: false
