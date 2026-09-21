@@ -255,16 +255,19 @@ Base.getproperty(s::TraceState, f::Symbol) = getfield(s, :fields)[f]
 # reading a clock net as data is just the net name in an expression
 clocklevel(::TraceState, net::Symbol) = Wire{1}(:input, Any[]; name=net)
 
+const SourceLine = Union{Nothing,LineNumberNode}
+
 mutable struct WriteNode
   field::Symbol
   value::Any
   range::Union{Nothing,UnitRange{Int},DynRange}
+  at::SourceLine           # where the design writes it
 end
-WriteNode(field::Symbol, value) = WriteNode(field, value, nothing)
 struct IfNode
   cond::Wire{1}
   then::Vector{Any}
   els::Vector{Any}
+  at::SourceLine
 end
 # a log statement of the design: its level, message and the values it names
 struct LogNode
@@ -278,11 +281,16 @@ struct CheckNode
   cond::String
   mod::Symbol
 end
+# a `@timing_exempt` in this branch, with its reason
+struct ExemptNode
+  reason::String
+end
 # a wire to a data input of a black box
 struct ConnNode
   field::Symbol
   port::Symbol
   value::Any
+  at::SourceLine
 end
 
 mutable struct TraceCtx
@@ -291,18 +299,18 @@ end
 TraceCtx() = TraceCtx([Any[]])
 current(ctx::TraceCtx) = ctx.stack[end]
 
-function trace_write!(ctx::TraceCtx, f::Symbol, v)
-  push!(current(ctx), WriteNode(f, v))
+function trace_write!(ctx::TraceCtx, f::Symbol, v, at::SourceLine)
+  push!(current(ctx), WriteNode(f, v, nothing, at))
   nothing
 end
 
-function trace_writepart!(ctx::TraceCtx, f::Symbol, idx, v)
-  push!(current(ctx), WriteNode(f, v, _asrange(idx)))
+function trace_writepart!(ctx::TraceCtx, f::Symbol, idx, v, at::SourceLine)
+  push!(current(ctx), WriteNode(f, v, _asrange(idx), at))
   nothing
 end
 
-function trace_conn!(ctx::TraceCtx, f::Symbol, port::Symbol, v)
-  push!(current(ctx), ConnNode(f, port, v))
+function trace_conn!(ctx::TraceCtx, f::Symbol, port::Symbol, v, at::SourceLine)
+  push!(current(ctx), ConnNode(f, port, v, at))
   nothing
 end
 
@@ -310,58 +318,80 @@ trace_log!(ctx::TraceCtx, level, msg, kw, mod::Symbol) =
   (push!(current(ctx), LogNode(level, msg, [k => v for (k, v) in pairs(kw)], mod)); nothing)
 trace_check!(ctx::TraceCtx, cond::String, mod::Symbol) = (push!(current(ctx), CheckNode(cond, mod)); nothing)
 
-function trace_if!(ctx::TraceCtx, c, thenf, elsef)
+function trace_if!(ctx::TraceCtx, c, thenf, elsef, at::SourceLine)
   c isa Bool && return (c ? thenf() : elsef(); nothing)
   c isa Wire{1} || _nonbool(c)
-  node = IfNode(c, Any[], Any[])
+  node = IfNode(c, Any[], Any[], at)
   push!(current(ctx), node)
   push!(ctx.stack, node.then); thenf(); pop!(ctx.stack)
   push!(ctx.stack, node.els); elsef(); pop!(ctx.stack)
   nothing
 end
 
-function _rewrite_trace(ex, state, ctx; inbranch=false, stmt=true)
+# `at` is the line of the design the statement stands on. A method is inlined with
+# the lines of its own file, which say nothing about the block that called it, so
+# only the lines of `home`, the file the block is written in, are followed.
+function _rewrite_trace(ex, state, ctx; inbranch=false, stmt=true, at=nothing, home=nothing)
   ex isa Expr || return ex
   if stmt && (_iswrite(ex, state) || _ischainwrite(ex, state))
-    val = _rewrite_trace(_writevalue(ex), state, ctx; inbranch, stmt=false)
+    val = _rewrite_trace(_writevalue(ex), state, ctx; inbranch, stmt=false, at, home)
     idx, port = _writeindex(ex), _writeport(ex)
+    here = QuoteNode(at)
     port === nothing ||
-      return :($QuartzHDL.trace_conn!($ctx, $(QuoteNode(_writefield(ex))), $(QuoteNode(port)), $val))
-    idx === nothing && return :($QuartzHDL.trace_write!($ctx, $(QuoteNode(_writefield(ex))), $val))
-    return :($QuartzHDL.trace_writepart!($ctx, $(QuoteNode(_writefield(ex))), $idx, $val))
+      return :($QuartzHDL.trace_conn!($ctx, $(QuoteNode(_writefield(ex))), $(QuoteNode(port)), $val, $here))
+    idx === nothing && return :($QuartzHDL.trace_write!($ctx, $(QuoteNode(_writefield(ex))), $val, $here))
+    return :($QuartzHDL.trace_writepart!($ctx, $(QuoteNode(_writefield(ex))), $idx, $val, $here))
   elseif ex.head == :if && _islogif(ex)
     # a log statement is recorded whatever the run-time filter would say
     call = ex.args[2].args[end]
-    rw(a) = _rewrite_trace(a, state, ctx; inbranch, stmt=false)
+    rw(a) = _rewrite_trace(a, state, ctx; inbranch, stmt=false, at, home)
     return :($QuartzHDL.trace_log!($ctx, $(call.args[2]), $(rw(call.args[3])), $(rw(call.args[4])), $(call.args[5])))
+  elseif ex.head == :call && _isqcall(ex.args[1], :timingexempt)
+    return :(push!($QuartzHDL.current($ctx), $QuartzHDL.ExemptNode($(ex.args[2]))))
   elseif ex.head == :call && _isqcall(ex.args[1], :simcheck)
     return :($QuartzHDL.trace_check!($ctx, $(ex.args[2]), $(ex.args[3])))
   elseif !stmt && ex.head == :if && length(ex.args) == 3
     # `c ? a : b` in a value position is a mux, not a branch: both arms are wires
-    return :($(Base.ifelse)($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false)),
-                            $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false)),
-                            $(_rewrite_trace(ex.args[3], state, ctx; inbranch, stmt=false))))
+    return :($(Base.ifelse)($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
+                            $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home)),
+                            $(_rewrite_trace(ex.args[3], state, ctx; inbranch, stmt=false, at, home))))
   elseif ex.head == :if || ex.head == :elseif
-    c = _rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false)
-    thenb = _rewrite_trace(ex.args[2], state, ctx; inbranch=true, stmt)
-    elseb = length(ex.args) == 3 ? _rewrite_trace(ex.args[3], state, ctx; inbranch=true, stmt) : nothing
-    return :($QuartzHDL.trace_if!($ctx, $c, () -> $thenb, () -> $elseb))
+    at = _condline(ex.args[1], at, home)
+    c = _rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)
+    thenb = _rewrite_trace(ex.args[2], state, ctx; inbranch=true, stmt, at, home)
+    elseb = length(ex.args) == 3 ? _rewrite_trace(ex.args[3], state, ctx; inbranch=true, stmt, at, home) : nothing
+    return :($QuartzHDL.trace_if!($ctx, $c, () -> $thenb, () -> $elseb, $(QuoteNode(at))))
   elseif ex.head == :(=) && inbranch && ex.args[1] isa Symbol && !Base.isgensym(ex.args[1])
     error("a local variable may not be assigned inside an `if` (hardware would evaluate both branches): $ex")
   elseif ex.head == :while
     error("`while` is not allowed in a block")
   elseif ex.head in (:block,)
-    return Expr(ex.head, map(a -> _rewrite_trace(a, state, ctx; inbranch, stmt), ex.args)...)
+    out = Any[]
+    for a in ex.args
+      if a isa LineNumberNode
+        home === nothing && (home = a.file)
+        a.file === home && (at = a)
+      end
+      push!(out, _rewrite_trace(a, state, ctx; inbranch, stmt, at, home))
+    end
+    return Expr(ex.head, out...)
   elseif ex.head in (:for, :let)
-    return Expr(ex.head, ex.args[1], _rewrite_trace(ex.args[2], state, ctx; inbranch, stmt))
+    return Expr(ex.head, ex.args[1], _rewrite_trace(ex.args[2], state, ctx; inbranch, stmt, at, home))
   elseif ex.head == :&&
-    return :($QuartzHDL._and($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false)),
-                             $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false))))
+    return :($QuartzHDL._and($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
+                             $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home))))
   elseif ex.head == :||
-    return :($QuartzHDL._or($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false)),
-                            $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false))))
+    return :($QuartzHDL._or($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
+                            $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home))))
   end
-  Expr(ex.head, map(a -> _rewrite_trace(a, state, ctx; inbranch, stmt=false), ex.args)...)
+  Expr(ex.head, map(a -> _rewrite_trace(a, state, ctx; inbranch, stmt=false, at, home), ex.args)...)
+end
+
+# an `elseif` keeps its own line inside its condition, where an `if` has it in front
+function _condline(cond, at, home)
+  cond isa Expr && cond.head == :block || return at
+  i = findlast(a -> a isa LineNumberNode && a.file === home, cond.args)
+  i === nothing ? at : cond.args[i]
 end
 
 _isqcall(f, name::Symbol) = f isa Expr && f.head == :. && f.args[1] === QuartzHDL && f.args[2] == QuoteNode(name)

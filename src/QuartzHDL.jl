@@ -27,7 +27,7 @@ export
   # struct and port declarations
   @quartz, @in, @out, @io, interface, portdoc,
   # blocks and their clauses
-  @on, @wire, @reset, @only_when, @clockout, @method, @check,
+  @on, @wire, @reset, @only_when, @clockout, @method, @check, @timing_exempt,
   # values and what they do
   bits, ⊞, bitwidth, part, static, firstset, onehot, popcount, drive, release, padnet,
   netlevel, expired, rose, fell, isrising, isfalling, isnew,
@@ -41,7 +41,7 @@ export
   Simulation, nets, watch!, unwatch!, capture, clear!, reset!, changes, sampled, slots,
   advance_by, advance_until, spawn!, stop!, run!, @run, @stimulus, simrepl, showlogs!,
   # formats and tools
-  Verilog, VCD, LPF, Diamond, Surfer, Icarus, simmodels, stages, cosim, hook!, unhook!, on,
+  Verilog, VCD, LPF, Diamond, Surfer, Icarus, simmodels, stages, timing, TimingReport, cosim, hook!, unhook!, on,
   # library
   UART, FT2232H, SPIMaster, SPISlave, transfer, I2CMaster, I2CSlave, PWM, RAM
 
@@ -84,6 +84,8 @@ include("emitters/lpf.jl")
 include("emitters/diamond.jl")
 include("emitters/surfer.jl")
 include("emitters/icarus.jl")
+include("timing/flatten.jl")
+include("timing/timing.jl")
 include("app.jl")
 include("library/links.jl")
 include("library/uart.jl")

@@ -59,6 +59,20 @@ macro check(args...)
   error("@check is only valid inside an @on or @wire block")
 end
 
+"""
+    @timing_exempt "why"
+
+In a block, inside an `if`: the timing budget is to leave the condition alone, and
+every condition nested in it, for the reason given. At the top of a block it
+speaks for the block's `@only_when`. It changes nothing the design does; `timing`
+lists what it excuses, with the reason, in `exempt`.
+"""
+macro timing_exempt(args...)
+  error("@timing_exempt is only valid inside an @on or @wire block")
+end
+
+timingexempt(::String) = nothing
+
 # the log statements of a block body, turned into plain calls before the body
 # expands, so the rest of the compiler sees function calls and nothing else
 function _logcalls(ex, T)
@@ -83,6 +97,9 @@ function _logcalls(ex, T)
                                            for a in args[2:end])...))
       return Expr(:if, :($QuartzHDL._logon($level, $(QuoteNode(nameof(T))))),
                   Expr(:block, :($QuartzHDL.simlog($level, $(args[1]), $kw, $(QuoteNode(nameof(T)))))))
+    elseif name === Symbol("@timing_exempt")
+      length(args) == 1 && args[1] isa String || error("@timing_exempt takes the reason, as a string")
+      return :($QuartzHDL.timingexempt($(args[1])))
     elseif name === Symbol("@check")
       length(args) == 1 || error("@check takes one condition")
       return Expr(:if, :(!($(args[1]))),
