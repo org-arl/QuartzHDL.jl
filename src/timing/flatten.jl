@@ -204,16 +204,20 @@ function _blockdrives(T::Type, b, f)
   if b.resetw isa Wire && (f.name in resets(T) || haskey(b.overrides, f.name))
     push!(drives, Drive(get(b.overrides, f.name, 0), nothing, Wire{1}[b.resetw], SourceLine[at], [nothing], true, at))
   end
-  always = Wire{1}[]
-  b.enablew isa Wire && push!(always, b.enablew)
   excuse = _excuse(b.tree, nothing)
-  _treedrives!(drives, b.tree, f.name, always, SourceLine[at for _ in always],
-               Union{Nothing,String}[excuse for _ in always], excuse, at)
+  always = b.enablew isa Wire ? [Guard(b.enablew, at, excuse, true)] : Guard[]
+  _treedrives!(drives, b.tree, f.name, always, excuse, at)
   drives
 end
 
-# a write the block makes by itself, the step of a Timeout or a Pulse, stands on no
-# line of the design and takes the block's
+# one condition over a write, as the walk down the block's tree carries it
+struct Guard
+  cond::Wire{1}
+  at::SourceLine
+  excuse::Union{Nothing,String}
+  then::Bool                    # the write is in the arm the condition holds in
+end
+
 # the reason a branch gives for leaving its condition alone, or the one it inherits.
 # A tag speaks for its `if` and for what is nested in its own arm: the arms of an
 # `elseif` chain nest in one another's else, and one arm's tag is not the next's.
@@ -222,18 +226,39 @@ function _excuse(tree::Vector, inherited)
   i === nothing ? inherited : tree[i].reason
 end
 
-function _treedrives!(drives, tree::Vector, name::Symbol, guards, lines, excuses, inherited, blockline)
+# a write the block makes by itself, the step of a Timeout or a Pulse, stands on no
+# line of the design and takes the block's
+function _treedrives!(drives, tree::Vector, name::Symbol, guards, inherited, blockline)
   for n in tree
     if n isa WriteNode && n.field == name
-      push!(drives, Drive(n.value, n.range, copy(guards), copy(lines), copy(excuses), false, something(n.at, Some(blockline))))
+      push!(drives, Drive(n.value, n.range, [g.cond for g in guards], SourceLine[g.at for g in guards],
+                          Union{Nothing,String}[g.excuse for g in guards], false, something(n.at, Some(blockline))))
     elseif n isa IfNode
-      inner = vcat(guards, n.cond)
-      innerlines = vcat(lines, something(n.at, Some(blockline)))
-      innerexcuses = vcat(excuses, _excuse(n.then, _excuse(n.els, inherited)))
-      _treedrives!(drives, n.then, name, inner, innerlines, innerexcuses, _excuse(n.then, inherited), blockline)
-      _treedrives!(drives, n.els, name, inner, innerlines, innerexcuses, _excuse(n.els, inherited), blockline)
+      at = something(n.at, Some(blockline))
+      excuse = _excuse(n.then, _excuse(n.els, inherited))
+      _treedrives!(drives, n.then, name, vcat(_compatible(guards, n.cond), Guard(n.cond, at, excuse, true)),
+                   _excuse(n.then, inherited), blockline)
+      _treedrives!(drives, n.els, name, vcat(guards, Guard(n.cond, at, excuse, false)), _excuse(n.els, inherited), blockline)
     end
   end
+end
+
+# The arms of an `elseif` chain nest in one another's else, so an arm stands under
+# every arm before it. Where two arms test one value against different constants
+# the later holding means the earlier does not, whatever else the earlier asks: it
+# decides nothing of what the later writes, and is not a condition over it.
+function _compatible(guards, cond::Wire{1})
+  tests = _tests(cond)
+  isempty(tests) && return guards
+  filter(g -> g.then || !any(((k, v),) -> any(((k2, v2),) -> k == k2 && v != v2, tests), _tests(g.cond)), guards)
+end
+
+# the values a condition needs to equal a constant, as (value, constant): those of
+# the terms of an `and`, since each of them has to hold
+function _tests(c::Wire)
+  c.op == :and && bitwidth(c) == 1 && return vcat((_tests(a) for a in c.args if a isa Wire)...)
+  subject, constant = _eqconst(c)
+  subject === nothing ? Tuple{Any,Int128}[] : Tuple{Any,Int128}[(_wirekey(subject), constant.args[1])]
 end
 
 function _addexceptions!(exceptions, inst::FlatInstance)

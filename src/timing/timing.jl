@@ -8,25 +8,30 @@
 const ADDERS = (:add, :sub, :mul, :neg)
 const SHOWN = 12     # lines of each section of the printed report
 
+# levels of logic, or missing where none were measured
+const Depth = Union{Missing,Int}
+
 const TimingPath = @NamedTuple{from::String, to::String, role::Symbol, read::Int, width::Int, inputs::Int,
   controls::Int,
-  arithmetic::Vector{Tuple{Symbol,Int}}, crossings::Int, depth::Union{Nothing,Int}, clock::Symbol,
-  source::String, condition::String, flags::Vector{Symbol}, rejected::Vector{Symbol}}
+  arithmetic::Vector{Tuple{Symbol,Int}}, crossings::Int, depth::Depth, connected::Union{Missing,Bool}, clock::Symbol,
+  source::String, condition::String, flags::Vector{Symbol}, rejected::Vector{Symbol}, exempt::Bool}
 
 const TimingCondition = @NamedTuple{condition::String, instance::String, inputs::Int, controls::Int, crossings::Int,
   reads::Vector{@NamedTuple{from::String, read::Int, crossings::Int}},
   decides::Vector{@NamedTuple{to::String, width::Int, source::String}},
-  arithmetic::Vector{Tuple{Symbol,Int}}, rejected::Vector{Symbol}, exempt::Union{Nothing,String}}
+  arithmetic::Vector{Tuple{Symbol,Int}}, depth::Depth, rejected::Vector{Symbol}, exempt::Union{Nothing,String}}
 
 # the budget a design is held to; `custom` says a `reject` of the design's own was given
 struct TimingBudget
   max_bits::Vector{Pair{Int,Int}}
   max_carry::Union{Nothing,Int}
   max_chain::Union{Nothing,Int}
+  max_depth::Union{Nothing,Int}
   custom::Bool
 end
 
-_isgiven(b::TimingBudget) = !isempty(b.max_bits) || b.max_carry !== nothing || b.max_chain !== nothing || b.custom
+_isgiven(b::TimingBudget) =
+  !isempty(b.max_bits) || b.max_carry !== nothing || b.max_chain !== nothing || b.max_depth !== nothing || b.custom
 
 """
     TimingReport
@@ -48,17 +53,21 @@ of places a path starts and ends at, and each way the one reaches the other:
 - `controls`: how many register bits of the design that condition decides
 - `arithmetic`: the compares and adds between the two in series, with their widths
 - `crossings`: how many module boundaries the path crosses
-- `depth`: levels of logic, when a synthesis tool was asked; `nothing` otherwise
+- `depth`: levels of logic as a synthesis tool maps them, `missing` when none was asked
+- `connected`: whether synthesis left a path between the two at all; where it left
+  none the depth is 0, as it is for a register wired straight to another
 - `clock`: the net that clocks `to`
 - `source`: the line of the design that makes the write
 - `condition`: the line of the `if` the condition ends at
 - `flags`: the checks the row trips, `:chained_arithmetic` or `:muxed_arithmetic`
 - `rejected`: the rules of the budget the row breaks
+- `exempt`: every write the path decides stands under a `@timing_exempt`
 
 Given a budget, the summary shows what it rejects in place of the heaviest. `conditions` holds every `if` of the design once, with the enable and the ifs
 around it: the line it is on and the instance it is in, the `inputs` it reads and
 the register bits it `controls`, what it `reads` and `decides` in full, and the
-compares in it, the rules of the budget it breaks, and the reason a
+compares in it, its `depth`, which is that of the deepest path from anything it
+reads to anything it decides, the rules of the budget it breaks, and the reason a
 `@timing_exempt` gives for leaving it alone. The arms of an `if` with many `elseif`s read the same registers
 and decide much the same ones, so the printed summary shows the heaviest of them
 and counts the rest.
@@ -80,7 +89,8 @@ end
 
 """
     timing(T; lut_inputs=4)
-    timing(T; max_bits, max_carry, max_chain, reject, except=String[])
+    timing(T; max_bits, max_carry, max_chain, max_depth, reject, except=String[])
+    timing(T; depth=true, synth=nothing)
 
 Where module `T`, with everything below it, is likely to be slow. The design is
 read as one graph, so a path that leaves one module as a wire and ends at a
@@ -103,6 +113,18 @@ with larger ones and never one too few. Two shapes of arithmetic are flagged:
 
 This is a guide to where to look and not a measurement: it cannot see placement.
 
+With `depth=true` the design is also mapped by yosys, and every row gets its
+`depth`, and every condition: the levels of LUTs on the longest path between its
+two ends, with a carry chain as one level. Where synthesis found the two
+unconnected, as it does for a register that reaches no output and is removed, the
+depth is 0 and the row says it is not `connected`. A depth that was not measured is
+`missing`, so a rule that asks for one that is not there fails, and does not pass
+for want of an answer. Left to itself yosys
+maps to LUTs of `lut_inputs` inputs and nothing of any device. `synth` names the
+flow of the part the design is for, as yosys spells it, `"synth_lattice -family
+xo2"` for a MachXO2; it has to flatten the design. Without yosys there is a warning
+and no depths.
+
 Given a budget, the report is also something a test can hold the design to:
 
 ```julia
@@ -113,23 +135,25 @@ Given a budget, the report is also something a test can hold the design to:
   register bits. Several pairs make a staircase, `(4 => 512, 8 => 128)`.
 - `max_carry`: at most so many bits of compare and add in series on a path
 - `max_chain`: at most so many compares and adds in series on a path
-- `reject = c -> c.inputs > 8 && c.crossings > 0`: a rule of the design's own, given
+- `max_depth`: at most so many levels of logic on a path, as yosys maps it
+- `reject = c -> c.crossings > 0 && c.depth > 6`: a rule of the design's own, given
   a condition as `conditions` holds it, and true for one the budget is to reject
 
 What the budget rejects is in `rejected`, the conditions, and `rejectedpaths`, the
 paths whose arithmetic breaks a limit; each names the rules it breaks in its own
 `rejected`, and so does every row under a rejected condition. `ok` says there are
 none. A condition the design marks `@timing_exempt` is left alone, with those inside
-it, and so is a path that ends at a register `except` names; they are in `exempt`
-and `exemptpaths`. With
+it and the paths that run through it, and so is a path that ends at a register
+`except` names; they are in `exempt` and `exemptpaths`. With
 no budget `ok` is `missing`, so a test without one fails and does not pass in
-silence. The printed report ends with the design's present worst, written as the
+silence; it is `missing` too where `max_depth` is given and yosys is not there to
+say. The printed report ends with the design's present worst, written as the
 budget that would hold it there.
 """
-function timing(T::Type{<:QuartzModule}; lut_inputs=4, max_bits=(), max_carry=nothing, max_chain=nothing,
-    reject=nothing, except=String[]
+function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, synth=nothing, max_bits=(), max_carry=nothing,
+    max_chain=nothing, max_depth=nothing, reject=nothing, except=String[]
 )
-  budget = TimingBudget(_pairs(max_bits), max_carry, max_chain, reject !== nothing)
+  budget = TimingBudget(_pairs(max_bits), max_carry, max_chain, max_depth, reject !== nothing)
   _isgiven(budget) || isempty(except) || throw(ArgumentError("`except` exempts from a budget, and none is given"))
   d = _flatten(T)
   conditions = _conditions(d, lut_inputs)
@@ -139,18 +163,22 @@ function timing(T::Type{<:QuartzModule}; lut_inputs=4, max_bits=(), max_carry=no
     _sinkpaths!(paths, excluded, d, conditions, si, s, lut_inputs)
   end
   sort!(paths; by = p -> (-_weight(p), -_chainsum(p.arithmetic), p.to, p.from))
+  mapped = (depth || max_depth !== nothing) && _hasyosys()
   found = sort!([_timingcondition(c) for c in values(conditions)]; by = c -> (-_weight(c), c.condition))
+  mapped && ((paths, found) = _withdepths(T, d, paths, found, synth, lut_inputs))
   found = TimingCondition[merge(c, (rejected=_rejected(c, budget, reject),)) for c in found]
   broken = Dict((c.condition, c.instance, c.inputs, c.controls) => c.rejected for c in found if !isempty(c.rejected))
   paths = TimingPath[merge(p, (rejected=_rejected(p, budget, broken),)) for p in paths]
   badconditions = filter(c -> !isempty(c.rejected), found)
-  badpaths = filter(p -> :max_carry in p.rejected || :max_chain in p.rejected, paths)
+  badpaths = filter(p -> any(in(p.rejected), (:max_carry, :max_chain, :max_depth)), paths)
   exempt = filter(c -> c.exempt !== nothing, badconditions)
-  exemptpaths = filter(p -> p.to in except, badpaths)
+  isexempt(p) = p.to in except || p.exempt
+  exemptpaths = filter(isexempt, badpaths)
   rejected = filter(c -> c.exempt === nothing, badconditions)
-  rejectedpaths = filter(p -> !(p.to in except), badpaths)
-  ok = _isgiven(budget) ? isempty(rejected) && isempty(rejectedpaths) : missing
-  TimingReport(T, paths, found, rejected, rejectedpaths, exempt, exemptpaths, sort!(unique!(excluded)), false, ok,
+  rejectedpaths = filter(!isexempt, badpaths)
+  unknown = !_isgiven(budget) || max_depth !== nothing && !mapped
+  ok = unknown ? missing : isempty(rejected) && isempty(rejectedpaths)
+  TimingReport(T, paths, found, rejected, rejectedpaths, exempt, exemptpaths, sort!(unique!(excluded)), mapped, ok,
                lut_inputs, budget)
 end
 
@@ -173,16 +201,41 @@ function _showsummary(io::IO, r::TimingReport, top::Int)
 end
 
 function _showheaviest(io::IO, r::TimingReport, top::Int)
-  rows = [_conditionrow(g) for g in _alike(r.conditions)]
-  _table(io, "Heaviest conditions", ["condition", "inputs", "bits", "crossings", "from", "to"], rows, 2:4; limit=top)
+  rows = [r.depth ? insert!(_conditionrow(g), 5, _depthstr(g[1])) : _conditionrow(g) for g in _alike(r.conditions)]
+  header = ["condition", "inputs", "bits", "crossings", "from", "to"]
+  r.depth && insert!(header, 5, "depth")
+  _table(io, "Heaviest conditions", header, rows, r.depth ? (2:5) : (2:4); limit=top)
   sums = sort!(_grouped(filter(p -> !isempty(p.flags), r.paths), p -> p.to);
                by = g -> -maximum(p -> _chainsum(p.arithmetic), g))
   rows = [(p = argmax(q -> _chainsum(q.arithmetic), g);
            [p.to, _arithstr(p.arithmetic), p.source, _checkstr(g)]) for g in sums]
   _table(io, "Arithmetic", ["register", "operations", "source", "check"], rows, 1:0; limit=top)
+  r.depth || return
+  deep = sort(filter(p -> p.connected === true, r.paths); by = p -> -p.depth)
+  pairs = _grouped(deep, p -> (p.from, p.to))
+  rows = [[g[1].from, g[1].to, string(g[1].depth), g[1].source] for g in pairs]
+  _table(io, "Deepest paths", ["from", "to", "depth", "source"], rows, 3:3; limit=top)
 end
 
 ### helpers
+
+_deepest(depths) = maximum((n for n in depths if n isa Int); init=0)
+
+_hasyosys() = Sys.which("yosys") !== nothing || (@warn "yosys not found; the report has no depths"; false)
+
+function _withdepths(T::Type, d::FlatDesign, paths, conditions, synth, lut::Int)
+  ends = _netnames(d)
+  pins = _pins(T)
+  known = Set{String}()
+  for p in paths
+    union!(known, _startnames(p.from, pins))
+    union!(known, get(ends, p.to, [p.to]))
+  end
+  found = _designdepths(T, synth, lut, known)
+  depthof(from, to) = _rowdepth(found, ends, pins, (; from, to))
+  (TimingPath[(n = depthof(p.from, p.to); merge(p, (depth=something(n, 0), connected=n !== nothing))) for p in paths],
+   TimingCondition[merge(c, (depth=_deepest(depthof(x.from, y.to) for x in c.reads for y in c.decides),)) for c in conditions])
+end
 
 # the conditions of one module that read the same registers, the heaviest first:
 # the arms of one `if`, as a rule, and one line of a summary
@@ -199,6 +252,9 @@ _pairs(ps) = Pair{Int,Int}[p for p in ps]
 
 _instanceof(to::String) = join(split(to, ".")[1:end-1], ".")
 
+# what tells the condition over a row from every other
+_conditionkey(p) = (p.condition, _instanceof(p.to), p.inputs, p.controls)
+
 # the rules of the budget a condition breaks
 function _rejected(c::TimingCondition, b::TimingBudget, reject)
   rules = Symbol[]
@@ -209,9 +265,10 @@ end
 
 # and a path: those of the condition over it, and those its own arithmetic breaks
 function _rejected(p::TimingPath, b::TimingBudget, broken)
-  rules = p.role == :condition ? copy(get(broken, (p.condition, _instanceof(p.to), p.inputs, p.controls), Symbol[])) : Symbol[]
+  rules = p.role == :condition ? copy(get(broken, _conditionkey(p), Symbol[])) : Symbol[]
   b.max_carry !== nothing && _chainsum(p.arithmetic) > b.max_carry && push!(rules, :max_carry)
   b.max_chain !== nothing && length(p.arithmetic) > b.max_chain && push!(rules, :max_chain)
+  b.max_depth !== nothing && p.depth !== missing && p.depth > b.max_depth && push!(rules, :max_depth)
   rules
 end
 
@@ -220,6 +277,7 @@ function _budgetstr(b::TimingBudget)
   isempty(b.max_bits) || push!(parts, "max_bits=" * (length(b.max_bits) == 1 ? string(b.max_bits[1]) : "($(join(b.max_bits, ", ")))"))
   b.max_carry === nothing || push!(parts, "max_carry=$(b.max_carry)")
   b.max_chain === nothing || push!(parts, "max_chain=$(b.max_chain)")
+  b.max_depth === nothing || push!(parts, "max_depth=$(b.max_depth)")
   b.custom && push!(parts, "reject")
   join(parts, ", ")
 end
@@ -232,9 +290,9 @@ function _showbudget(io::IO, r::TimingReport)
         n == 0 ? "" : ", $n exempt")
   rows = [vcat(_conditionrow(g), join(unique(x for c in g for x in c.rejected), " ")) for g in _alike(r.rejected)]
   _table(io, "Rejected conditions", ["condition", "inputs", "bits", "crossings", "from", "to", "rule"], rows, 2:4)
-  rows = [[p.from, p.to, _arithstr(p.arithmetic), string(_chainsum(p.arithmetic)), p.source,
-           join(filter(in((:max_carry, :max_chain)), p.rejected), " ")] for p in r.rejectedpaths]
-  _table(io, "Rejected paths", ["from", "to", "operations", "carry", "source", "rule"], rows, 4:4)
+  rows = [[p.from, p.to, _arithstr(p.arithmetic), string(_chainsum(p.arithmetic)), _depthstr(p), p.source,
+           join(filter(in((:max_carry, :max_chain, :max_depth)), p.rejected), " ")] for p in r.rejectedpaths]
+  _table(io, "Rejected paths", ["from", "to", "operations", "carry", "depth", "source", "rule"], rows, 4:5)
   rows = [vcat(_conditionrow(g)[1:3], g[1].exempt) for g in _alike(r.exempt)]
   _table(io, "Exempt conditions", ["condition", "inputs", "bits", "reason"], rows, 2:3)
   rows = [[p.from, p.to, _arithstr(p.arithmetic), p.source] for p in r.exemptpaths]
@@ -250,7 +308,8 @@ function _worstbudget(r::TimingReport)
   excused = Set(p.to for p in r.exemptpaths)
   carry = maximum((_chainsum(p.arithmetic) for p in r.paths if !(p.to in excused)); init=0)
   chain = maximum((length(p.arithmetic) for p in r.paths if !(p.to in excused)); init=0)
-  worst = TimingBudget(steps, carry, chain, false)
+  deepest = r.depth ? maximum((p.depth for p in r.paths if p.depth !== missing && !p.exempt && !(p.to in excused)); init=0) : nothing
+  worst = TimingBudget(steps, carry, chain, deepest, false)
   "timing($(nameof(r.top)); $(_budgetstr(worst)))"
 end
 
@@ -330,6 +389,7 @@ function _showcondition(io::IO, r::TimingReport, at::AbstractString)
     print(io, c.inputs, " inputs, controls ", c.controls, " register bits in ", length(c.decides), " registers, crosses ",
           c.crossings, " module ", c.crossings == 1 ? "boundary" : "boundaries")
     isempty(c.arithmetic) || print(io, "\noperations: ", _arithstr(c.arithmetic))
+    c.depth === missing || print(io, "\ndepth: ", c.depth)
     _table(io, "Reads", ["from", "bits read", "crossings"], [[x.from, string(x.read), string(x.crossings)] for x in c.reads], 2:3)
     _table(io, "Decides", ["to", "width", "written at"], [[x.to, string(x.width), x.source] for x in c.decides], 2:2)
   end
@@ -343,15 +403,18 @@ function _showregister(io::IO, r::TimingReport, name::AbstractString)
   lines = Vector{String}[]
   for g in _conditiongroups(filter(p -> p.role == :condition, rows)), (k, p) in enumerate(g)
     lead = k == 1 ? [p.condition, string(p.inputs), string(p.controls)] : ["", "", ""]
-    push!(lines, vcat(lead, [p.from, string(p.read), string(p.crossings), _arithstr(p.arithmetic), p.source, _checkstr([p])]))
+    push!(lines, vcat(lead, [p.from, string(p.read), string(p.crossings), _depthstr(p), _arithstr(p.arithmetic), p.source,
+                             _checkstr([p])]))
   end
-  _table(io, "Conditions", ["condition", "inputs", "bits", "from", "bits read", "crossings", "operations", "written at", "check"],
-         lines, [2, 3, 5, 6])
+  _table(io, "Conditions", ["condition", "inputs", "bits", "from", "bits read", "crossings", "depth", "operations",
+                            "written at", "check"], lines, [2, 3, 5, 6, 7])
   data = sort(filter(p -> p.role == :data, rows); by = p -> -_chainsum(p.arithmetic))
-  _table(io, "Data", ["from", "bits read", "crossings", "operations", "written at", "check"],
-         [[p.from, string(p.read), string(p.crossings), _arithstr(p.arithmetic), p.source, _checkstr([p])] for p in data], 2:3)
+  _table(io, "Data", ["from", "bits read", "crossings", "depth", "operations", "written at", "check"],
+         [[p.from, string(p.read), string(p.crossings), _depthstr(p), _arithstr(p.arithmetic), p.source, _checkstr([p])]
+          for p in data], 2:4)
 end
 
+_depthstr(p) = p.depth === missing ? "" : get(p, :connected, true) === false ? "-" : string(p.depth)
 _chainsum(arithmetic) = sum((w for (_, w) in arithmetic); init=0)
 _arithstr(arithmetic) = join((string(op, w) for (op, w) in arithmetic), " ")
 
@@ -397,7 +460,7 @@ function _timingcondition(c::Condition)
   reads = sort!([(from=f, read=n, crossings=c.crossings[f]) for (f, n) in c.reads]; by = x -> (-x.crossings, -x.read, x.from))
   TimingCondition((; condition=_sourcestr(c.at), instance=c.instance, inputs=_inputs(c), controls=c.controls,
                     crossings=maximum(values(c.crossings); init=0), reads, decides=c.decides,
-                    arithmetic=c.arithmetic, rejected=Symbol[], exempt=c.exempt))
+                    arithmetic=c.arithmetic, depth=missing, rejected=Symbol[], exempt=c.exempt))
 end
 
 # what one write reads: its value, and the selects inside the value, which are a
@@ -431,9 +494,18 @@ function _sinkpaths!(paths, excluded, d::FlatDesign, conditions, si::Int, s::Sin
     inputs, controls, at, ifat = role == :condition ? _worstcondition(conditions, s, drivecones, from) :
                                                       _worstdata(s, drivecones, from)
     flags = _flags(s, role, arithmetic, sums)
-    push!(paths, (; from, to, role, read=count_ones(reach.bits), width=s.width, inputs, controls, arithmetic, crossings=reach.crossings, depth=nothing,
-                  clock=s.clock, source=_sourcestr(at), condition=_sourcestr(ifat), flags, rejected=Symbol[]))
+    push!(paths, (; from, to, role, read=count_ones(reach.bits), width=s.width, inputs, controls, arithmetic, crossings=reach.crossings, depth=missing, connected=missing,
+                  clock=s.clock, source=_sourcestr(at), condition=_sourcestr(ifat), flags, rejected=Symbol[],
+                  exempt=role == :condition && _excused(conditions, s, from)))
   end
+end
+
+# whether every write of the sink that `from` decides stands under a tag: the tag
+# of an `if` speaks for its own arm, so a write in a later arm of the chain is not
+# excused by it, though the `if` is one of the conditions over it
+function _excused(conditions, s::Sink, from::String)
+  decided = [x for x in s.drives if any(g -> haskey(conditions[(s.inst, g.id)].reads, from), x.guards)]
+  !isempty(decided) && all(x -> last(x.exempt) !== nothing, decided)
 end
 
 # of the conditions that stand over a write of the sink and read `from`, the one

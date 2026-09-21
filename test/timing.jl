@@ -23,7 +23,8 @@ end
   leaf::TimingLeaf = TimingLeaf()
   word::Bits{16} = 0
   strobe::Bool = false
-  idle::Bits{8} = 0
+  @out idle::Bits{8} = 0
+  @out seen::Bits{4} = 0
 end
 
 @wire TimingTop begin
@@ -36,6 +37,7 @@ end
   word ← word + 1
   strobe ← !strobe
   leaf.busy || (idle ← idle + 1)
+  seen ← leaf.last
 end
 
 function flatcone(d, name)
@@ -83,8 +85,8 @@ end
   @in a::Bits{8}
   @in b::Bits{8}
   @in up::Bool
-  acc::Bits{8} = 0
-  level::Bits{8} = 0
+  @out acc::Bits{8} = 0
+  @out level::Bits{8} = 0
 end
 
 @on TimingSums posedge(clk) begin
@@ -107,6 +109,8 @@ timingrow(r, from, to, role) = r.paths[findfirst(p -> (p.from, p.to, p.role) == 
   @test p.clock == :clk && endswith(p.source, string(":", parse(Int, split(p.condition, ":")[2]) + 2))
   @test r.paths[1].condition == p.condition && r.conditions[1].condition == p.condition
   @test r.ok === missing && isempty(r.rejected) && isempty(r.rejectedpaths) && !r.depth
+  @test all(p -> p.depth === missing && p.connected === missing, r.paths) && all(c -> c.depth === missing, r.conditions)
+  @test_throws TypeError timing(TimingTop; reject = c -> c.crossings > 0 && c.depth > 1)
   c = r.conditions[findfirst(c -> c.condition == p.condition, r.conditions)]
   @test (c.instance, c.inputs, c.controls, c.crossings) == ("leaf", 6, 12, 1)
   @test [(x.from, x.read) for x in c.reads] == [("word", 4), ("go", 1), ("strobe", 1)]
@@ -206,6 +210,9 @@ end
   @test all(c -> c.exempt === nothing, r.rejected) && length(r.rejected) == 1 && r.rejected[1].inputs == 9
   text = sprint(show, MIME"text/plain"(), r)
   @test occursin("commands are rare", text) && occursin("max_bits=4 => 32", text)
+  r = timing(TimingExcused; max_chain = 0, lut_inputs = 3)    # so that the four-bit compares count
+  @test all(p -> p.role == :condition && p.to == "big", r.exemptpaths) && !isempty(r.exemptpaths)
+  @test any(p -> p.to == "other", r.rejectedpaths) && !any(p -> p.role == :condition && p.to == "big", r.rejectedpaths)
   m = step(TimingExcused(); cmd = Bits{8}(0x92), go = true)
   @test m.big == 1 && m.n == 1
   v = sprint(io -> write(io, TimingExcused, Verilog()))
@@ -285,4 +292,69 @@ end
   @test_throws ArgumentError Diamond(TimingDemo; paths=0)
   f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50), :blink), TimingDemo)
   @test (f.board, f.name, f.overconstrain, f.paths) == (TimingDemo, :blink, 1.2, 50)
+end
+
+const HAVE_YOSYS = Sys.which("yosys") !== nothing
+HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not tested"
+
+@testset "the timing report with the depths yosys finds" begin
+  if HAVE_YOSYS
+    r = timing(TimingSums; depth=true)
+    @test r.depth && r.ok === missing
+    @test timingrow(r, "a", "acc", :condition).depth ≥ 2          # the compare, then the add it steers
+    @test timingrow(r, "up", "level", :condition).depth in 1:2   # the select of the operand, then the add
+    @test timingrow(r, "level", "level", :data).depth ≤ 2        # a carry chain is one level, however long
+    text = sprint(show, MIME"text/plain"(), r)
+    @test occursin("Deepest paths", text)
+    @test occursin("depth", sprint(io -> show(io, r; register="acc")))
+    deepest = maximum(p.depth for p in r.paths)
+    @test timing(TimingSums; max_depth=deepest).ok
+    r = timing(TimingSums; max_depth=deepest - 1)
+    @test r.ok === false && all(p -> p.rejected == [:max_depth], r.rejectedpaths) && !isempty(r.rejectedpaths)
+    @test occursin("max_depth=$deepest", sprint(show, MIME"text/plain"(), r))
+    @test timing(TimingSums; max_depth=deepest - 1, except=["acc"]).ok
+    # across modules, through a wire a submodule drives, and with black boxes stubbed
+    r = timing(TimingTop; depth=true, reject = c -> c.crossings > 0 && c.depth ≥ 1)
+    @test timingrow(r, "word", "leaf.last", :condition).depth ≥ 1
+    @test r.ok === false && r.rejected[1].depth ≥ 1 && all(c -> c.crossings > 0, r.rejected)
+    @test occursin("depth: ", sprint(io -> show(io, r; condition=r.rejected[1].condition)))
+    r = timing(Soc; depth=true)
+    @test timingrow(r, "sub.ram.q", "sub.q", :data).depth == 0 && timingrow(r, "sub.ram.q", "sub.q", :data).connected
+    @test timingrow(r, "sub.addr", "sub.ram.rdaddress", :data).depth == 0
+    @test_throws ErrorException timing(TimingSums; depth=true, synth="no_such_pass")
+    @test timingrow(timing(TimingSums; depth=true, synth="synth_lattice -family xo2"), "a", "acc", :condition).depth ≥ 2
+  end
+  withenv("PATH" => "") do
+    r = @test_logs (:warn, r"yosys not found") timing(TimingSums; max_depth=3)
+    @test r.ok === missing && !r.depth && all(p -> p.depth === missing, r.paths)
+  end
+  @test !timing(TimingSums).depth
+end
+
+@quartz struct TimingArms
+  @in cmd::Bits{4}
+  @in busy::Bool
+  a::Bits{8} = 0
+  b::Bits{8} = 0
+  c::Bits{8} = 0
+end
+
+@on TimingArms posedge(clk) begin
+  if cmd == 1 && !busy
+    a ← a + 1
+  elseif cmd == 2
+    b ← b + 1
+  else
+    c ← c + 1
+  end
+end
+
+@testset "an arm of an elseif chain that another arm's test rules out is no condition over it" begin
+  r = timing(TimingArms)
+  @test !any(p -> (p.from, p.to) == ("busy", "b"), r.paths)     # cmd == 2 means cmd == 1 && !busy is false
+  @test timingrow(r, "busy", "a", :condition).inputs == 5
+  @test timingrow(r, "cmd", "b", :condition).inputs == 4
+  @test timingrow(r, "busy", "c", :condition).inputs == 5       # the else stands under both arms
+  first_arm = r.conditions[findfirst(c -> c.inputs == 5, r.conditions)]
+  @test sort([x.to for x in first_arm.decides]) == ["a", "c"] && first_arm.controls == 16
 end
