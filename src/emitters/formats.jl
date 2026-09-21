@@ -32,18 +32,28 @@ waveform viewer reads.
 struct VCD <: Format end
 
 """
-    LPF(board)
+    LPF(board; overconstrain = 1)
 
 Lattice constraints for a design on a board: `write(path, T, LPF(board))`. Pin
 sites, buffer options, clock rates and timing exceptions come from the same
 declarations the Verilog does, so the two agree.
+
+`overconstrain = 1.2` asks of every clock 1.2 times its rate. Place and route
+stops improving a design once it meets its constraints, so a build at the real
+rates does not say how much room is left; one that is asked for more does. It is
+for measuring, and a build that fails it may still meet the real rates.
 """
 struct LPF <: Format
   board::Board               # the board the design is placed on
+  overconstrain::Float64     # what every clock rate is multiplied by
 end
 
+LPF(board::Board; overconstrain=1) =
+  (overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"));
+   LPF(board, overconstrain))
+
 """
-    Diamond(board; vendor = String[], implementation = "impl")
+    Diamond(board; vendor = String[], implementation = "impl", overconstrain = 1, paths = 100)
 
 A Lattice Diamond workspace for a design on a board: `write(dir, T, Diamond(board))`
 fills `dir` with the Verilog under `src/`, the constraint file, a project file
@@ -52,16 +62,23 @@ Diamond from synthesis to the bitstream -- and the JEDEC file on a MachXO part -
 so `make` there builds the design where Diamond is installed. `vendor` lists the
 netlists of the design's black boxes, copied into `src/` and added to the project;
 a black box with no netlist is listed as `src/<Name>.v` for the user to supply.
+`overconstrain` is the constraint file's, see `LPF`, and `paths` is how many paths
+of each constraint the timing report lists, worst first.
 """
 struct Diamond <: Format
   board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board
   vendor::Vector{String}       # netlists of the black boxes, to copy into src/
   implementation::String       # Diamond's implementation name, and its directory
   name::Union{Nothing,Symbol}  # the module's name, or the type's
+  overconstrain::Float64       # what the constraint file multiplies every clock rate by
+  paths::Int                   # the paths of each constraint the timing report lists
 end
 
-Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl") =
-  Diamond(board, collect(String, vendor), implementation, nothing)
+function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl", overconstrain=1, paths=100)
+  overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"))
+  paths > 0 || throw(ArgumentError("paths is a count above zero, got $paths"))
+  Diamond(board, collect(String, vendor), implementation, nothing, overconstrain, paths)
+end
 
 """
     Icarus()
@@ -89,7 +106,8 @@ outputpath(::Diamond, dir::AbstractString, name::Symbol) = joinpath(dir, string(
 
 # the format with a module name put on it, where a format carries one
 _named(f::Verilog, name::Symbol) = Verilog(name, f.suffix, f.debug, f.inits)
-_named(f::Diamond, name::Symbol) = Diamond(f.board, f.vendor, f.implementation, name)
+_named(f::Diamond, name::Symbol) = Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths)
+_onboard(f::Diamond, board::Board) = Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths)
 _named(f::Format, ::Symbol) = f
 
 """

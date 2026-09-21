@@ -246,3 +246,43 @@ VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
   @test run(ignorestatus(pipeline(`$julia $design --budget "max_bits = "`; stderr=devnull))).exitcode == 2
   @test occursin("usage: quartz timing", read(`$julia --help`, String))
 end
+
+@quartz struct TimingBlinker
+  n::Bits{4} = 0
+  @out led::Bool = false
+end
+
+@on TimingBlinker posedge(clk) begin
+  n ← n + 1
+  led ← n[3]
+end
+
+@board TimingDemo begin
+  device = "LCMXO2-7000ZE-3TG144I"
+  io     = :LVCMOS25
+  clk => (pin = 92, osc = 48MHz)
+  led => (pin = 17)
+end
+
+@testset "a Diamond workspace set up to close timing, and to measure it" begin
+  text = sprint(io -> write(io, TimingBlinker, LPF(TimingDemo)))
+  @test occursin("FREQUENCY PORT \"clk_i\" 48.000000 MHz ;", text) && !occursin("times their rate", text)
+  text = sprint(io -> write(io, TimingBlinker, LPF(TimingDemo; overconstrain=1.25)))
+  @test occursin("FREQUENCY PORT \"clk_i\" 60.000000 MHz ;", text)
+  @test occursin("// clocks are constrained at 1.25 times their rates", text)
+  @test_throws ArgumentError LPF(TimingDemo; overconstrain=0)
+  dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo))
+  sty = read(joinpath(dir, "TimingBlinker.sty"), String)
+  for p in ("PROP_MAP_TimingDriven", "PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
+    @test occursin("<Property name=\"$p\" value=\"True\"", sty)
+  end
+  @test occursin("<Property name=\"PROP_MAP_RegRetiming\" value=\"False\"", sty)
+  @test occursin("\"PROP_PARSTA_WordCasePaths\" value=\"100\"", sty) && occursin("\"PROP_MAPSTA_WordCasePaths\" value=\"100\"", sty)
+  @test occursin("48.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
+  dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo; overconstrain=1.5, paths=250))
+  @test occursin("72.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
+  @test occursin("\"PROP_PARSTA_WordCasePaths\" value=\"250\"", read(joinpath(dir, "TimingBlinker.sty"), String))
+  @test_throws ArgumentError Diamond(TimingDemo; paths=0)
+  f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50), :blink), TimingDemo)
+  @test (f.board, f.name, f.overconstrain, f.paths) == (TimingDemo, :blink, 1.2, 50)
+end

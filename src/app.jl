@@ -275,7 +275,7 @@ end
 function _write(types, opt::Options, format, board)
   if format isa Diamond
     board === nothing && return _fail("--emit Diamond needs --board")
-    format = Diamond(board; vendor = format.vendor, implementation = format.implementation)
+    format = _onboard(format, board)
   end
   for T in types
     mname = length(types) == 1 && opt.name !== nothing ? Symbol(opt.name) : nameof(T)

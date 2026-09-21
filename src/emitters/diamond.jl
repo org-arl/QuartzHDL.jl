@@ -2,8 +2,9 @@
 # bitstream, laid out the way the tool expects and driven by a script, so a build
 # is `make` and not a session in the GUI. The project file lists the sources, the
 # strategy is Diamond's default with synthesis retiming off, so the registers a
-# multicycle constraint names are the only ones on its path, and the constraint
-# file comes from the board.
+# multicycle constraint names are the only ones on its path, and with map driven
+# by timing, which is what moves a design that is close to its clock; the
+# constraint file comes from the board.
 
 function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   b = f.board
@@ -15,7 +16,7 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   name = something(f.name, nameof(T))
   mkpath(joinpath(dir, "src"))
   write(joinpath(dir, "src", "$name.v"), T, Verilog(; name))
-  write(joinpath(dir, "$(b.name).lpf"), T, LPF(b))
+  write(joinpath(dir, "$(b.name).lpf"), T, LPF(b; f.overconstrain))
   sources = ["src/$name.v"]
   supplied = Symbol[]
   for v in f.vendor
@@ -32,11 +33,23 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
     push!(sources, file)
   end
   write(joinpath(dir, "$name.ldf"), _ldf(name, b, f.implementation, sources))
-  cp(joinpath(@__DIR__, "diamond.sty"), joinpath(dir, "$name.sty"); force=true)
+  write(joinpath(dir, "$name.sty"), _sty(f.paths))
   write(joinpath(dir, "build.sh"), _buildsh(name, b, f.implementation))
   chmod(joinpath(dir, "build.sh"), 0o755)
   write(joinpath(dir, "Makefile"), _makefile(name, b, f.implementation))
   dir
+end
+
+# the strategy, with the number of paths each timing report lists: the one after
+# map, which estimates the routing, and the one after place and route
+function _sty(paths::Int)
+  text = read(joinpath(@__DIR__, "diamond.sty"), String)
+  for stage in ("MAPSTA", "PARSTA")
+    r = Regex("(<Property name=\"PROP_$(stage)_WordCasePaths\" value=\")\\d+(\")")
+    occursin(r, text) || error("diamond.sty has no PROP_$(stage)_WordCasePaths to set")
+    text = replace(text, r => SubstitutionString("\\g<1>$paths\\g<2>"))
+  end
+  text
 end
 
 # the modules a Verilog file defines, so a netlist is matched to its black box by
