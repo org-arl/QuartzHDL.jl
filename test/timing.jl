@@ -247,7 +247,7 @@ VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
   status = run(pipeline(ignorestatus(`$julia $design --json --budget "max_bits = 4 => 16"`); stdout=out))
   json = String(take!(out))
   @test status.exitcode == 1
-  @test startswith(json, "{\"version\":1,\"top\":\"Counter\",\"lut_inputs\":4,\"ok\":false,")
+  @test startswith(json, "{\"version\":1,\"top\":\"Counter\",\"lut_inputs\":4,\"depth\":false,\"flow\":\"\",\"ok\":false,")
   @test occursin("\"budget\":{\"max_bits\":[[4,16]],\"max_carry\":null,\"max_chain\":null,\"reject\":false}", json)
   @test occursin("\"rejected\":[\"max_bits\"]", json) && occursin("\"arithmetic\":[[\"add\",32]]", json)
   @test run(ignorestatus(pipeline(`$julia $design --budget "max_bits = "`; stderr=devnull))).exitcode == 2
@@ -322,6 +322,10 @@ HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not te
     @test timingrow(r, "sub.ram.q", "sub.q", :data).depth == 0 && timingrow(r, "sub.ram.q", "sub.q", :data).connected
     @test timingrow(r, "sub.addr", "sub.ram.rdaddress", :data).depth == 0
     @test_throws ErrorException timing(TimingSums; depth=true, synth="no_such_pass")
+    r = timing(TimingBlinker; depth=true, board=TimingDemo)
+    @test r.flow == "synth_lattice -family xo2" && occursin("depths from yosys, synth_lattice -family xo2", sprint(show, MIME"text/plain"(), r))
+    @test timing(TimingBlinker; depth=true, board=TimingDemo, synth="synth_ice40").flow == "synth_ice40"
+    @test isempty(timing(TimingBlinker; depth=true).flow)
     @test timingrow(timing(TimingSums; depth=true, synth="synth_lattice -family xo2"), "a", "acc", :condition).depth ≥ 2
   end
   withenv("PATH" => "") do
@@ -329,6 +333,11 @@ HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not te
     @test r.ok === missing && !r.depth && all(p -> p.depth === missing, r.paths)
   end
   @test !timing(TimingSums).depth
+  @test QuartzHDL._flow(nothing, nothing) === nothing && QuartzHDL._flow("synth_gowin", TimingDemo) == "synth_gowin"
+  part(d) = Board(:B, d, QuartzHDL.PinBinding[], "", Dict{Symbol,Any}())
+  @test [QuartzHDL._flow(nothing, part(d)) for d in ("LCMXO3D-9400HC", "LCMXO3LF-6900C", "LFE5U-25F-6BG381C", "iCE40UP5K")] ==
+        ["synth_lattice -family xo3d", "synth_lattice -family xo3", "synth_lattice -family ecp5", "synth_ice40"]
+  @test (@test_logs (:warn, r"no yosys flow is known for XC7A35T") QuartzHDL._flow(nothing, part("XC7A35T"))) === nothing
 end
 
 @quartz struct TimingArms

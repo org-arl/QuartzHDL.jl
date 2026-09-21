@@ -44,8 +44,9 @@ options:
                     arithmetic (default 4)
   --depth           map the design with yosys too, for the levels of logic of
                     every path; a budget with max_depth does so by itself
-  --synth CMD       the yosys flow of the part the design is for, 'synth_lattice -family
-                    xo2' for a MachXO2; without it yosys maps to plain LUTs
+  --board B         a @board in the design file: yosys runs the flow of its part
+  --synth CMD       the yosys flow outright, 'synth_lattice -family xo2' for a MachXO2;
+                    with neither, yosys maps to plain LUTs
   --count N         how many lines of each table to print (default 12)
   --condition LINE  print one condition in full, by the line of its `if`: adc.jl:204
   --register NAME   print everything that ends at one register: adc1.data
@@ -94,13 +95,14 @@ mutable struct TimingOptions
   lut_inputs::String
   count::String
   depth::Bool
+  board::Union{Nothing,String}
   synth::Union{Nothing,String}
   condition::Union{Nothing,String}
   register::Union{Nothing,String}
   json::Bool
 end
 
-TimingOptions() = TimingOptions(nothing, nothing, "", "4", string(SHOWN), false, nothing, nothing, nothing, false)
+TimingOptions() = TimingOptions(nothing, nothing, "", "4", string(SHOWN), false, nothing, nothing, nothing, nothing, false)
 
 # 1 is the budget's answer, so whatever stops the report from being made is 2
 const TIMING_FAILED = 2
@@ -131,7 +133,7 @@ function _timingoptions(argv)
       opt.json = true
     elseif a == "--depth"
       opt.depth = true
-    elseif a in ("--top", "--budget", "--lut-inputs", "--count", "--synth", "--condition", "--register")
+    elseif a in ("--top", "--budget", "--lut-inputs", "--count", "--board", "--synth", "--condition", "--register")
       i += 1
       i ≤ length(argv) || return _fail("$a needs an argument")
       setfield!(opt, Symbol(replace(lstrip(a, '-'), "-" => "_")), argv[i])
@@ -156,8 +158,10 @@ function _timing(design, opt::TimingOptions, lut_inputs::Int, count::Int)
   catch e
     return _fail("cannot evaluate --budget $(opt.budget): " * sprint(showerror, e), TIMING_FAILED)
   end
+  board = opt.board === nothing ? nothing : _board(design, opt.board)
+  board isa Union{Nothing,Board} || return TIMING_FAILED
   r = try
-    Base.invokelatest(timing, types[1]; lut_inputs, opt.depth, opt.synth, budget...)
+    Base.invokelatest(timing, types[1]; lut_inputs, opt.depth, board, opt.synth, budget...)
   catch e
     return _fail(sprint(showerror, e), TIMING_FAILED)
   end

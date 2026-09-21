@@ -16,6 +16,13 @@ _genericsynth(lut::Int) =
   "share; opt; memory -nomap; opt_clean; opt -fast -full; memory_map; opt -full; " *
   "techmap t:\$alu t:\$lcu %u %n; opt -fast; abc -lut $lut; opt -fast; clean"
 
+# The yosys flow of a part, by how its number begins; the longer of two beginnings
+# first. The part is the board's to name: this only says what yosys calls it.
+const YOSYS_FLOWS = ["LCMXO2" => "synth_lattice -family xo2", "LCMXO3D" => "synth_lattice -family xo3d",
+                     "LCMXO3" => "synth_lattice -family xo3", "LFE5U" => "synth_lattice -family ecp5",
+                     "LIFCL" => "synth_lattice -family lifcl", "LFD2NX" => "synth_lattice -family lfd2nx",
+                     "ICE40" => "synth_ice40"]
+
 # what a path starts and ends at, beside the design's black boxes
 const STORAGE = r"DFF|_FF|^FD|LATCH|RAM|^DP\d|DPR|^PDP"
 # a carry chain is dedicated wiring from cell to cell, and is one level however long
@@ -84,6 +91,17 @@ function _rowdepth(found, ends, pins, p)
 end
 
 ### helpers
+
+# the flow that maps the design: the one the user names, or the one of the
+# board's part, or none, which leaves yosys to its generic passes
+function _flow(synth, board)
+  synth === nothing || return synth
+  board === nothing && return nothing
+  i = findfirst(((prefix, _),) -> startswith(uppercase(board.device), prefix), YOSYS_FLOWS)
+  i === nothing || return YOSYS_FLOWS[i].second
+  @warn "no yosys flow is known for $(isempty(board.device) ? "a board with no device" : board.device); mapping to plain LUTs"
+  nothing
+end
 
 function _yosys(dir, T::Type, synth)
   name = nameof(T)

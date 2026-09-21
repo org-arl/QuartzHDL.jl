@@ -84,13 +84,14 @@ struct TimingReport
   depth::Bool                     # whether `depth` was filled in
   ok::Union{Missing,Bool}         # the budget rejects nothing; missing when there is none
   lut_inputs::Int                 # the variable bits an operation had to exceed to count as arithmetic
+  flow::String                    # the yosys flow the depths are from; empty for the generic one, or none
   budget::TimingBudget
 end
 
 """
     timing(T; lut_inputs=4)
     timing(T; max_bits, max_carry, max_chain, max_depth, reject, except=String[])
-    timing(T; depth=true, synth=nothing)
+    timing(T; depth=true, board=nothing, synth=nothing)
 
 Where module `T`, with everything below it, is likely to be slow. The design is
 read as one graph, so a path that leaves one module as a wire and ends at a
@@ -120,9 +121,11 @@ unconnected, as it does for a register that reaches no output and is removed, th
 depth is 0 and the row says it is not `connected`. A depth that was not measured is
 `missing`, so a rule that asks for one that is not there fails, and does not pass
 for want of an answer. Left to itself yosys
-maps to LUTs of `lut_inputs` inputs and nothing of any device. `synth` names the
-flow of the part the design is for, as yosys spells it, `"synth_lattice -family
-xo2"` for a MachXO2; it has to flatten the design. Without yosys there is a warning
+maps to LUTs of `lut_inputs` inputs and nothing of any device. Given the `board`
+the design is for, it runs the flow of the board's part, where one is known for
+it. `synth` names a flow outright, as yosys spells it, `"synth_lattice -family
+xo2"` for a MachXO2, and is what counts when both are given; it has to flatten the
+design. Without yosys there is a warning
 and no depths.
 
 Given a budget, the report is also something a test can hold the design to:
@@ -150,7 +153,7 @@ silence; it is `missing` too where `max_depth` is given and yosys is not there t
 say. The printed report ends with the design's present worst, written as the
 budget that would hold it there.
 """
-function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, synth=nothing, max_bits=(), max_carry=nothing,
+function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, board=nothing, synth=nothing, max_bits=(), max_carry=nothing,
     max_chain=nothing, max_depth=nothing, reject=nothing, except=String[]
 )
   budget = TimingBudget(_pairs(max_bits), max_carry, max_chain, max_depth, reject !== nothing)
@@ -165,7 +168,8 @@ function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, synth=nothin
   sort!(paths; by = p -> (-_weight(p), -_chainsum(p.arithmetic), p.to, p.from))
   mapped = (depth || max_depth !== nothing) && _hasyosys()
   found = sort!([_timingcondition(c) for c in values(conditions)]; by = c -> (-_weight(c), c.condition))
-  mapped && ((paths, found) = _withdepths(T, d, paths, found, synth, lut_inputs))
+  flow = mapped ? _flow(synth, board) : nothing
+  mapped && ((paths, found) = _withdepths(T, d, paths, found, flow, lut_inputs))
   found = TimingCondition[merge(c, (rejected=_rejected(c, budget, reject),)) for c in found]
   broken = Dict((c.condition, c.instance, c.inputs, c.controls) => c.rejected for c in found if !isempty(c.rejected))
   paths = TimingPath[merge(p, (rejected=_rejected(p, budget, broken),)) for p in paths]
@@ -179,7 +183,7 @@ function timing(T::Type{<:QuartzModule}; lut_inputs=4, depth=false, synth=nothin
   unknown = !_isgiven(budget) || max_depth !== nothing && !mapped
   ok = unknown ? missing : isempty(rejected) && isempty(rejectedpaths)
   TimingReport(T, paths, found, rejected, rejectedpaths, exempt, exemptpaths, sort!(unique!(excluded)), mapped, ok,
-               lut_inputs, budget)
+               lut_inputs, something(flow, ""), budget)
 end
 
 function Base.show(io::IO, r::TimingReport; condition=nothing, register=nothing, top=nothing)
@@ -195,6 +199,7 @@ Base.show(io::IO, ::MIME"text/plain", r::TimingReport) = _showsummary(io, r, SHO
 function _showsummary(io::IO, r::TimingReport, top::Int)
   println(io, "Timing report for ", nameof(r.top))
   print(io, length(r.paths), " paths, ", length(r.conditions), " conditions, ", length(r.excluded), " multicycle paths excluded")
+  r.depth && print(io, "\ndepths from yosys, ", isempty(r.flow) ? "mapped to LUTs of $(r.lut_inputs) inputs" : r.flow)
   _showbudget(io, r)
   _isgiven(r.budget) || _showheaviest(io, r, top)
   _isgiven(r.budget) && print(io, "\n\nPresent worst, as a budget\n  ", _worstbudget(r))
