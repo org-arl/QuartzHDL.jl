@@ -29,7 +29,7 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   end
   for BB in _blackboxes(T)
     vname = blackbox(BB).verilogname
-    vname in supplied && continue
+    (vname in supplied || blackbox(BB).primitive) && continue
     file = "src/$vname.v"
     @warn "$vname has no netlist in the workspace; put the vendor's at $(joinpath(dir, file))"
     push!(sources, file)

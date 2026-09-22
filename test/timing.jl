@@ -328,8 +328,9 @@ end
   @test occursin("TimingDemo.fdc\" type=\"Synplify Design Constraints File\"", read(joinpath(dir, "TimingBlinker.ldf"), String))
   @test occursin("TimingDemo.fdc", read(joinpath(dir, "Makefile"), String))
   socfdc = sprint(io -> QuartzHDL._fdc(io, Soc, SocBoard, 1.0))
-  @test occursin("set_multicycle_path 4 -from [get_cells {sub/slowsum*}] -to [get_cells {sub/slowcopy*}]", socfdc)
-  @test occursin("create_clock -name {clk_ref_i}", socfdc) && occursin("[get_nets {fast}]", socfdc)
+  @test occursin("set_multicycle_path 4 -from [get_cells {sub.slowsum[*]}] -to [get_cells {sub.slowcopy[*]}]", socfdc)
+  @test occursin("create_clock -name {clk_ref_i}", socfdc) && occursin("-name {fast} -period 20.833 [get_nets {pll.CLKOP}]", socfdc)
+  @test occursin("[get_nets {pll.CLKOS}]", socfdc)
   dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo; overconstrain=1.5, paths=250))
   @test occursin("72.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
   @test occursin("-period 13.889", read(joinpath(dir, "TimingDemo.fdc"), String))
@@ -467,4 +468,42 @@ end
   @test any(x -> x.reset && x.value == 3, masked.drives)
   @test QuartzHDL._sourcestr(nothing) == ""
   @test sprint(show, r) == "TimingReport(TimingShapes, $(length(r.paths)) paths, $(length(r.conditions)) conditions)"
+end
+
+@blackbox TimingOsc primitive=true begin
+  input(STDBY::Bool)
+  clockout(OSC, divide = 1, enable = !stdby)
+end
+
+@quartz struct TimingOscTop
+  osc::TimingOsc = TimingOsc()
+  n::Bits{4} = 0
+  @out led::Bool = false
+end
+
+@wire TimingOscTop begin
+  osc.stdby ← false
+  tick ← osc.osc
+end
+
+@on TimingOscTop posedge(tick) begin
+  n ← n + 1
+  led ← n[3]
+end
+
+@board TimingOscBoard begin
+  device = "LCMXO2-7000ZE-3TG144I"
+  io     = :LVCMOS25
+  led => (pin = 17)
+end
+
+@testset "a library primitive has no netlist file, and its clock keeps its name" begin
+  @test QuartzHDL.blackbox(TimingOsc).primitive && !QuartzHDL.blackbox(CPLL).primitive
+  dir = @test_logs write(mktempdir(), TimingOscTop, Diamond(TimingOscBoard))
+  @test !occursin("src/TimingOsc.v", read(joinpath(dir, "TimingOscTop.ldf"), String))
+  @test !isfile(joinpath(dir, "src", "TimingOsc.v"))
+  @test isempty(QuartzHDL._clocksmade(TimingOscTop)) && QuartzHDL._clocksmade(Soc) == Dict(:fast => "pll.CLKOP", :slow => "pll.CLKOS", :picked => "mux.DCMOUT")
+  @test_throws LoadError @eval @blackbox Bad primitive=1 begin
+    input(A::Bool)
+  end
 end

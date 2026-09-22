@@ -26,6 +26,7 @@ struct BlackboxDef
   tree::Vector{ClockOut}
   outs::Vector{Symbol}
   docs::Dict{Symbol,String}
+  primitive::Bool             # a library primitive of the tools, with no netlist file of its own
 end
 
 # A vendor part names its ports the way its datasheet does. The declaration keeps
@@ -50,13 +51,16 @@ part whose outputs are all `clockout`s needs none: its recipes are its behaviour
 standin(::Type) = nothing
 
 """
-    @blackbox Name verilog="VNAME" begin ... end
+    @blackbox Name verilog="VNAME" primitive=false begin ... end
 
 Declares a Verilog module QuartzHDL does not define -- a vendor PLL, a RAM block,
 an oscillator. The body lists its ports (`input`, `output`, `clock`, `clockout`)
 using the datasheet's names; a `clockout` also says which clock input it divides,
 by how much, and under what condition it runs. Nothing is emitted for the module
 itself, and `QuartzHDL.standin` supplies whatever behaviour a simulation needs.
+
+`primitive=true` marks a module the tools know by themselves, such as `OSCH` on a
+MachXO2: a Diamond workspace then lists no netlist file for it.
 
 ```julia
 @blackbox PLL verilog="EHXPLLL" begin
@@ -321,9 +325,13 @@ function _blackbox(name, args, mod)
   name isa Symbol || error("@blackbox: expected a Verilog module name")
   block = nothing
   vname = name
+  primitive = false
   for a in args
     if a isa Expr && a.head == :(=) && a.args[1] == :verilog
       vname = Symbol(a.args[2])
+    elseif a isa Expr && a.head == :(=) && a.args[1] == :primitive
+      a.args[2] isa Bool || error("@blackbox: primitive takes true or false")
+      primitive = a.args[2]
     elseif a isa Expr && a.head == :block
       block = a
     else
@@ -430,7 +438,7 @@ function _blackbox(name, args, mod)
     $(doc === nothing ? nothing : :(Core.@doc $doc $T))
     const $store = $QuartzHDL.BlackboxDef($(QuoteNode(vname)), $QuartzHDL.Port[$(ports...)], $pragma,
                                           $QuartzHDL.ClockOut[$(treeexprs...)], $clockouts,
-                                          Dict{Symbol,String}($(docs...)))
+                                          Dict{Symbol,String}($(docs...)), $primitive)
     $(enablefns...)
     $QuartzHDL.blackbox(::Type{<:$T}) = $store
     $T
