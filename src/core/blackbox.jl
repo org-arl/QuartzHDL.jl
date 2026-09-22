@@ -27,6 +27,30 @@ struct BlackboxDef
   outs::Vector{Symbol}
   docs::Dict{Symbol,String}
   primitive::Bool             # a library primitive of the tools, with no netlist file of its own
+  gates::Vector{Vector{Int}}  # per gated output, the recipes it switches between
+end
+
+# A gated output -- a mux, or a divide-by-one clock under an enable -- is its
+# selected source's wave, except that a change of selection is not an edge: it
+# rises only on a tick of the source now selected, so a switch that finds the
+# output low and the new source high holds it low until that tick. The output's
+# level bit is the "armed" state that rule needs, since a divide-by-one recipe has
+# no wave of its own to track.
+_gates(tree) =
+  [[i for (i, c) in enumerate(tree) if c.name === n]
+   for n in unique(c.name for c in tree)
+   if all(c.from !== nothing && c.divide == 1 for c in tree if c.name === n) &&
+      any(c.hasenable for c in tree if c.name === n)]
+
+_recipeon(::Type{T}, i::Int, inputs) where T =
+  !blackbox(T).tree[i].hasenable || Bool(_clockenable(T, Val(i), inputs))
+
+function _selected(::Type{T}, group::Vector{Int}, inputs) where T
+  mask = UInt64(0)
+  for i in group
+    _recipeon(T, i, inputs) && (mask |= UInt64(1) << i)
+  end
+  mask
 end
 
 # A vendor part names its ports the way its datasheet does. The declaration keeps
@@ -87,10 +111,7 @@ clocklevel(m::QuartzModule, net::Symbol) = clocklevel(m, Val(net))
 # the walk -- which instance, down which path, holds the level -- is resolved from
 # the bindings when asked; a net they cannot place errors, and the error says why
 function clocklevel(m::T, ::Val{net}) where {T<:QuartzModule,net}
-  r = _resolvelevel(T, net, Symbol[])
-  # a full-rate clock has no wave the cycle world can track: read as data it is
-  # its resting pre-edge level, which is also what a testbench samples
-  r === nothing ? false : _levelat(m, r...)
+  _levelat(m, _resolvelevel(T, net, Symbol[]))
 end
 
 
@@ -175,10 +196,34 @@ _bbouttype(::Type{T}) where T = (W = _portinfo(T)[1]; W == 1 ? Bool : Bits{W})
 _stepmodel(::Nothing, port, inputs) = nothing
 _stepmodel(m, port, inputs) = step(m, port; inputs...)
 
-function _wireboxinputs(x::T, nt::NamedTuple) where T
-  new = _setinputs(_inputsof(x), nt)
-  new === _inputsof(x) ? x :
-    T(new, getfield(x, :counts), getfield(x, :ticked), getfield(x, :levels), getfield(x, :model))
+function _wireboxinputs(this, f::Symbol, x::T, nt::NamedTuple) where T
+  old = _inputsof(x)
+  new = _setinputs(old, nt)
+  new === old && return x
+  T(new, getfield(x, :counts), getfield(x, :ticked), _switchgates(this, f, x, old, new), getfield(x, :model))
+end
+
+# at a change of selection the armed bit becomes the output's level at that moment:
+# an output that was high stays with the newly selected source, one that was low
+# waits for that source's tick
+function _switchgates(this, f::Symbol, x::T, old, new) where T
+  bb = blackbox(T)
+  levels = getfield(x, :levels)
+  for group in bb.gates
+    before = _selected(T, group, old)
+    before == _selected(T, group, new) && continue
+    bit = bb.tree[first(group)].bit
+    high = _hasbit(levels, bit) &&
+           any(_hasbit(before, i) && _sourcelevel(this, f, bb.tree[i].from) for i in group)
+    levels = _setbit(levels, bit, high)
+  end
+  levels
+end
+
+_sourcelevel(::Nothing, f::Symbol, port::Symbol) = false
+function _sourcelevel(this, f::Symbol, port::Symbol)
+  net = _boundnet(_clockbind(typeof(this), f), port)
+  net === nothing ? false : clocklevel(this, net)
 end
 
 # A test may run a slow domain faster than the board does, so that a few thousand
@@ -257,12 +302,36 @@ _cleared(x::T) where T =
   getfield(x, :ticked) == 0 ? x :
   T(_inputsof(x), getfield(x, :counts), UInt64(0), getfield(x, :levels), getfield(x, :model))
 
-function _levelat(m, path::Vector{Symbol}, bit::Int)
+# where a level lives: nothing for a full-rate clock, an instance and a bit of its
+# level mask for a divided clock, and for a gated output the instance whose
+# inputs select among the sources, each resolved in turn
+struct GatedLevel
+  path::Vector{Symbol}
+  bit::Int
+  sources::Vector{Tuple{Int,Any}}
+end
+
+function _instanceat(m, path::Vector{Symbol})
   x = m
   for f in path
     x = getfield(x, f)
   end
-  _hasbit(getfield(x, :levels)::UInt64, bit)
+  x
+end
+
+# a full-rate clock has no wave the cycle world can track: read as data it is its
+# resting pre-edge level, which is also what a testbench samples
+_levelat(m, ::Nothing) = false
+_levelat(m, r::Tuple{Vector{Symbol},Int}) = _hasbit(getfield(_instanceat(m, r[1]), :levels)::UInt64, r[2])
+
+function _levelat(m, g::GatedLevel)
+  x = _instanceat(m, g.path)
+  _hasbit(getfield(x, :levels)::UInt64, g.bit) || return false
+  inputs = _inputsof(x)
+  for (i, src) in g.sources
+    _recipeon(typeof(x), i, inputs) && _levelat(m, src) && return true
+  end
+  false
 end
 
 _levelbit(x, ::Val{bit}) where bit = _hasbit(getfield(x, :levels), bit)
@@ -291,13 +360,22 @@ function _resolvelevel(T::Type, net::Symbol, seen::Vector{Symbol})
   found = _findlevel(T, net)
   found === nothing && error("no black box in this design drives a clock net called $net")
   path, FT, c, binds = found
+  tree = blackbox(FT).tree
+  group = findfirst(g -> tree[first(g)].name === c.name, blackbox(FT).gates)
+  group === nothing ||
+    return GatedLevel(path, c.bit, [(i, _sourcelevelat(T, binds, tree[i], vcat(seen, net)))
+                                    for i in blackbox(FT).gates[group]])
   # a clock that divides by one is its source under another name, so its level is
-  # the source's -- it has none of its own to track. A chain that ends at one of
-  # the design's own clock pins is full rate, with no level holder at all
-  src = c.from === nothing ? nothing : _boundnet(binds, c.from)
-  _divide(FT, c) == 1 && src !== nothing &&
-    return src in _clocksof(T) ? nothing : _resolvelevel(T, src, push!(seen, net))
+  # the source's -- it has none of its own to track
+  _divide(FT, c) == 1 && c.from !== nothing && return _sourcelevelat(T, binds, c, push!(seen, net))
   (path, c.bit)
+end
+
+# a chain that ends at one of the design's own clock pins is full rate, with no
+# level holder at all
+function _sourcelevelat(T::Type, binds, c::ClockOut, seen::Vector{Symbol})
+  src = _boundnet(binds, c.from)
+  src === nothing || src in _clocksof(T) ? nothing : _resolvelevel(T, src, seen)
 end
 
 function _findlevel(T::Type, net::Symbol)
@@ -436,9 +514,10 @@ function _blackbox(name, args, mod)
   quote
     $stub
     $(doc === nothing ? nothing : :(Core.@doc $doc $T))
-    const $store = $QuartzHDL.BlackboxDef($(QuoteNode(vname)), $QuartzHDL.Port[$(ports...)], $pragma,
-                                          $QuartzHDL.ClockOut[$(treeexprs...)], $clockouts,
-                                          Dict{Symbol,String}($(docs...)), $primitive)
+    const $store = let tree = $QuartzHDL.ClockOut[$(treeexprs...)]
+      $QuartzHDL.BlackboxDef($(QuoteNode(vname)), $QuartzHDL.Port[$(ports...)], $pragma, tree, $clockouts,
+                             Dict{Symbol,String}($(docs...)), $primitive, $QuartzHDL._gates(tree))
+    end
     $(enablefns...)
     $QuartzHDL.blackbox(::Type{<:$T}) = $store
     $T
@@ -458,13 +537,17 @@ function _slotstep(m::QuartzModule, roots, clks, kw)
   # a slot: with no edge to run, the inputs of this slot must still reach the
   # outputs, as they do through the `assign` the same block emits
   isempty(_clocks(typeof(m))) && return _stepwith(m, Val(Symbol("")), kw)
+  # the pin clocks take their turns in the order given, and everything a pin
+  # clock's edge derives happens in its turn, before the next pin clock's edge --
+  # the order a testbench pulsing the pins one after another produces
   stepped = UInt64(0)
   for c in roots
     c in clks || continue
     m = _stepnet(m, c, kw)
     stepped |= _edgebits(_treeedges(m), c)
+    m, stepped = _stepedges(m, clks, kw, stepped)
   end
-  _stepedges(m, clks, kw, stepped)
+  m
 end
 
 # The edges a step produced are taken slowest first, as a batch: the batch is
@@ -475,7 +558,7 @@ function _stepedges(m, clks, kw, stepped::UInt64)
   while true
     edges = _treeedges(m)
     pending = _pendingbits(edges, stepped)
-    pending == 0 && return m
+    pending == 0 && return (m, stepped)
     while pending != 0
       i = _slowest(edges, pending)
       net = edges[i][1]
