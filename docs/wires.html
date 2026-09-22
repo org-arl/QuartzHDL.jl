@@ -532,7 +532,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="reading-a-clock-as-data" class="level2">
 <h2 class="anchored" data-anchor-id="reading-a-clock-as-data">Reading a clock as data</h2>
-<p>Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. <code>clocklevel(:clk_1MHz)</code> reads a clock net’s current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block’s own.</p>
+<p>Occasionally a design samples a slow clock as if it were a signal — a reference tick, say. <code>clocklevel(:clk_1MHz)</code> reads a clock net’s current level from inside a block. It is rare, and it is only meaningful for a clock that is much slower than the block’s own: a net at the rate of the design’s own clock pins has no level to read, and the read is refused.</p>
 </section>
 <section id="next" class="level2">
 <h2 class="anchored" data-anchor-id="next">Next</h2>
