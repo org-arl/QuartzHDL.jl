@@ -42,6 +42,11 @@ _gates(tree) =
    if all(c.from !== nothing && c.divide == 1 for c in tree if c.name === n) &&
       any(c.hasenable for c in tree if c.name === n)]
 
+# a gate whose divider a run has scaled away from one has a wave of its own, and
+# reads as any divided clock does
+_gategroups(::Type{T}) where T =
+  [g for g in blackbox(T).gates if all(_divide(T, blackbox(T).tree[i]) == 1 for i in g)]
+
 _recipeon(::Type{T}, i::Int, inputs) where T =
   !blackbox(T).tree[i].hasenable || Bool(_clockenable(T, Val(i), inputs))
 
@@ -209,7 +214,7 @@ end
 function _switchgates(this, f::Symbol, x::T, old, new) where T
   bb = blackbox(T)
   levels = getfield(x, :levels)
-  for group in bb.gates
+  for group in _gategroups(T)
     before = _selected(T, group, old)
     before == _selected(T, group, new) && continue
     bit = bb.tree[first(group)].bit
@@ -360,10 +365,11 @@ function _resolvelevel(T::Type, net::Symbol, seen::Vector{Symbol})
   found === nothing && error("no black box in this design drives a clock net called $net")
   path, FT, c, binds = found
   tree = blackbox(FT).tree
-  group = findfirst(g -> tree[first(g)].name === c.name, blackbox(FT).gates)
+  groups = _gategroups(FT)
+  group = findfirst(g -> tree[first(g)].name === c.name, groups)
   group === nothing ||
     return GatedLevel(path, c.bit, [(i, _sourcelevelat(T, binds, tree[i], vcat(seen, net)))
-                                    for i in blackbox(FT).gates[group]])
+                                    for i in groups[group]])
   # a clock that divides by one is its source under another name, so its level is
   # the source's -- it has none of its own to track
   _divide(FT, c) == 1 && c.from !== nothing && return _sourcelevelat(T, binds, c, push!(seen, net))
@@ -541,17 +547,43 @@ function _slotstep(m::QuartzModule, roots, clks, kw)
   # the order a testbench pulsing the pins one after another produces. A turn
   # starts with the tick record clear, since a clock the first pin's turn ticked
   # and the next pin's turn ticks again, through a mux switched between them, has
-  # had two edges, and one bit per clock cannot say so
-  first = true
+  # had two edges, and one bit per clock cannot say so; the slot's record is put
+  # back together at the end
+  turns = 0
+  record = m
   for c in roots
     c in clks || continue
-    first || (m = _clearticks(m))
-    first = false
+    if turns > 0
+      record = turns == 1 ? m : _orticks(m, record)
+      m = _clearticks(m)
+    end
+    turns += 1
     m = _stepnet(m, c, kw)
     m = _stepedges(m, clks, kw, _edgebits(_treeedges(m), c))
   end
-  m
+  turns > 1 ? _orticks(m, record) : m
 end
+
+@generated function _orticks(m::T, prev::T) where T
+  ex = _orexpr(:m, :prev, T)
+  ex === nothing ? :m : ex
+end
+
+function _orexpr(x, p, T)
+  isblackbox(T) && return :(_orticked($x, $p))
+  vals = Any[]
+  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+    FT <: QuartzModule || continue
+    e = _orexpr(:(getfield($x, $(QuoteNode(f)))), :(getfield($p, $(QuoteNode(f)))), FT)
+    e === nothing || push!(vals, Expr(:kw, f, e))
+  end
+  isempty(vals) ? nothing : :(_merge($x, $(Expr(:tuple, Expr(:parameters, vals...)))))
+end
+
+_orticked(x::T, p::T) where T =
+  getfield(p, :ticked) & ~getfield(x, :ticked) == 0 ? x :
+  T(_inputsof(x), getfield(x, :counts), getfield(x, :ticked) | getfield(p, :ticked),
+    getfield(x, :levels), getfield(x, :model))
 
 # The edges a step produced are taken slowest first, as a batch: the batch is
 # what the tree showed before any of it was stepped, and what those steps derive
