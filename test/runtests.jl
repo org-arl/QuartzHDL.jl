@@ -2121,6 +2121,85 @@ end
   @test QuartzHDL.clockedges(m) == [:picked]
 end
 
+@blackbox RefA begin
+  clock(CLKI)
+  clockout(CLKOP, from = CLKI, divide = 1)
+  clockout(CLKOS, from = CLKI, divide = 4)
+end
+
+@blackbox RefB begin
+  clock(CLKI)
+  clockout(CLKOS, from = CLKI, divide = 4, phase = 2)
+end
+
+@blackbox RefMux begin
+  clock(CLK0, CLK1)
+  input(SEL::Bool)
+  clockout(DCMOUT, from = CLK0, enable = !sel)
+  clockout(DCMOUT, from = CLK1, enable = sel)
+end
+
+# a counter clocked through a mux from a second pin clock: the level it samples is
+# derived from a clock other than its own
+@quartz struct Handover
+  @in switch::Bool
+  @out count::Bits{8} = 0
+  @out level::Bool = false
+  refa::RefA = RefA()
+  refb::RefB = RefB()
+  mux::RefMux = RefMux()
+  sel::Bool = false
+  slow_q::Bool = false
+  slow_qq::Bool = false
+end
+
+@primary Handover clk
+
+@wire Handover begin
+  refa.clki ← clk_a
+  clk ← refa.clkop
+  slow_a ← refa.clkos
+  refb.clki ← clk_b
+  slow_b ← refb.clkos
+  mux.clk0 ← slow_a
+  mux.clk1 ← slow_b
+  slow ← mux.dcmout
+  mux.sel ← sel
+end
+
+@on Handover posedge(clk) begin
+  switch && (sel ← true)
+  slow_q ← clocklevel(this, :slow)
+  slow_qq ← slow_q
+  slow_q && !slow_qq && (count ← count + 1)
+  level ← clocklevel(this, :slow_b)
+end
+
+@testset "a clock mux read as data follows the selected source" begin
+  clks, every, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
+  m = Handover()
+  levels = Bool[]
+  for i in 1:48
+    m = QuartzHDL.stepslot(m, clks, every, internal, (i - 1) % L; switch = i == 40)
+    push!(levels, clocklevel(m, :slow))
+  end
+  # source A until the switch; then held low through the rest of B's high half,
+  # since a switch is not an edge, and B's wave from B's next tick
+  @test levels[33:40] == [true, true, false, false, true, true, false, false]
+  @test levels[41:48] == [false, false, true, true, false, false, true, true]
+
+  f = joinpath(mktempdir(), "tree.v")
+  simmodels(f, Handover)
+  for at in 40:43
+    r = cosim(Handover, [(switch = i == at,) for i in 1:120];
+              clocks = (clk_a = 1, clk_b = 1), extra_sources = [f])
+    @test r.ok skip=!HAVE_IVERILOG
+  end
+  r = cosim(Handover, [(switch = i == 40,) for i in 1:120];
+            clocks = (clk_a = 2, clk_b = 1), extra_sources = [f])
+  @test r.ok skip=!HAVE_IVERILOG
+end
+
 @quartz struct PadEn
   @in d::Bits{4}
   @in en::Bool

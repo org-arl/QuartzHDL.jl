@@ -900,7 +900,7 @@ function _gatherports(body::Expr)
 end
 
 function _wireinputs(x::T, nt::NamedTuple) where T<:QuartzModule
-  isblackbox(T) && return _wireboxinputs(x, nt)
+  isblackbox(T) && return _wireboxinputs(nothing, Symbol(""), x, nt)
   new = _setinputs(getfield(x, INPUTS), nt)
   new === getfield(x, INPUTS) ? x : _merge(x, NamedTuple{(INPUTS,)}((new,)))
 end
@@ -1213,7 +1213,8 @@ end
 function _applycombexpr(T, owned, new, old, r)
   q(f) = QuoteNode(f)
   value(f) = fieldtype(T, f) <: QuartzModule ?
-    :($QuartzHDL._combinst(getfield($old, $(q(f))), getfield($r.writes, $(q(f))))) : :(getfield($r.writes, $(q(f))))
+    :($QuartzHDL._combinst($old, $(q(f)), getfield($old, $(q(f))), getfield($r.writes, $(q(f))))) :
+    :(getfield($r.writes, $(q(f))))
   vals = [Expr(:kw, f, :(getfield($r.written, $i) ? $(value(f)) : $QuartzHDL._undriven($(q(f)))))
           for (i, f) in enumerate(owned)]
   :($QuartzHDL._merge($new, $(Expr(:tuple, Expr(:parameters, vals...)))))
@@ -1227,10 +1228,10 @@ _undriven(f::Symbol) = error("@wire left $f undriven this cycle; every path thro
 # no pointers in it, so the write set stays inline. An instance's wires have settled
 # when the inputs are what they were; new ones settle the instance's own wires in
 # turn, so a value can travel down and back up. A black box has no wires to settle.
-function _combinst(cur::T, w::NamedTuple) where T
+function _combinst(this, f::Symbol, cur::T, w::NamedTuple) where T
   w === _inputsof(cur) && return cur
-  new = _wireinputs(cur, w)
-  isblackbox(T) ? new : _settlepasses(new, w, false)
+  isblackbox(T) && return _wireboxinputs(this, f, cur, w)
+  _settlepasses(_wireinputs(cur, w), w, false)
 end
 
 # the outside world drives a pad through a step keyword of the pad's own name:
