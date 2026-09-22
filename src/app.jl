@@ -174,6 +174,7 @@ function _timing(design, opt::TimingOptions, lut_inputs::Int, count::Int)
     return _fail(e.msg, TIMING_FAILED)
   end
   opt.json || println()
+  r.ok === missing && _isgiven(r.budget) && return _fail("the budget could not be measured: yosys is not installed", TIMING_FAILED)
   r.ok === false ? 1 : 0
 end
 

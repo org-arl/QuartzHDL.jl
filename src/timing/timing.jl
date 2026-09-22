@@ -220,7 +220,7 @@ function _showsummary(io::IO, r::TimingReport, top::Int)
   r.depth && print(io, "\ndepths from yosys, ", isempty(r.flow) ? "mapped to LUTs of $(r.lut_inputs) inputs" : r.flow)
   _showbudget(io, r)
   _isgiven(r.budget) || _showheaviest(io, r, top)
-  _isgiven(r.budget) && print(io, "\n\nPresent worst, as a budget\n  ", _worstbudget(r))
+  _isgiven(r.budget) && r.ok !== missing && print(io, "\n\nPresent worst, as a budget\n  ", _worstbudget(r))
 end
 
 function _showheaviest(io::IO, r::TimingReport, top::Int)
@@ -309,6 +309,7 @@ function _showbudget(io::IO, r::TimingReport)
   _isgiven(r.budget) || return
   n = length(r.exempt) + length(r.exemptpaths)
   print(io, "\nBudget ", _budgetstr(r.budget), ": ",
+        r.ok === missing ? "not measured, yosys is not installed" :
         r.ok ? "within budget" : "$(length(r.rejected)) conditions and $(length(r.rejectedpaths)) paths rejected",
         n == 0 ? "" : ", $n exempt")
   rows = [vcat(_conditionrow(g), join(unique(x for c in g for x in c.rejected), " ")) for g in _alike(r.rejected)]

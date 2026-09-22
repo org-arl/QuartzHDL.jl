@@ -248,7 +248,7 @@ VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
   json = String(take!(out))
   @test status.exitcode == 1
   @test startswith(json, "{\"version\":1,\"top\":\"Counter\",\"lut_inputs\":4,\"depth\":false,\"flow\":\"\",\"ok\":false,")
-  @test occursin("\"budget\":{\"max_bits\":[[4,16]],\"max_carry\":null,\"max_chain\":null,\"reject\":false}", json)
+  @test occursin("\"budget\":{\"max_bits\":[[4,16]],\"max_carry\":null,\"max_chain\":null,\"max_depth\":null,\"reject\":false}", json)
   @test occursin("\"rejected\":[\"max_bits\"]", json) && occursin("\"arithmetic\":[[\"add\",32]]", json)
   @test run(ignorestatus(pipeline(`$julia $design --budget "max_bits = "`; stderr=devnull))).exitcode == 2
   @test occursin("usage: quartz timing", read(`$julia --help`, String))
@@ -331,6 +331,8 @@ HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not te
   withenv("PATH" => "") do
     r = @test_logs (:warn, r"yosys not found") timing(TimingSums; max_depth=3)
     @test r.ok === missing && !r.depth && all(p -> p.depth === missing, r.paths)
+    text = sprint(show, MIME"text/plain"(), r)
+    @test occursin("not measured, yosys is not installed", text) && !occursin("Present worst", text)
   end
   @test !timing(TimingSums).depth
   @test QuartzHDL._flow(nothing, nothing) === nothing && QuartzHDL._flow("synth_gowin", TimingDemo) == "synth_gowin"
