@@ -61,7 +61,7 @@ function _clockoutread(this::QuartzModule, ::Val{f}, ::Val{p}, ::Val{cp}, ::Val{
   net = _clockoutnet(typeof(this), Val(f), Val(cp))
   net === nothing &&
     error("nothing wires $f.$cp to a net, so $f.$p has no level in $(nameof(typeof(this)))")
-  lvl = clocklevel(this, net)
+  lvl = _netlevel(this, net)
   (inv ? !lvl : lvl) & gate()
 end
 

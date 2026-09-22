@@ -110,14 +110,26 @@ The level a clock net is resting at, for a design that samples a slow clock as
 data -- a microsecond tick, say. In Verilog this is the net name in an expression;
 here it is the square wave the tree produces. Inside a block the one-argument
 form reads the block's own module.
+
+A net at the rate of the design's own clock pins has no wave the cycle world can
+track, and reading it is refused: sampled at its own edge, it has no settled
+level in the hardware either.
 """
 clocklevel(m::QuartzModule, net::Symbol) = clocklevel(m, Val(net))
 
 # the walk -- which instance, down which path, holds the level -- is resolved from
 # the bindings when asked; a net they cannot place errors, and the error says why
 function clocklevel(m::T, ::Val{net}) where {T<:QuartzModule,net}
-  _levelat(m, _resolvelevel(T, net, Symbol[]))
+  r = _resolvelevel(T, net, Symbol[])
+  _fullrate(r) && error("clock net $net runs at full rate, and has no level to read: " *
+                        "clocklevel is for a clock much slower than the block's own")
+  _levelat(m, r)
 end
+
+# a net read within the package -- a part's clock output as a port, a mux's source
+# at a switch -- where a full-rate clock is low, as it is at every sample point
+_netlevel(m::QuartzModule, net::Symbol) = _netlevel(m, Val(net))
+_netlevel(m::T, ::Val{net}) where {T<:QuartzModule,net} = _levelat(m, _resolvelevel(T, net, Symbol[]))
 
 
 # every clock net that had an edge in the module tree this step, slowest first
@@ -227,7 +239,7 @@ end
 
 function _sourcelevel(this, f::Symbol, port::Symbol)
   net = _boundnet(_clockbind(typeof(this), f), port)
-  net === nothing ? false : clocklevel(this, net)
+  net === nothing ? false : _netlevel(this, net)
 end
 
 # A test may run a slow domain faster than the board does, so that a few thousand
@@ -314,6 +326,8 @@ struct GatedLevel
   bit::Int
   sources::Vector{Tuple{Int,Any}}
 end
+
+_fullrate(r) = r === nothing || (r isa GatedLevel && all(_fullrate(src) for (_, src) in r.sources))
 
 function _instanceat(m, path::Vector{Symbol})
   x = m
