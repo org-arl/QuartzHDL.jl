@@ -90,7 +90,7 @@ build/rev2/
   src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
   Rev2.lpf           the constraints, as `LPF(board)` writes them
   Top.ldf            the project file: device, top, sources, strategy
-  Top.sty            Diamond's default strategy, with synthesis retiming off and map driven by timing
+  Top.sty            Diamond's default strategy, with synthesis retiming off and timing-driven map
   build.sh           synthesis, translate, map, place-and-route, bitstream
   Makefile           `make` runs build.sh when a source is newer than the bitstream
 ```
@@ -99,7 +99,7 @@ The board's `device` must be the full part number Diamond knows, `LCMXO2-7000HE-
 
 A black box needs its netlist in the workspace. Give the files with `vendor = ["vendor/PLL48.v", ...]` and they are copied into `src/` and listed in the project; a black box with no netlist among them is still listed, as `src/<Name>.v`, with a warning saying where to put the file. `implementation = "impl"` names Diamond's implementation and its directory.
 
-The strategy turns synthesis retiming off, which [multicycle paths](multicycle.qmd) need. It turns timing-driven mapping and packing on, which helps a design that runs close to its maximum clock speed. Two options help with [measuring timing](timing.qmd). `overconstrain = 1.2` constrains every clock at 1.2 times its real rate, so that a build shows how much margin it has. `paths = 100` sets how many paths the timing reports list for each constraint. `LPF(board; overconstrain = 1.2)` writes only the constraint file with the same scaling.
+The strategy turns synthesis retiming off, which [multicycle paths](multicycle.qmd) need, and turns timing-driven mapping on. Timing-driven packing and node replication stay off. On the one design they were measured on, over twenty placement seeds, packing raised the median clock speed slightly but made one seed in twenty fail, and replication changed nothing. `pack = true` and `replicate = true` turn them on for a design where a measurement shows a gain. Two options help with [measuring timing](timing.qmd). `overconstrain = 1.2` constrains every clock at 1.2 times its real rate, so that a build shows how much margin it has. `paths = 100` sets how many paths the timing reports list for each constraint. `LPF(board; overconstrain = 1.2)` writes only the constraint file with the same scaling.
 
 ## Simulation models for black boxes
 

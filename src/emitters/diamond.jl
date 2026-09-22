@@ -3,8 +3,9 @@
 # is `make` and not a session in the GUI. The project file lists the sources, the
 # strategy is Diamond's default with synthesis retiming off, so the registers a
 # multicycle constraint names are the only ones on its path, and with map driven
-# by timing, which is what moves a design that is close to its clock; the
-# constraint file comes from the board.
+# by timing but not packing or replicating for it, which on the one design they
+# were measured on made a seed in twenty fail; the constraint file comes from the
+# board.
 
 function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   b = f.board
@@ -33,21 +34,24 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
     push!(sources, file)
   end
   write(joinpath(dir, "$name.ldf"), _ldf(name, b, f.implementation, sources))
-  write(joinpath(dir, "$name.sty"), _sty(f.paths))
+  write(joinpath(dir, "$name.sty"), _sty(f.paths, f.pack, f.replicate))
   write(joinpath(dir, "build.sh"), _buildsh(name, b, f.implementation))
   chmod(joinpath(dir, "build.sh"), 0o755)
   write(joinpath(dir, "Makefile"), _makefile(name, b, f.implementation))
   dir
 end
 
-# the strategy, with the number of paths each timing report lists: the one after
-# map, which estimates the routing, and the one after place and route
-function _sty(paths::Int)
+# the strategy, with the number of paths each timing report lists -- the one after
+# map, which estimates the routing, and the one after place and route -- and
+# whether map packs and replicates for timing
+function _sty(paths::Int, pack::Bool, replicate::Bool)
   text = read(joinpath(@__DIR__, "diamond.sty"), String)
-  for stage in ("MAPSTA", "PARSTA")
-    r = Regex("(<Property name=\"PROP_$(stage)_WordCasePaths\" value=\")\\d+(\")")
-    occursin(r, text) || error("diamond.sty has no PROP_$(stage)_WordCasePaths to set")
-    text = replace(text, r => SubstitutionString("\\g<1>$paths\\g<2>"))
+  values = ["MAPSTA_WordCasePaths" => string(paths), "PARSTA_WordCasePaths" => string(paths),
+            "MAP_TimingDrivenPack" => pack ? "True" : "False", "MAP_TimingDrivenNodeRep" => replicate ? "True" : "False"]
+  for (prop, value) in values
+    r = Regex("(<Property name=\"PROP_$prop\" value=\")[^\"]*(\")")
+    occursin(r, text) || error("diamond.sty has no PROP_$prop to set")
+    text = replace(text, r => SubstitutionString("\\g<1>$value\\g<2>"))
   end
   text
 end

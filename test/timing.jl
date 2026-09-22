@@ -280,7 +280,12 @@ end
   @test_throws ArgumentError LPF(TimingDemo; overconstrain=0)
   dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo))
   sty = read(joinpath(dir, "TimingBlinker.sty"), String)
-  for p in ("PROP_MAP_TimingDriven", "PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
+  @test occursin("<Property name=\"PROP_MAP_TimingDriven\" value=\"True\"", sty)
+  for p in ("PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
+    @test occursin("<Property name=\"$p\" value=\"False\"", sty)
+  end
+  sty = read(joinpath(write(mktempdir(), TimingBlinker, Diamond(TimingDemo; pack=true, replicate=true)), "TimingBlinker.sty"), String)
+  for p in ("PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
     @test occursin("<Property name=\"$p\" value=\"True\"", sty)
   end
   @test occursin("<Property name=\"PROP_MAP_RegRetiming\" value=\"False\"", sty)
@@ -290,8 +295,8 @@ end
   @test occursin("72.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
   @test occursin("\"PROP_PARSTA_WordCasePaths\" value=\"250\"", read(joinpath(dir, "TimingBlinker.sty"), String))
   @test_throws ArgumentError Diamond(TimingDemo; paths=0)
-  f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50), :blink), TimingDemo)
-  @test (f.board, f.name, f.overconstrain, f.paths) == (TimingDemo, :blink, 1.2, 50)
+  f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50, pack=true), :blink), TimingDemo)
+  @test (f.board, f.name, f.overconstrain, f.paths, f.pack, f.replicate) == (TimingDemo, :blink, 1.2, 50, true, false)
 end
 
 const HAVE_YOSYS = Sys.which("yosys") !== nothing

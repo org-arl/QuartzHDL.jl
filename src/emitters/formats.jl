@@ -54,7 +54,8 @@ LPF(board::Board; overconstrain=1) =
    LPF(board, overconstrain))
 
 """
-    Diamond(board; vendor = String[], implementation = "impl", overconstrain = 1, paths = 100)
+    Diamond(board; vendor = String[], implementation = "impl", overconstrain = 1, paths = 100,
+            pack = false, replicate = false)
 
 A Lattice Diamond workspace for a design on a board: `write(dir, T, Diamond(board))`
 fills `dir` with the Verilog under `src/`, the constraint file, a project file
@@ -66,6 +67,12 @@ a black box with no netlist is listed as `src/<Name>.v` for the user to supply.
 `overconstrain` scales the clock rates in the constraint file, as described under
 `LPF`. `paths` sets how many paths the timing reports list for each constraint,
 starting with the worst.
+
+The strategy maps with timing in mind, and leaves timing-driven packing and node
+replication off. On the one design these were measured on, over twenty placement
+seeds, packing raised the median clock a little and made one seed in twenty fail,
+and replication changed nothing. `pack = true` and `replicate = true` turn them on
+for a design where a measurement shows a gain.
 """
 struct Diamond <: Format
   board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board
@@ -74,12 +81,16 @@ struct Diamond <: Format
   name::Union{Nothing,Symbol}  # the module's name, or the type's
   overconstrain::Float64       # what the constraint file multiplies every clock rate by
   paths::Int                   # the paths of each constraint the timing report lists
+  pack::Bool                   # timing-driven packing in map
+  replicate::Bool              # timing-driven node replication in map
 end
 
-function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl", overconstrain=1, paths=100)
+function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl", overconstrain=1, paths=100,
+    pack=false, replicate=false
+)
   overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"))
   paths > 0 || throw(ArgumentError("paths is a count above zero, got $paths"))
-  Diamond(board, collect(String, vendor), implementation, nothing, overconstrain, paths)
+  Diamond(board, collect(String, vendor), implementation, nothing, overconstrain, paths, pack, replicate)
 end
 
 """
@@ -108,8 +119,10 @@ outputpath(::Diamond, dir::AbstractString, name::Symbol) = joinpath(dir, string(
 
 # the format with a module name put on it, where a format carries one
 _named(f::Verilog, name::Symbol) = Verilog(name, f.suffix, f.debug, f.inits)
-_named(f::Diamond, name::Symbol) = Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths)
-_onboard(f::Diamond, board::Board) = Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths)
+_named(f::Diamond, name::Symbol) =
+  Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths, f.pack, f.replicate)
+_onboard(f::Diamond, board::Board) =
+  Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths, f.pack, f.replicate)
 _named(f::Format, ::Symbol) = f
 
 """
