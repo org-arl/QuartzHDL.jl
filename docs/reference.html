@@ -1113,8 +1113,9 @@ encname(e, v)</code></pre>
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-body-container">
-<pre class="juliajulia"><code>@blackbox Name verilog="VNAME" begin ... end</code></pre>
+<pre class="juliajulia"><code>@blackbox Name verilog="VNAME" primitive=false begin ... end</code></pre>
 <p>Declares a Verilog module QuartzHDL does not define – a vendor PLL, a RAM block, an oscillator. The body lists its ports (<code>input</code>, <code>output</code>, <code>clock</code>, <code>clockout</code>) using the datasheet’s names; a <code>clockout</code> also says which clock input it divides, by how much, and under what condition it runs. Nothing is emitted for the module itself, and <code>QuartzHDL.standin</code> supplies whatever behaviour a simulation needs.</p>
+<p><code>primitive=true</code> marks a module the tools know by themselves, such as <code>OSCH</code> on a MachXO2: a Diamond workspace then lists no netlist file for it.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb77"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@blackbox</span> PLL verilog<span class="op">=</span><span class="st">"EHXPLLL"</span> <span class="cf">begin</span></span>
 <span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clock</span>(CLKI)</span>
 <span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clockout</span>(CLKOP, from<span class="op">=</span>CLKI, divide<span class="op">=</span><span class="fl">2</span>)</span>

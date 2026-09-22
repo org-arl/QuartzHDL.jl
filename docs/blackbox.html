@@ -453,7 +453,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>clockout(NAME; from, divide, phase, enable)</code> declares a clock output <em>and how it is made</em>: an edge every <code>divide</code> edges of <code>from</code>, offset by <code>phase</code>, only while <code>enable</code> holds, where <code>enable</code> may read the part’s inputs.</li>
 <li><code>pragma("...")</code> is emitted as a synthesis attribute on the instance (<code>/* synthesis syn_noprune=1 */</code>) and means nothing to the simulator.</li>
 </ul>
-<p><code>verilog="Name"</code> after the part’s name sets the Verilog module name when it differs.</p>
+<p><code>verilog="Name"</code> after the part’s name sets the Verilog module name when it differs. <code>primitive=true</code> marks a module the tools know by themselves, such as the <code>OSCH</code> oscillator of a MachXO2; a <a href="./compiling.html">Diamond workspace</a> then lists no netlist file for it.</p>
 </section>
 <section id="wiring-a-part" class="level2">
 <h2 class="anchored" data-anchor-id="wiring-a-part">Wiring a part</h2>
