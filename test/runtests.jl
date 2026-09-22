@@ -2200,6 +2200,44 @@ end
   @test r.ok skip=!HAVE_IVERILOG
 end
 
+@blackbox RefGate begin
+  clock(CLKI)
+  input(EN::Bool)
+  clockout(OUT, from = CLKI, divide = 1, enable = en)
+end
+
+# one source under an enable is a mux with one way: gated off while high, the
+# output rests low, and gated on while high it waits for the next tick
+@quartz struct GatedRef
+  @in en::Bool
+  @out seen::Bool = false
+  refa::RefA = RefA()
+  gate::RefGate = RefGate()
+end
+
+@primary GatedRef clk
+
+@wire GatedRef begin
+  refa.clki ← clk_p
+  clk ← refa.clkop
+  slow ← refa.clkos
+  gate.clki ← slow
+  gate.en ← en
+  gated ← gate.out
+end
+
+@on GatedRef posedge(clk) seen ← clocklevel(this, :gated)
+
+@testset "a gated clock read as data rests low while off" begin
+  f = joinpath(mktempdir(), "tree.v")
+  simmodels(f, GatedRef)
+  for off in 20:23, on in 30:33
+    r = cosim(GatedRef, [(en = !(off <= i < on),) for i in 1:60];
+              clocks = (clk_p = 1,), extra_sources = [f])
+    @test r.ok skip=!HAVE_IVERILOG
+  end
+end
+
 @quartz struct PadEn
   @in d::Bits{4}
   @in en::Bool
