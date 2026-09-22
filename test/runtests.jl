@@ -2247,6 +2247,61 @@ end
   end
 end
 
+# a full-rate clock reads low at every sample point, since a sample is taken at a
+# rising edge and every full-rate clock is low there; a mux of such sources reads
+# the same, and its edges are counted all the same
+@quartz struct PinMux
+  @in sel::Bool
+  @out seen::Bool = false
+  @out edges::Bits{8} = 0
+  mux::RefMux = RefMux()
+end
+
+@wire PinMux begin
+  mux.clk0 ← clk
+  mux.clk1 ← other_i
+  picked ← mux.dcmout
+  mux.sel ← sel
+end
+
+@on PinMux posedge(clk) seen ← clocklevel(this, :picked)
+@on PinMux posedge(picked) edges ← edges + 1
+
+@quartz struct FullMux
+  @in sel::Bool
+  @out seen::Bool = false
+  @out edges::Bits{8} = 0
+  refa::RefA = RefA()
+  refb::RefA = RefA()
+  mux::RefMux = RefMux()
+end
+
+@primary FullMux clk
+
+@wire FullMux begin
+  refa.clki ← clk_a
+  refb.clki ← clk_b
+  clk ← refa.clkop
+  slow ← refa.clkos
+  fast_b ← refb.clkop
+  mux.clk0 ← clk
+  mux.clk1 ← fast_b
+  picked ← mux.dcmout
+  mux.sel ← sel
+end
+
+@on FullMux posedge(slow) seen ← clocklevel(this, :picked)
+@on FullMux posedge(picked) edges ← edges + 1
+
+@testset "a mux of full-rate clocks reads low and counts every edge" begin
+  f = joinpath(mktempdir(), "tree.v")
+  simmodels(f, FullMux)
+  for (T, clocks) in ((PinMux, (clk = 1, other_i = 1)), (FullMux, (clk_a = 1, clk_b = 1))), at in 20:23
+    r = cosim(T, [(sel = at <= i < at + 13,) for i in 1:60]; clocks, extra_sources = [f])
+    @test r.ok skip=!HAVE_IVERILOG
+  end
+end
+
 @quartz struct PadEn
   @in d::Bits{4}
   @in en::Bool
