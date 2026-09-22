@@ -146,6 +146,7 @@ end
 # settled by the time it is read.
 function _simswitches(out, e::Emitter, bb::BlackboxDef, divs, enables)
   for group in bb.gates
+    all(get(divs, bb.tree[i].name, 1) == 1 for i in group) || continue
     high = String[]
     for i in group
       c = bb.tree[i]
