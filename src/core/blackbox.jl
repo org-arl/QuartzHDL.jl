@@ -220,7 +220,6 @@ function _switchgates(this, f::Symbol, x::T, old, new) where T
   levels
 end
 
-_sourcelevel(::Nothing, f::Symbol, port::Symbol) = false
 function _sourcelevel(this, f::Symbol, port::Symbol)
   net = _boundnet(_clockbind(typeof(this), f), port)
   net === nothing ? false : clocklevel(this, net)
@@ -539,13 +538,17 @@ function _slotstep(m::QuartzModule, roots, clks, kw)
   isempty(_clocks(typeof(m))) && return _stepwith(m, Val(Symbol("")), kw)
   # the pin clocks take their turns in the order given, and everything a pin
   # clock's edge derives happens in its turn, before the next pin clock's edge --
-  # the order a testbench pulsing the pins one after another produces
-  stepped = UInt64(0)
+  # the order a testbench pulsing the pins one after another produces. A turn
+  # starts with the tick record clear, since a clock the first pin's turn ticked
+  # and the next pin's turn ticks again, through a mux switched between them, has
+  # had two edges, and one bit per clock cannot say so
+  first = true
   for c in roots
     c in clks || continue
+    first || (m = _clearticks(m))
+    first = false
     m = _stepnet(m, c, kw)
-    stepped |= _edgebits(_treeedges(m), c)
-    m, stepped = _stepedges(m, clks, kw, stepped)
+    m = _stepedges(m, clks, kw, _edgebits(_treeedges(m), c))
   end
   m
 end
@@ -558,7 +561,7 @@ function _stepedges(m, clks, kw, stepped::UInt64)
   while true
     edges = _treeedges(m)
     pending = _pendingbits(edges, stepped)
-    pending == 0 && return (m, stepped)
+    pending == 0 && return m
     while pending != 0
       i = _slowest(edges, pending)
       net = edges[i][1]
