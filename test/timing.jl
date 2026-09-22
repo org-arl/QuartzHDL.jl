@@ -222,14 +222,17 @@ end
   @test_throws "only valid inside" @eval @timing_exempt "nowhere"
 end
 
-VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
+const HAVE_YOSYS = Sys.which("yosys") !== nothing
+HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not tested"
+
+@testset "quartz timing, from the command line" begin
   dir = mktempdir()
   design = joinpath(dir, "counter.jl")
   write(design, """
     using QuartzHDL
     @quartz struct Counter
       @in cmd::Bits{8}
-      total::Bits{32} = 0
+      @out total::Bits{32} = 0
     end
     @on Counter posedge(clk) begin
       if cmd == 7
@@ -237,21 +240,50 @@ VERSION >= v"1.12" && @testset "quartz timing, from the command line" begin
       end
     end
     """)
-  julia = `$(joinpath(Sys.BINDIR, "julia")) --startup-file=no --project=$(dirname(@__DIR__)) -m QuartzHDL timing`
-  text = read(`$julia $design`, String)
-  @test occursin("Timing report for Counter", text) && occursin("counter.jl:7", text)
-  @test success(`$julia $design --budget "max_bits = 8 => 16, reject = c -> c.instance == \"elsewhere\""`)
-  @test occursin("8 inputs, controls 32 register bits", read(`$julia $design --condition counter.jl:7`, String))
-  @test occursin("32 bits, clock clk", read(`$julia $design --top Counter --register total`, String))
-  out = IOBuffer()
-  status = run(pipeline(ignorestatus(`$julia $design --json --budget "max_bits = 4 => 16"`); stdout=out))
-  json = String(take!(out))
-  @test status.exitcode == 1
+  # the command run in this process, with what it prints and the status it exits with
+  function quartz(args...)
+    outfile, errfile = joinpath(dir, "out"), joinpath(dir, "err")
+    status = open(outfile, "w") do out
+      open(errfile, "w") do err
+        redirect_stdio(; stdout=out, stderr=err) do
+          QuartzHDL._timingmain(collect(String, args))
+        end
+      end
+    end
+    (read(outfile, String), read(errfile, String), status)
+  end
+  text, _, status = quartz(design)
+  @test status == 0 && occursin("Timing report for Counter", text) && occursin("counter.jl:7", text)
+  @test quartz(design, "--budget", "max_bits = 8 => 16, reject = c -> c.instance == \"elsewhere\"")[3] == 0
+  @test quartz(design, "--top", "Counter", "--budget", "max_bits = 4 => 16", "--count", "3")[3] == 1
+  @test occursin("8 inputs, controls 32 register bits", quartz(design, "--condition", "counter.jl:7")[1])
+  @test occursin("32 bits, clock clk", quartz(design, "--register", "total")[1])
+  json, _, status = quartz(design, "--json", "--budget", "max_bits = 4 => 16")
+  @test status == 1
   @test startswith(json, "{\"version\":1,\"top\":\"Counter\",\"lut_inputs\":4,\"depth\":false,\"flow\":\"\",\"ok\":false,")
   @test occursin("\"budget\":{\"max_bits\":[[4,16]],\"max_carry\":null,\"max_chain\":null,\"max_depth\":null,\"reject\":false}", json)
   @test occursin("\"rejected\":[\"max_bits\"]", json) && occursin("\"arithmetic\":[[\"add\",32]]", json)
-  @test run(ignorestatus(pipeline(`$julia $design --budget "max_bits = "`; stderr=devnull))).exitcode == 2
-  @test occursin("usage: quartz timing", read(`$julia --help`, String))
+  if HAVE_YOSYS
+    json, _, status = quartz(design, "--json", "--depth", "--lut-inputs", "4")
+    @test status == 0 && occursin("\"depth\":true", json) && occursin("\"connected\":true", json)
+  end
+  @test occursin("usage: quartz timing", quartz("--help")[1])
+  # whatever stops the report being made is status 2, with a word on stderr
+  for args in ((design, "--budget", "max_bits = "), (design, "--condition", "nowhere.jl:1"), (design, "--register", "none"),
+               (design, "--lut-inputs", "four"), (design, "--count", "x"), (design, "--bogus"), (design, "--top"),
+               (design, "--top", "Nope"), (joinpath(dir, "none.jl"),), (), (design, design))
+    _, err, status = quartz(args...)
+    @test status == 2 && startswith(err, "quartz: ")
+  end
+  withenv("PATH" => "") do
+    _, err, status = quartz(design, "--budget", "max_depth = 3")
+    @test status == 2 && occursin("yosys is not installed", err)
+  end
+  # and the real thing, once: a fresh Julia with the package's own project
+  if VERSION >= v"1.12"
+    julia = `$(joinpath(Sys.BINDIR, "julia")) --startup-file=no --project=$(dirname(@__DIR__)) -m QuartzHDL timing`
+    @test run(ignorestatus(`$julia $design --budget "max_bits = 4 => 16"`)).exitcode == 1
+  end
 end
 
 @quartz struct TimingBlinker
@@ -307,9 +339,6 @@ end
   @test (f.board, f.name, f.overconstrain, f.paths, f.pack, f.replicate) == (TimingDemo, :blink, 1.2, 50, true, false)
 end
 
-const HAVE_YOSYS = Sys.which("yosys") !== nothing
-HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not tested"
-
 @testset "the timing report with the depths yosys finds" begin
   if HAVE_YOSYS
     r = timing(TimingSums; depth=true)
@@ -335,11 +364,16 @@ HAVE_YOSYS || @warn "yosys not found: the depths of the timing report are not te
     @test timingrow(r, "sub.ram.q", "sub.q", :data).depth == 0 && timingrow(r, "sub.ram.q", "sub.q", :data).connected
     @test timingrow(r, "sub.addr", "sub.ram.rdaddress", :data).depth == 0
     @test_throws ErrorException timing(TimingSums; depth=true, synth="no_such_pass")
-    r = timing(TimingBlinker; depth=true, board=TimingDemo)
-    @test r.flow == "synth_lattice -family xo2" && occursin("depths from yosys, synth_lattice -family xo2", sprint(show, MIME"text/plain"(), r))
-    @test timing(TimingBlinker; depth=true, board=TimingDemo, synth="synth_ice40").flow == "synth_ice40"
     @test isempty(timing(TimingBlinker; depth=true).flow)
-    @test timingrow(timing(TimingSums; depth=true, synth="synth_lattice -family xo2"), "a", "acc", :condition).depth ≥ 2
+    # the vendor flows are a matter of the yosys installed: an older one may lack them
+    lattice = success(pipeline(`yosys -p "help synth_lattice"`; stdout=devnull, stderr=devnull))
+    if lattice
+      r = timing(TimingBlinker; depth=true, board=TimingDemo)
+      @test r.flow == "synth_lattice -family xo2" && occursin("depths from yosys, synth_lattice -family xo2", sprint(show, MIME"text/plain"(), r))
+      @test timingrow(timing(TimingSums; depth=true, synth="synth_lattice -family xo2"), "a", "acc", :condition).depth ≥ 2
+    end
+    ice = success(pipeline(`yosys -p "help synth_ice40"`; stdout=devnull, stderr=devnull))
+    ice && @test timing(TimingBlinker; depth=true, board=TimingDemo, synth="synth_ice40").flow == "synth_ice40"
   end
   withenv("PATH" => "") do
     r = @test_logs (:warn, r"yosys not found") timing(TimingSums; max_depth=3)
@@ -381,4 +415,56 @@ end
   @test timingrow(r, "busy", "c", :condition).inputs == 5       # the else stands under both arms
   first_arm = r.conditions[findfirst(c -> c.inputs == 5, r.conditions)]
   @test sort([x.to for x in first_arm.decides]) == ["a", "c"] && first_arm.controls == 16
+end
+
+# every way a value is reshaped on the way to a register, and where a pad, a
+# multicycle wire, a reset override and a masked constant lead
+@quartz struct TimingShapes
+  @in x::Bits{8}
+  @in rst::Bool = false
+  @in sel::Bits{2}
+  @io  bus::Pad{8} = Pad{8}(:none)
+  word::Bits{16} = 0
+  masked::Bits{8} = 0
+  shifted::Bits{8} = 0
+  rolled::Bits{8} = 0
+  signed::SBits{16} = 0
+  picked::Bits{4} = 0
+  slow::Multicycle{2,Bits{8}}
+  @out held::Bits{8} = 0
+  @out mixed::Bits{16} = 0
+end
+
+@wire TimingShapes slow ← word[0:7] + word[8:15]
+
+@on TimingShapes posedge(clk) begin
+  @reset(rst; masked = 3)
+  word ← x ⊞ x
+  masked ← x & 0x0f
+  shifted ← (x << 2) | (x >> 3)
+  rolled ← bitrotate(x, 3)
+  signed ← SBits{16}(SBits{8}(x))
+  picked ← word[sel .+ (0:3)]
+  held ← slow
+  bus ← ifelse(x[0], drive(word[8:15]), release())
+  mixed ← ifelse(x[7], Bits{16}(x) + 1, Bits{16}(x) - word)
+end
+
+@testset "bits are followed through every reshaping of a value" begin
+  r = timing(TimingShapes)
+  row(f, t) = timingrow(r, f, t, :data)
+  @test row("x", "masked").read == 4
+  @test row("x", "shifted").read == 8
+  @test row("x", "rolled").read == 8
+  @test row("x", "signed").read == 8
+  @test row("x", "word").read == 8 && row("x", "word").width == 16
+  @test timingrow(r, "sel", "picked", :condition).read == 2
+  @test "word → held (2 cycles)" in r.excluded
+  @test row("word", "bus").read == 8 && timingrow(r, "x", "bus", :condition).read == 1
+  @test row("word", "mixed").flags == [:muxed_arithmetic]
+  d = QuartzHDL._flatten(TimingShapes)
+  masked = d.sinks[findfirst(s -> s.name == :masked, d.sinks)]
+  @test any(x -> x.reset && x.value == 3, masked.drives)
+  @test QuartzHDL._sourcestr(nothing) == ""
+  @test sprint(show, r) == "TimingReport(TimingShapes, $(length(r.paths)) paths, $(length(r.conditions)) conditions)"
 end
