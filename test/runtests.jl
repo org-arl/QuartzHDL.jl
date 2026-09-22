@@ -2144,6 +2144,7 @@ end
 @quartz struct Handover
   @in switch::Bool
   @out count::Bits{8} = 0
+  @out edges::Bits{8} = 0
   @out level::Bool = false
   refa::RefA = RefA()
   refb::RefB = RefB()
@@ -2175,6 +2176,8 @@ end
   level ← clocklevel(this, :slow_b)
 end
 
+@on Handover posedge(slow) edges ← edges + 1
+
 @testset "a clock mux read as data follows the selected source" begin
   clks, every, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
   m = Handover()
@@ -2190,7 +2193,9 @@ end
 
   f = joinpath(mktempdir(), "tree.v")
   simmodels(f, Handover)
-  for at in 40:43
+  # a switch that lands between the two pins' turns, in a slot where both sources
+  # tick, gives the mux output two edges in that slot
+  for at in 39:46
     r = cosim(Handover, [(switch = i == at,) for i in 1:120];
               clocks = (clk_a = 1, clk_b = 1), extra_sources = [f])
     @test r.ok skip=!HAVE_IVERILOG

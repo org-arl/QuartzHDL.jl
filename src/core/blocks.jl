@@ -900,7 +900,6 @@ function _gatherports(body::Expr)
 end
 
 function _wireinputs(x::T, nt::NamedTuple) where T<:QuartzModule
-  isblackbox(T) && return _wireboxinputs(nothing, Symbol(""), x, nt)
   new = _setinputs(getfield(x, INPUTS), nt)
   new === getfield(x, INPUTS) ? x : _merge(x, NamedTuple{(INPUTS,)}((new,)))
 end
