@@ -136,26 +136,24 @@ function _simsource(out, e::Emitter, bb::BlackboxDef, divs, enables, src)
   println(out, "  end\n")
 end
 
-# A clock with several sources is a mux, and a change of its selection is not an
-# edge: the output takes the level of the source it switches to when that is low,
-# and otherwise holds until that source's own next edge. That is the simulator's
-# rule too -- it counts the edges of whichever source is selected, and a switch by
-# itself never counts -- so the two agree whatever the two sources are doing at
-# the moment of the switch. The selected level is a wire of its own, acted on at
-# its falling edge, so the enables have settled by the time it is read.
+# A gated output -- a mux, or one source under an enable -- changes selection
+# without an edge: the output takes the level of the source it switches to when
+# that is low, and otherwise holds until that source's own next edge; gated off,
+# it rests low. That is the simulator's rule too -- it counts the edges of
+# whichever source is selected, and a switch by itself never counts -- so the two
+# agree whatever the sources are doing at the moment of the switch. The selected
+# level is a wire of its own, acted on at its falling edge, so the enables have
+# settled by the time it is read.
 function _simswitches(out, e::Emitter, bb::BlackboxDef, divs, enables)
-  for name in unique(c.name for c in bb.tree)
-    recipes = [i for (i, c) in enumerate(bb.tree) if c.name === name && c.from !== nothing]
-    length(recipes) > 1 || continue
+  for group in bb.gates
     high = String[]
-    for i in recipes
+    for i in group
       c = bb.tree[i]
-      get(divs, c.name, c.divide) == 1 || continue
       en = get(enables, i, nothing)
       push!(high, en === nothing ? _vport(bb, c.from) : "($(_ref(e, en)) & $(_vport(bb, c.from)))")
     end
-    v = _vport(bb, name)
-    println(out, "  wire sel_$v = $(isempty(high) ? "1'b0" : join(high, " | "));")
+    v = _vport(bb, bb.tree[first(group)].name)
+    println(out, "  wire sel_$v = $(join(high, " | "));")
     println(out, "  always @(negedge sel_$v) #1 $v = 1'b0;")
   end
   println(out)
