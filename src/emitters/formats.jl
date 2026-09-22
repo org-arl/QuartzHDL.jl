@@ -58,7 +58,8 @@ LPF(board::Board; overconstrain=1) =
             pack = false, replicate = false)
 
 A Lattice Diamond workspace for a design on a board: `write(dir, T, Diamond(board))`
-fills `dir` with the Verilog under `src/`, the constraint file, a project file
+fills `dir` with the Verilog under `src/`, the constraint file and the same
+constraints in the form synthesis reads (`.fdc`), a project file
 (`.ldf`) with a default strategy (`.sty`), and a `build.sh` and `Makefile` that run
 Diamond from synthesis to the bitstream -- and the JEDEC file on a MachXO part --
 so `make` there builds the design where Diamond is installed. `vendor` lists the

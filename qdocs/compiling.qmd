@@ -89,11 +89,14 @@ build/rev2/
   src/Top.v          the design, and every submodule with it
   src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
   Rev2.lpf           the constraints, as `LPF(board)` writes them
+  Rev2.fdc           the same clocks and multicycle paths, in the form Synplify reads
   Top.ldf            the project file: device, top, sources, strategy
   Top.sty            Diamond's default strategy, with synthesis retiming off and timing-driven map
   build.sh           synthesis, translate, map, place-and-route, bitstream
   Makefile           `make` runs build.sh when a source is newer than the bitstream
 ```
+
+Map and place-and-route read the `.lpf`. Synplify reads the `.fdc`, and without one it times every path against a default clock and does not know about the multicycle paths, so it may spend its effort on a path the design allows many cycles for. The two files are written from the same declarations.
 
 The board's `device` must be the full part number Diamond knows, `LCMXO2-7000HE-4TG144I` rather than a family. A MachXO part boots from its own flash, so its `build.sh` also exports the JEDEC file, and `make` targets that. `build.sh` sources `diamond_env` from `/usr/local/lattice/bin/lin64`, or from `$DIAMOND_BIN` when Diamond is elsewhere.
 
