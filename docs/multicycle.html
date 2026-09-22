@@ -2,17 +2,23 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.26">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>Multicycle paths – QuartzHDL</title>
 <style>
-code{white-space: pre-wrap;}
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -67,15 +73,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <meta name="quarto:offset" content="./">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-c0d8b526fa222858bf56437ad6d5e615.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-f84607303771c80386bd6d3edccc808a.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -320,6 +325,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  <span class="menu-text">Boards and constraints</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./timing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Timing</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -420,7 +431,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong><code>Multicycle{K,T}</code>: slow logic whose inputs are slower still</strong></p>
+<p><strong><code>Multicycle{K,T}</code>: logic that is given several clock cycles to settle</strong></p>
 <p>Sometimes the logic is slow but its inputs are slower. A correlation over a long shift register that only shifts once per symbol has no need of pipeline stages, only of time: if the register holds still for sixteen clocks, the logic may take sixteen clocks to settle. Telling the vendor tools so is a <em>multicycle path</em> constraint, and it is the kind of constraint that is easy to write wrongly, because it names registers by hand and nothing checks it.</p>
 <p>A <code>Multicycle{K,T}</code> is a wire allowed K cycles to settle, on the condition that the registers it reads hold still that long. The compiler writes the constraint, the settle counter and the simulator’s check from the same traced logic.</p>
 <section id="declaring-one" class="level2">
@@ -477,33 +488,33 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre>xcorr is read 1 cycle after its sources moved, and its path is declared 8 cycles; guard the read with isready(xcorr)
 Stacktrace:
   [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
   [2] <span class="ansi-bold">getindex</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:497</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:497</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [3] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:36</span><span class="ansi-bright-black-fg"> [inlined]</span>
-  [4] <span class="ansi-bold">var"#on#Corr#2"</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">this</span>::Corr, <span class="ansi-bright-black-fg">kw#281</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-magenta-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:343</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:36</span><span class="ansi-bright-black-fg"> [inlined]</span>
+  [4] <span class="ansi-bold">var"#on#Corr#2"</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">this</span>::Corr, <span class="ansi-bright-black-fg">kw#146</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span><span class="ansi-bold">)</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-magenta-fg">Main.Notebook</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:343</span>
   [5] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1142</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1142</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [6] <span class="ansi-bold">_runedge</span><span class="ansi-bold">(</span>::Corr, ::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, ::Vector<span class="ansi-bright-black-fg">{Symbol}</span>, ::Val<span class="ansi-bright-black-fg">{:clk}</span>, ::Val<span class="ansi-bright-black-fg">{:posedge}</span>, ::Val<span class="ansi-bright-black-fg">{(:comb, Symbol(""), Symbol(""), (:xcorr,), (), ())}</span>, ::Val<span class="ansi-bright-black-fg">{(:on, :clk, :posedge, (:mfo, :bb), (:sample, :x), ())}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1136</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1136</span>
   [7] <span class="ansi-bold">macro expansion</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [8] <span class="ansi-bold">_runclock</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1134</span><span class="ansi-bright-black-fg"> [inlined]</span>
   [9] <span class="ansi-bold">_runclock</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1131</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1131</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [10] <span class="ansi-bold">_stepinner</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">m</span>::Corr, <span class="ansi-bright-black-fg">clk</span>::Val<span class="ansi-bright-black-fg">{:clk}</span>, <span class="ansi-bright-black-fg">kw</span>::@NamedTuple<span class="ansi-bright-black-fg">{x::Bool, sample::Bool}</span>, <span class="ansi-bright-black-fg">ctx</span>::QuartzHDL.PadContext<span class="ansi-bright-black-fg">{@NamedTuple{x::Bool, sample::Bool}, @NamedTuple{}}</span><span class="ansi-bold">)</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1074</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-cyan-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1074</span>
  [11] <span class="ansi-bold">_stepwith</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1067</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:1067</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [12] <span class="ansi-bold">#step#47</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:204</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [13] <span class="ansi-bold">step</span>
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:201</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">blocks.jl:201</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [14] top-level scope
-<span class="ansi-bright-black-fg">    @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:67</span></pre>
+ <span class="ansi-bright-black-fg">   @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">multicycle.qmd:67</span></pre>
 </div>
 </div>
 </div>

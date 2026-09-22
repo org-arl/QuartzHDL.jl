@@ -37,6 +37,7 @@ It also provides higher level design patterns — finite state machines, metagua
 - **Simulation** with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C, PWM and RAM, stand-ins for black boxes, live waveforms in Surfer or `Plots`, and a `sim>` custom REPL.
 - **Compiles to Verilog** – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.
 - **Board to bitstream** — `@board` describes the pins, and the constraint file and a Lattice Diamond workspace, with a Makefile that builds the bitstream, are generated from it.
+- **Timing report** — lists the conditions and arithmetic most likely to limit the clock speed, with their source lines; supports limits that a test can check; and can add logic depth from yosys.
 
 ## Installation
 
@@ -139,7 +140,7 @@ That is the whole loop: describe, simulate, compile. The rest of this manual wal
 - **Writing hardware** covers the language a construct at a time, starting with [modules and registers](modules.qmd).
 - **Going further** adds the constructs that make real designs short: [pulses, timeouts and edges](timekeeping.qmd), [clock domains](domains.qmd), [pipelines](pipelines.qmd), [multicycle paths](multicycle.qmd), [submodules](composing.qmd) and [black boxes](blackbox.qmd).
 - **Simulating** covers [driving a simulation](simulating.qmd), [benches](benches.qmd), [waveforms and plots](visualizing.qmd), the [component library](library.qmd) and [tests and CI](testing.qmd).
-- **Building** covers [Verilog output](compiling.qmd) and [boards and constraints](boards.qmd).
+- **Building** covers [Verilog output](compiling.qmd), [boards and constraints](boards.qmd) and the [timing report](timing.qmd).
 - **Extending** shows how to write [custom components](components.qmd) and [custom emitters](emitters.qmd).
 - The appendices hold a [side-by-side with Verilog](verilog.qmd), the [rules the compiler enforces](rules.qmd), a look [under the hood](internals.qmd), and the [API reference](reference.qmd).
 

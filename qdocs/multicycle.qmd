@@ -3,7 +3,7 @@ title: "Multicycle paths"
 engine: julia
 ---
 
-**`Multicycle{K,T}`: slow logic whose inputs are slower still**
+**`Multicycle{K,T}`: logic that is given several clock cycles to settle**
 
 ```{julia}
 #| echo: false

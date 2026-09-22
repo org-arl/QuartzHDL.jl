@@ -25,6 +25,7 @@ QuartzHDL is not a Julia-to-hardware compiler and not a replacement for Verilog.
 - **Simulation** with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C, PWM and RAM, stand-ins for black boxes, live waveforms in Surfer or `Plots`, and a `sim>` custom REPL.
 - **Compiles to Verilog** – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.
 - **Board to bitstream** — `@board` describes the pins, and the constraint file and a Lattice Diamond workspace, with a Makefile that builds the bitstream, are generated from it.
+- **Timing report** — lists the conditions and arithmetic most likely to limit the clock speed, with their source lines; supports limits that a test can check; and can add logic depth from yosys.
 
 ## Installation
 

@@ -3,7 +3,7 @@ title: "Quickstart"
 engine: julia
 ---
 
-**A small design, end to end**
+**A small design, from description to Verilog**
 
 Let's build something small but real: a pulse-width modulator. It takes an 8-bit `duty` and produces a square wave whose high time is `duty` out of every 256 clocks. Along the way we will simulate it, look at its waveform, check the generated Verilog against the Julia model, and write the Verilog out.
 

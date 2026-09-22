@@ -267,7 +267,7 @@ end
     write(dir, Soc, Diamond(SocBoard; vendor = [ram]))
   end
   files = Set(relpath(joinpath(r, f), dir) for (r, _, fs) in walkdir(dir) for f in fs)
-  @test files == Set(["Makefile", "Soc.ldf", "Soc.sty", "SocBoard.lpf", "build.sh", "src/Soc.v", "src/chip_ram.v"])
+  @test files == Set(["Makefile", "Soc.ldf", "Soc.sty", "SocBoard.lpf", "SocBoard.fdc", "build.sh", "src/Soc.v", "src/chip_ram.v"])
   @test occursin("module Soc (", read(joinpath(dir, "src", "Soc.v"), String))
   @test occursin("LOCATE COMP \"clk_ref_i\" SITE \"G2\" ;", read(joinpath(dir, "SocBoard.lpf"), String))
   ldf = read(joinpath(dir, "Soc.ldf"), String)

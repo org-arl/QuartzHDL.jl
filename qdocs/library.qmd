@@ -3,7 +3,7 @@ title: "Library components"
 engine: julia
 ---
 
-**The chips around the design, ready to attach**
+**Simulation models of common peripheral chips**
 
 ```{julia}
 #| echo: false

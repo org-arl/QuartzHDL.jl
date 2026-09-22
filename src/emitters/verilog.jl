@@ -1028,7 +1028,7 @@ function _emit_partwrite(out, e::Emitter, n::WriteNode, f, ind)
 end
 
 # a log statement that is not being emitted, and an `if` that would hold nothing else
-_dead(n) = (n isa LogNode || n isa CheckNode) ? !_vdebug() :
+_dead(n) = n isa ExemptNode ? true : (n isa LogNode || n isa CheckNode) ? !_vdebug() :
            n isa IfNode ? all(_dead, n.then) && all(_dead, n.els) : false
 
 function _emit_tree(out, e::Emitter, tree::Vector, ind, fields, pipes)

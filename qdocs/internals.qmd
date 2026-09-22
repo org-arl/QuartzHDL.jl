@@ -2,7 +2,7 @@
 title: "Under the hood"
 ---
 
-**How one source becomes both a simulator and a Verilog module**
+**How a design is compiled into a simulator and into Verilog**
 
 You do not need this page to use QuartzHDL. It is here for the reader who wants to know what the macros do, and for anyone who wants to work on the package.
 

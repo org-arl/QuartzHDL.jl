@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Library components – QuartzHDL</title>
+<title>Timing – QuartzHDL</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -146,7 +146,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./simulating.html"><b>Simulating</b></a></li><li class="breadcrumb-item"><a href="./library.html">Library components</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./compiling.html"><b>Building</b></a></li><li class="breadcrumb-item"><a href="./timing.html">Timing</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -292,7 +292,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./library.html" class="sidebar-item-text sidebar-link active">
+  <a href="./library.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Library components</span></a>
   </div>
 </li>
@@ -327,7 +327,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./timing.html" class="sidebar-item-text sidebar-link">
+  <a href="./timing.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Timing</span></a>
   </div>
 </li>
@@ -401,23 +401,25 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#uart" id="toc-uart" class="nav-link active" data-scroll-target="#uart">UART</a></li>
-  <li><a href="#ft2232h" id="toc-ft2232h" class="nav-link" data-scroll-target="#ft2232h">FT2232H</a></li>
-  <li><a href="#spi" id="toc-spi" class="nav-link" data-scroll-target="#spi">SPI</a></li>
-  <li><a href="#i2c" id="toc-i2c" class="nav-link" data-scroll-target="#i2c">I2C</a></li>
-  <li><a href="#pwm" id="toc-pwm" class="nav-link" data-scroll-target="#pwm">PWM</a></li>
-  <li><a href="#ram" id="toc-ram" class="nav-link" data-scroll-target="#ram">RAM</a></li>
-  <li><a href="#receiving-take-or-on" id="toc-receiving-take-or-on" class="nav-link" data-scroll-target="#receiving-take-or-on">Receiving: <code>take!</code> or <code>on</code></a></li>
-  <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
+  <li><a href="#a-design-to-look-at" id="toc-a-design-to-look-at" class="nav-link active" data-scroll-target="#a-design-to-look-at">A design to look at</a></li>
+  <li><a href="#the-report" id="toc-the-report" class="nav-link" data-scroll-target="#the-report">The report</a></li>
+  <li><a href="#looking-closer" id="toc-looking-closer" class="nav-link" data-scroll-target="#looking-closer">Looking closer</a></li>
+  <li><a href="#a-budget-for-tests" id="toc-a-budget-for-tests" class="nav-link" data-scroll-target="#a-budget-for-tests">A budget, for tests</a>
+  <ul class="collapse">
+  <li><a href="#leaving-a-condition-alone" id="toc-leaving-a-condition-alone" class="nav-link" data-scroll-target="#leaving-a-condition-alone">Leaving a condition alone</a></li>
+  </ul></li>
+  <li><a href="#levels-of-logic-from-yosys" id="toc-levels-of-logic-from-yosys" class="nav-link" data-scroll-target="#levels-of-logic-from-yosys">Levels of logic, from yosys</a></li>
+  <li><a href="#from-the-command-line" id="toc-from-the-command-line" class="nav-link" data-scroll-target="#from-the-command-line">From the command line</a></li>
+  <li><a href="#measuring-the-timing-margin-of-a-vendor-build" id="toc-measuring-the-timing-margin-of-a-vendor-build" class="nav-link" data-scroll-target="#measuring-the-timing-margin-of-a-vendor-build">Measuring the timing margin of a vendor build</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./simulating.html"><b>Simulating</b></a></li><li class="breadcrumb-item"><a href="./library.html">Library components</a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./compiling.html"><b>Building</b></a></li><li class="breadcrumb-item"><a href="./timing.html">Timing</a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title">Library components</h1>
+<h1 class="title">Timing</h1>
 </div>
 
 
@@ -434,125 +436,294 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong>Simulation models of common peripheral chips</strong></p>
-<p>What sits on the board beside the design — a USB controller, a UART, an SPI flash, an I2C sensor, a block RAM — comes from the library as a <em>component</em>: a Julia model of the chip that attaches to a <code>Simulation</code> and drives and reads the design’s nets as the chip would. A component is bound to the design’s nets by <em>role</em>, and then talked to the way a host would talk to the hardware.</p>
-<p>A component needs no wiring and no entry in the clock plan: it reads and drives nets the way a stimulus does, from a task of its own or, for a bus it must watch every cycle, a hook run after every slot. Pins are asserted as <code>true</code>, as everywhere in the design; a pin declared <code>active=:low</code> is inverted at the pin, not here. <code>close(c)</code> takes a component off the bench.</p>
-<section id="uart" class="level2">
-<h2 class="anchored" data-anchor-id="uart">UART</h2>
-<p>Let’s build a loopback and talk to it:</p>
+<p><strong><code>timing(T)</code>: a report of the logic most likely to limit the clock speed</strong></p>
+<p>When a design runs close to the maximum clock speed of its FPGA, timing problems are hard to find. A vendor build takes many minutes and reports only the paths that failed on its best placement, and the next build often reports different paths. On an FPGA most of the delay on such a path is wiring, not logic. The paths with the most wiring delay usually have one of two patterns, and both are visible in the source:</p>
+<ul>
+<li>a condition that reads several bits and controls a wide register, often computed in another module</li>
+<li>an arithmetic operation whose result feeds another arithmetic operation in the same clock cycle</li>
+</ul>
+<p><code>timing</code> reads the design and lists these, using the register names and source lines of the design.</p>
+<p>The report is not a timing analysis. It has no information about placement, and it cannot tell you whether a design meets its clock. It tells you which <code>if</code> statements to look at first, and whether a change made the design better or worse.</p>
+<section id="a-design-to-look-at" class="level2">
+<h2 class="anchored" data-anchor-id="a-design-to-look-at">A design to look at</h2>
+<p>A unit takes commands from a bus: a 16-bit word with a strobe. The top four bits say who the word is for, the next four what to do, and the rest is the value.</p>
 <div id="4" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Loop</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> tx<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Loop <span class="fu">posedge</span>(clk) tx <span class="op">←</span> rx</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> <span class="fu">Simulation</span>(<span class="fu">Loop</span>(); clocks<span class="op">=</span>(clk<span class="op">=</span><span class="fl">48</span>MHz,))</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>u <span class="op">=</span> <span class="fu">UART</span>(sim; rx<span class="op">=</span><span class="st">"tx"</span>, tx<span class="op">=</span><span class="st">"rx"</span>, baud<span class="op">=</span><span class="fl">115200</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Unit</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  word<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  strobe<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> level<span class="op">::</span><span class="dt">Bits{32} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> limit<span class="op">::</span><span class="dt">Bits{32} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> count<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Unit <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> strobe <span class="op">&amp;&amp;</span> word[<span class="fl">12</span><span class="op">:</span><span class="fl">15</span>] <span class="op">==</span> <span class="fl">3</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> word[<span class="fl">8</span><span class="op">:</span><span class="fl">11</span>] <span class="op">==</span> <span class="fl">1</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      level <span class="op">←</span> <span class="fu">Bits</span><span class="dt">{32}</span>(word[<span class="fl">0</span><span class="op">:</span><span class="fl">7</span>])</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> word[<span class="fl">8</span><span class="op">:</span><span class="fl">11</span>] <span class="op">==</span> <span class="fl">2</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      limit <span class="op">←</span> <span class="fu">Bits</span><span class="dt">{32}</span>(word[<span class="fl">0</span><span class="op">:</span><span class="fl">7</span>])</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> level <span class="op">&gt;</span> limit</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    count <span class="op">←</span> count <span class="op">+</span> <span class="fl">1</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    count <span class="op">←</span> count <span class="op">-</span> <span class="fl">1</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="pp">@quartz</span> <span class="kw">struct</span> Top</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  rx<span class="op">::</span><span class="dt">Bits{16}</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@in</span>  valid<span class="op">::</span><span class="dt">Bool</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  unit<span class="op">::</span><span class="dt">Unit </span><span class="op">=</span> <span class="fu">Unit</span>()</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  word<span class="op">::</span><span class="dt">Bits{16} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  strobe<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@out</span> count<span class="op">::</span><span class="dt">Bits{8} </span><span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="pp">@wire</span> Top <span class="cf">begin</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  unit.clk <span class="op">←</span> clk</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  unit.word <span class="op">←</span> word</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  unit.strobe <span class="op">←</span> strobe</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="pp">@on</span> Top <span class="fu">posedge</span>(clk) <span class="cf">begin</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  word <span class="op">←</span> rx</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  strobe <span class="op">←</span> valid</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  count <span class="op">←</span> unit.count</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>The roles are the UART’s own: its <code>rx</code> listens on the design’s <code>tx</code>. A UART is a stream, and a stream is talked to like a serial port:</p>
+</section>
+<section id="the-report" class="level2">
+<h2 class="anchored" data-anchor-id="the-report">The report</h2>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(u, <span class="st">"hello</span><span class="sc">\n</span><span class="st">"</span>)          <span class="co"># blocks, in simulation time, until it has gone out</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">readline</span>(u)                  <span class="co"># advances until a line has come in</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">timing</span>(Top)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>"hello"</code></pre>
+<pre><code>Timing report for Top
+12 paths, 4 conditions, 0 multicycle paths excluded
+
+Heaviest conditions
+  condition           inputs  bits  crossings  from                    to
+  timing.qmd:39 (+2)       5    64          1  word, strobe            unit (2 registers)
+  timing.qmd:46           64     8          0  unit.level, unit.limit  unit.count
+
+Arithmetic
+  register    operations  source         check
+  unit.count  add8        timing.qmd:47  muxed</code></pre>
 </div>
 </div>
+<p>The report treats the whole design as one graph, with the modules joined where they are wired together. A path that leaves one module through a wire and ends at a register in another module is followed like any other path. For every register, the report finds two things:</p>
+<ul>
+<li>the <em>data</em>: what the register’s new value is computed from</li>
+<li>the <em>conditions</em>: what decides whether the register is written, and which write takes effect. These are the <code>if</code>s around each write, the block’s <code>@only_when</code>, and its reset.</li>
+</ul>
+<p>The logic is traced bit by bit, so <code>word[12:15] == 3</code> counts as reading four bits of <code>word</code>, not sixteen.</p>
+<p><strong>Heaviest conditions</strong> has one line for each <code>if</code>:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>condition</code></td>
+<td>The line of the <code>if</code>. <code>(+2)</code> says two more conditions of the same module read the same registers, usually the other arms of an <code>elseif</code> chain; the heaviest is shown.</td>
+</tr>
+<tr class="even">
+<td><code>inputs</code></td>
+<td>The number of register bits the whole condition reads. This includes the <code>if</code>, every <code>if</code> around it, and the block’s <code>@only_when</code>. A larger number means more logic in front of the register’s enable.</td>
+</tr>
+<tr class="odd">
+<td><code>bits</code></td>
+<td>The number of register bits written under the <code>if</code>. A larger number means a higher fan-out for the enable signal.</td>
+</tr>
+<tr class="even">
+<td><code>crossings</code></td>
+<td>The number of module boundaries between what the condition reads and the registers it controls. A larger number suggests longer wires.</td>
+</tr>
+<tr class="odd">
+<td><code>from</code>, <code>to</code></td>
+<td>What the condition reads, with registers from other modules listed first, and what it controls.</td>
+</tr>
+</tbody>
+</table>
+<p>The lines are sorted by <code>inputs × bits × (1 + crossings)</code>, largest first. The report does not decide whether a line is a problem, because that depends on your clock and your FPGA. A reset is listed as a separate condition with one input and many bits, because it reaches each register through a separate pin.</p>
+<p>If two arms of an <code>elseif</code> chain compare the same value against different constants, only one of them can be true. In that case the earlier arm is not counted as a condition on the registers the later arm writes.</p>
+<p><strong>Arithmetic</strong> lists two patterns:</p>
+<ul>
+<li><code>chained</code>: two or more compares or adds in series within one clock cycle.</li>
+<li><code>muxed</code>: the register takes one of several different sums. A counter that counts both up and down is an example. Synthesis may build these as adders in series. You can avoid this by writing one sum and selecting its operand, as in <code>count + ifelse(up, 1, -1)</code>. The selection then happens before the adder and adds no delay.</li>
+</ul>
+<p>A compare or an add counts as arithmetic only when it reads more than <code>lut_inputs</code> variable bits. The default is 4. An operation that reads fewer bits fits in one LUT and has the same delay as any other small piece of logic. An operation that reads more bits needs several levels of LUTs or a carry chain. Four inputs is the smallest LUT in common use. On an FPGA with larger LUTs, the default may count some operations that would have fit in one LUT, but it will not miss any.</p>
+</section>
+<section id="looking-closer" class="level2">
+<h2 class="anchored" data-anchor-id="looking-closer">Looking closer</h2>
+<p>The report object holds all the results. These calls print more detail from it.</p>
 <div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">put!</span>(u, [<span class="bn">0x01</span>, <span class="bn">0x02</span>]); <span class="pp">@run</span> sim <span class="fu">advance_by</span>(<span class="fl">1</span>ms); <span class="fu">take!</span>(u)   <span class="co"># queue and collect, without blocking</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">show</span>(r; condition <span class="op">=</span> r.conditions[<span class="fl">1</span>].condition)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Condition at timing.qmd:39
+5 inputs, controls 64 register bits in 2 registers, crosses 1 module boundary
+
+Reads
+  from    bits read  crossings
+  word            4          1
+  strobe          1          1
+
+Decides
+  to          width  written at
+  unit.level     32  timing.qmd:41
+  unit.limit     32  timing.qmd:43</code></pre>
+</div>
+</div>
+<div id="10" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">show</span>(r; register <span class="op">=</span> <span class="st">"unit.level"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Register unit.level
+32 bits, clock clk
+
+Conditions
+  condition      inputs  bits  from    bits read  crossings  operations  written at     check
+  timing.qmd:39       5    64  strobe          1          1              timing.qmd:41
+                               word            8          1              timing.qmd:41
+
+Data
+  from  bits read  crossings  operations  written at     check
+  word          8          1              timing.qmd:41</code></pre>
+</div>
+</div>
+<p><code>show(r; top = 30)</code> prints more lines of the summary. To select a condition, give the file and line of its <code>if</code> as the summary prints it, for example <code>"adc.jl:204"</code>.</p>
+<p>You can also use the data directly:</p>
+<ul>
+<li><code>r.conditions</code> has one entry for each <code>if</code>. It holds the line, the instance, <code>inputs</code>, <code>controls</code>, <code>crossings</code>, the full lists of what it <code>reads</code> and <code>decides</code>, and the arithmetic in it.</li>
+<li><code>r.paths</code> has one row for each pair of a start point and the register it reaches, separately for data and for conditions. Registers keep their names through vendor synthesis, so these rows can be matched against the paths in a vendor’s timing report.</li>
+<li><code>r.excluded</code> lists the <a href="./multicycle.html">multicycle paths</a>. They are left out of the report, because a path that is slow by design would otherwise appear at the top every time.</li>
+</ul>
+</section>
+<section id="a-budget-for-tests" class="level2">
+<h2 class="anchored" data-anchor-id="a-budget-for-tests">A budget, for tests</h2>
+<p>If you give <code>timing</code> some limits, a test can check the design against them. This catches a change that makes timing worse before a vendor build does:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@test</span> <span class="fu">timing</span>(Top; max_bits <span class="op">=</span> <span class="fl">8</span> <span class="op">=&gt;</span> <span class="fl">128</span>, max_carry <span class="op">=</span> <span class="fl">48</span>).ok</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Limit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>max_bits = 8 =&gt; 128</code></td>
+<td>A condition of more than 8 inputs may decide at most 128 register bits. Several pairs make a staircase: <code>(4 =&gt; 512, 8 =&gt; 128)</code>.</td>
+</tr>
+<tr class="even">
+<td><code>max_carry = 48</code></td>
+<td>At most 48 bits of compare and add in series on any path.</td>
+</tr>
+<tr class="odd">
+<td><code>max_chain = 1</code></td>
+<td>At most one compare or add in series on any path.</td>
+</tr>
+<tr class="even">
+<td><code>max_depth = 8</code></td>
+<td>At most 8 levels of logic on any path, as yosys maps it; see below.</td>
+</tr>
+<tr class="odd">
+<td><code>reject = c -&gt; ...</code></td>
+<td>A rule of your own. It is given a condition, as <code>r.conditions</code> holds it, and returns <code>true</code> for one to reject.</td>
+</tr>
+</tbody>
+</table>
+<div id="12" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">timing</span>(Top; max_bits <span class="op">=</span> <span class="fl">8</span> <span class="op">=&gt;</span> <span class="fl">16</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>2-element Vector{UInt8}:
- 0x01
- 0x02</code></pre>
+<pre><code>Timing report for Top
+12 paths, 4 conditions, 0 multicycle paths excluded
+Budget max_bits=8 =&gt; 16: 2 conditions and 0 paths rejected
+
+Rejected conditions
+  condition           inputs  bits  crossings  from          to          rule
+  timing.qmd:40 (+1)       9    32          1  word, strobe  unit.level  max_bits
+
+Present worst, as a budget
+  timing(Top; max_bits=8 =&gt; 32, max_carry=32, max_chain=1)</code></pre>
 </div>
 </div>
-<p>A stream is an <code>IO</code>, so <code>print</code>, <code>readuntil</code>, <code>read</code> and the rest work on it. A blocking call suspends its task inside a <code>@run</code>, or runs the simulation itself at top level, and gives up after the link’s <code>timeout</code>. <code>frame = 8</code> or <code>frame = "\n"</code> groups what arrives into units for <code>take!</code>, <code>read(u)</code> and <code>on</code>. <code>UART(sim; ..., parity=:even, stop=2)</code> sets the framing.</p>
+<p><code>r.ok</code> is <code>true</code> or <code>false</code>. It is <code>missing</code> when no limit was given, so a test that has no limits raises an error instead of passing. <code>r.rejected</code> holds the conditions the budget rejects. <code>r.rejectedpaths</code> holds the paths it rejects because of their arithmetic or depth. Each entry lists the rules it breaks.</p>
+<p>The report ends with a line that gives the design’s current worst values as a budget. A common way to set a budget is to paste that line into a test, and then tighten it when the design improves.</p>
+<p>The limits have no default values. The right numbers depend on the FPGA and the clock. A condition that causes no problem at 12 MHz may be the main problem at 48 MHz.</p>
+<section id="leaving-a-condition-alone" class="level3">
+<h3 class="anchored" data-anchor-id="leaving-a-condition-alone">Leaving a condition alone</h3>
+<p>Some wide conditions cause no timing problem. An example is a command that arrives once a second and is held for many cycles. You can mark such a condition in the source, with the reason:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> strobe <span class="op">&amp;&amp;</span> word[<span class="fl">12</span><span class="op">:</span><span class="fl">15</span>] <span class="op">==</span> <span class="fl">3</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">@timing_exempt</span> <span class="st">"commands are rare and held for many cycles"</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">...</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The tag exempts the condition, every condition nested in the same arm, and the paths through them. In an <code>elseif</code> chain it does not apply to the arms that follow. The tag does not change the design. Simulation and the emitted Verilog ignore it. <code>r.exempt</code> lists the exempt conditions with their reasons, and the printed report shows them. A tag inside a <a href="./clocked.html"><code>@method</code></a> applies at every place the method is called, because methods are inlined.</p>
+<p><code>except = ["unit.count"]</code> exempts the paths that end at a register from <code>max_carry</code>, <code>max_chain</code> and <code>max_depth</code>. Use it for arithmetic that is meant to be wide.</p>
 </section>
-<section id="ft2232h" class="level2">
-<h2 class="anchored" data-anchor-id="ft2232h">FT2232H</h2>
-<p>The FT2232H is a USB-to-parallel FIFO, driven on the design’s byte bus in FT245 asynchronous mode:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ft <span class="op">=</span> <span class="fu">FT2232H</span>(sim; data<span class="op">=</span><span class="st">"usb_data"</span>, rd<span class="op">=</span><span class="st">"usb_rd"</span>, wr<span class="op">=</span><span class="st">"usb_wr"</span>,</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                  rxf<span class="op">=</span><span class="st">"usb_rxf"</span>, txe<span class="op">=</span><span class="st">"usb_txe"</span>, frame<span class="op">=</span><span class="fl">8</span>)</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(ft, bytes)</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">take!</span>(ft)                     <span class="co"># the next 8-byte frame the design sent</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>It is a stream like the UART, and it watches the bus every slot, so the design’s read and write strobes are honoured whenever they come.</p>
 </section>
-<section id="spi" class="level2">
-<h2 class="anchored" data-anchor-id="spi">SPI</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>m  <span class="op">=</span> <span class="fu">SPIMaster</span>(sim; sclk<span class="op">=</span><span class="st">"sclk"</span>, mosi<span class="op">=</span><span class="st">"mosi"</span>, miso<span class="op">=</span><span class="st">"miso"</span>, cs<span class="op">=</span><span class="st">"cs"</span>, rate<span class="op">=</span><span class="fl">2</span>MHz, mode<span class="op">=</span><span class="fl">0</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>sl <span class="op">=</span> <span class="fu">SPISlave</span>(sim; sclk<span class="op">=</span><span class="st">"sclk"</span>, mosi<span class="op">=</span><span class="st">"mosi"</span>, miso<span class="op">=</span><span class="st">"miso"</span>, cs<span class="op">=</span><span class="st">"cs"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>A master is a transaction link: <code>transfer(m, bytes)</code> selects the chip, clocks the bytes out and returns the bytes that came back. A slave collects what the master sends, or answers each byte through <code>on</code> (<a href="#receiving-take-or-on">below</a>). <code>mode</code> is the usual 0–3 (clock polarity and phase).</p>
-</section>
-<section id="i2c" class="level2">
-<h2 class="anchored" data-anchor-id="i2c">I2C</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>i   <span class="op">=</span> <span class="fu">I2CMaster</span>(sim; scl<span class="op">=</span><span class="st">"scl"</span>, sda<span class="op">=</span><span class="st">"sda"</span>, rate<span class="op">=</span><span class="fl">400</span>kHz)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>rtc <span class="op">=</span> <span class="fu">I2CSlave</span>(sim; scl<span class="op">=</span><span class="st">"scl"</span>, sda<span class="op">=</span><span class="st">"sda"</span>, address<span class="op">=</span><span class="bn">0x51</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The master’s verbs are <code>write(i, address, bytes)</code> and <code>read(i, address, n)</code>. A slave collects each transaction the master writes, or answers it through <code>on</code> (<a href="#receiving-take-or-on">below</a>).</p>
-<p>The bus is open-drain, so the design’s <code>scl</code> and <code>sda</code> are pads declared <code>Pad{1}(:pullup)</code>. Clock stretching is not modelled.</p>
-<div class="callout callout-style-default callout-warning callout-titled" title="One outside driver per net">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
+<section id="levels-of-logic-from-yosys" class="level2">
+<h2 class="anchored" data-anchor-id="levels-of-logic-from-yosys">Levels of logic, from yosys</h2>
+<p>The source shows the structure of the logic, but not how many levels of LUTs it needs after optimisation. Only a synthesis tool can tell you that. With <code>depth = true</code>, the design is written out as Verilog and mapped by <a href="https://github.com/YosysHQ/yosys">yosys</a>. Every row and every condition then gets a <code>depth</code>: the number of LUT levels on the longest path between its two ends. A carry chain counts as one level, whatever its length.</p>
+<div id="14" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">timing</span>(Top; depth <span class="op">=</span> <span class="cn">true</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>Timing report for Top
+12 paths, 4 conditions, 0 multicycle paths excluded
+depths from yosys, mapped to LUTs of 4 inputs
+
+Heaviest conditions
+  condition           inputs  bits  crossings  depth  from                    to
+  timing.qmd:39 (+2)       5    64          1      2  word, strobe            unit (2 registers)
+  timing.qmd:46           64     8          0      4  unit.level, unit.limit  unit.count
+
+Arithmetic
+  register    operations  source         check
+  unit.count  add8        timing.qmd:47  muxed
+
+Deepest paths
+  from        to          depth  source
+  unit.level  unit.count      4  timing.qmd:47
+  unit.limit  unit.count      4  timing.qmd:47
+  strobe      unit.level      2  timing.qmd:41
+  word        unit.level      2  timing.qmd:41
+  strobe      unit.limit      2  timing.qmd:43
+  word        unit.limit      2  timing.qmd:43
+  unit.count  unit.count      1  timing.qmd:47
+  unit.count  count           0  timing.qmd:71
+  valid       strobe          0  timing.qmd:70
+  rx          word            0  timing.qmd:69</code></pre>
 </div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Warning</span>One outside driver per net
 </div>
-</div>
-<div class="callout-body-container callout-body">
-<p>A simulation keeps one drive per net from outside the design, so a pad can carry one library component: a slave on the bus the design’s master runs, or a master on the bus a design’s slave listens to. Two library components on the same pad — two slaves on one bus, or a library master and a library slave with no design between them — overwrite each other’s drive, and the transaction fails. A second device on a shared bus has to be a module of the design for now.</p>
-</div>
-</div>
+<p>By default, yosys maps the design to generic LUTs with <code>lut_inputs</code> inputs, and uses no information about any device. If you give the board, as in <code>timing(Top; depth = true, board = Rev2)</code>, yosys uses the flow for the board’s FPGA when QuartzHDL knows one. For a MachXO2 this is <code>synth_lattice -family xo2</code>. You can also name a yosys flow directly with <code>synth = "..."</code>. This takes priority over the board, and the flow must flatten the design. The report states which flow was used.</p>
+<p>Registers keep their names through synthesis, so the depths are matched to the rows by register name. Nothing depends on the names of the nets between registers. Sometimes synthesis leaves no path between two registers. This happens when it proves that one does not affect the other, or when it removes a register that does not reach any output. In that case the depth is 0 and the row’s <code>connected</code> field is <code>false</code>. A depth that was not measured is <code>missing</code>. A <code>reject</code> rule that uses a missing depth raises an error instead of passing.</p>
+<p>If yosys is not on the <code>PATH</code>, <code>timing</code> prints a warning and gives no depths, and <code>ok</code> is <code>missing</code> for a budget that uses <code>max_depth</code>. As with <a href="./testing.html">co-simulation</a>, skip such a test when the tool is not installed: <code>@test timing(Top; max_depth = 8).ok skip = Sys.which("yosys") === nothing</code>.</p>
+<p>The depths are an estimate, because yosys does not map a design the same way a vendor’s synthesis tool does. Use them to rank paths, and compare the ranking with a vendor build before you rely on <code>max_depth</code> as a budget.</p>
 </section>
-<section id="pwm" class="level2">
-<h2 class="anchored" data-anchor-id="pwm">PWM</h2>
-<p>A pulse train on a net — a clock, a strobe, a gated burst:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">PWM</span>(sim; out<span class="op">=</span><span class="st">"ext_clk"</span>, rate<span class="op">=</span><span class="fl">1</span>MHz, duty<span class="op">=</span><span class="fl">0.5</span>)             <span class="co"># a clock</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">PWM</span>(sim; out<span class="op">=</span><span class="st">"trigger"</span>, rate<span class="op">=</span><span class="fl">10</span>kHz, duty<span class="op">=</span><span class="fl">0.1</span>, count<span class="op">=</span><span class="fl">3</span>)   <span class="co"># three pulses</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>p.duty <span class="op">=</span> <span class="fl">0.25</span>                                                <span class="co"># changed while running</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="from-the-command-line" class="level2">
+<h2 class="anchored" data-anchor-id="from-the-command-line">From the command line</h2>
+<p><code>quartz timing</code> prints the same report. Its exit status reports the result of the budget, so a build script can use it without a test file:</p>
+<pre><code>quartz timing design.jl --top Top
+quartz timing design.jl --top Top --budget 'max_bits = 8 =&gt; 128, max_carry = 48'
+quartz timing design.jl --top Top --condition unit.jl:12
+quartz timing design.jl --top Top --register unit.level
+quartz timing design.jl --top Top --depth --board Rev2
+quartz timing design.jl --top Top --json &gt; timing.json</code></pre>
+<p><code>--budget</code> takes the same keywords as <code>timing</code>. They are evaluated in the scope of the design file, so a <code>reject</code> rule works too. The exit status is 0 when there is no budget or the design is within it, 1 when the budget rejects something, and 2 when the report could not be produced. <code>--json</code> writes the whole report as JSON for other tools: every condition, every path, the budget and its result, and a <code>version</code> field.</p>
 </section>
-<section id="ram" class="level2">
-<h2 class="anchored" data-anchor-id="ram">RAM</h2>
-<p>A memory that stands in for a vendor RAM block behind a <a href="./blackbox.html">black box</a>. Its ports are named by role, in the lowercase names Julia sees; any number of each:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>QuartzHDL.<span class="fu">standin</span>(<span class="op">::</span><span class="dt">Type{DacRam}</span>) <span class="op">=</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RAM</span>(<span class="fl">8192</span>, <span class="fl">16</span>; read<span class="op">=</span>(clock<span class="op">=:</span>rdclock, addr<span class="op">=:</span>rdaddress, data<span class="op">=:</span>q, en<span class="op">=:</span>rdclocken),</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>              write<span class="op">=</span>(clock<span class="op">=:</span>wrclock, addr<span class="op">=:</span>wraddress, data<span class="op">=:</span>data, we<span class="op">=:</span>we))</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>ram[<span class="bn">0x10</span>]                     <span class="co"># read a word from the harness</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>ram[<span class="bn">0x10</span>] <span class="op">=</span> <span class="bn">0xff</span>              <span class="co"># write one</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="fu">fill!</span>(ram, <span class="fl">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>A read port holds the word its address named before the edge, and a read of the address being written sees the old word. The storage is changed in place, and <code>reset!</code> does not clear it.</p>
-</section>
-<section id="receiving-take-or-on" class="level2">
-<h2 class="anchored" data-anchor-id="receiving-take-or-on">Receiving: <code>take!</code> or <code>on</code></h2>
-<p>What a component receives from the design — bytes on a UART, bytes on an SPI slave, a transaction on an I2C slave — can be collected in two ways.</p>
-<p><strong>Pull it.</strong> Nothing is done with it until you ask: <code>take!(c)</code> gives what has arrived so far, <code>read(c, n)</code> waits for <code>n</code> bytes, <code>readline(c)</code> waits for a line.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(u, <span class="st">"AT</span><span class="sc">\r\n</span><span class="st">"</span>)             <span class="co"># the design gets a command</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">readline</span>(u)                   <span class="co"># ...and this is what it sent back</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Answer it.</strong> <code>on(c) do unit ... end</code> registers a function that is called with each unit as it arrives, and what the function returns is queued to send back. A unit answered this way is not kept for <code>take!</code>. The unit is whatever the component frames: for a UART or the USB FIFO, each byte — or each frame, when <code>frame</code> is set; for an SPI slave, each byte; for an I2C slave, one transaction, the bytes the master wrote. The return value is bytes, a string, or <code>nothing</code> to send nothing.</p>
-<p>An echo, to test a design’s receive path against its transmit path:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span>(u) <span class="cf">do</span> bytes</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  bytes                       <span class="co"># send back what came in</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>A monitor that only records:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>seen <span class="op">=</span> <span class="dt">UInt8</span>[]</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span>(u) <span class="cf">do</span> bytes</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">append!</span>(seen, bytes)</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="cn">nothing</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>An SPI device that answers every command byte with a status byte:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span>(sl) <span class="cf">do</span> b</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  b <span class="op">.+</span> <span class="bn">0x40</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>An I2C register file, where a write selects the register and the next read returns from there:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>registers <span class="op">=</span> <span class="fu">collect</span>(<span class="bn">0x00</span><span class="op">:</span><span class="bn">0x0f</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span>(rtc) <span class="cf">do</span> bytes</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  registers[bytes[<span class="fl">1</span>] <span class="op">+</span> <span class="fl">1</span><span class="op">:</span><span class="kw">end</span>]</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><code>on(nothing, c)</code> removes the function, and what arrives is queued again. An SPI slave with nothing queued sends its <code>idle</code> byte, <code>0xff</code> unless set.</p>
-</section>
-<section id="next" class="level2">
-<h2 class="anchored" data-anchor-id="next">Next</h2>
-<p><a href="./components.html">Custom components</a>.</p>
+<section id="measuring-the-timing-margin-of-a-vendor-build" class="level2">
+<h2 class="anchored" data-anchor-id="measuring-the-timing-margin-of-a-vendor-build">Measuring the timing margin of a vendor build</h2>
+<p>Two options of a <a href="./compiling.html">Diamond workspace</a> help when you work with vendor builds. Place and route stops optimising once a design meets its constraints, so a build at the real clock rates does not show how much margin it has. <code>Diamond(board; overconstrain = 1.2)</code> constrains every clock at 1.2 times its real rate, and the slack in that build shows the margin. Use such a build only for measurement, because a design that fails it may still meet the real clock rates. <code>paths = 200</code> sets how many paths the vendor’s timing report lists for each constraint. A larger number is useful when you compare failing paths across several placement seeds.</p>
 
 
 </section>

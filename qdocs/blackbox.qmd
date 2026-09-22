@@ -3,7 +3,7 @@ title: "Black boxes and the clock tree"
 engine: julia
 ---
 
-**The parts QuartzHDL does not describe: PLLs, RAM blocks, vendor primitives**
+**Using vendor parts in a design: PLLs, RAM blocks and other primitives**
 
 ```{julia}
 #| echo: false
@@ -36,7 +36,7 @@ The declaration transcribes the datasheet. Port names keep the vendor's spelling
 - `clockout(NAME; from, divide, phase, enable)` declares a clock output *and how it is made*: an edge every `divide` edges of `from`, offset by `phase`, only while `enable` holds, where `enable` may read the part's inputs.
 - `pragma("...")` is emitted as a synthesis attribute on the instance (`/* synthesis syn_noprune=1 */`) and means nothing to the simulator.
 
-`verilog="Name"` after the part's name sets the Verilog module name when it differs.
+`verilog="Name"` after the part's name sets the Verilog module name when it differs. `primitive=true` marks a module the tools know by themselves, such as the `OSCH` oscillator of a MachXO2; a [Diamond workspace](compiling.qmd) then lists no netlist file for it.
 
 ## Wiring a part
 

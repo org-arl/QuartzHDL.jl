@@ -3,7 +3,7 @@ title: "Simulation"
 engine: julia
 ---
 
-**Driving a design over time**
+**Running a simulation: inputs, clocks and time**
 
 ```{julia}
 #| echo: false

@@ -3,7 +3,7 @@ title: "Benches"
 engine: julia
 ---
 
-**Clocks with real rates, and the design wired to models of what surrounds it**
+**Setting up a bench: the clock plan, and models of the chips connected to the design**
 
 ```{julia}
 #| echo: false

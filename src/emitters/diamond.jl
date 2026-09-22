@@ -2,8 +2,10 @@
 # bitstream, laid out the way the tool expects and driven by a script, so a build
 # is `make` and not a session in the GUI. The project file lists the sources, the
 # strategy is Diamond's default with synthesis retiming off, so the registers a
-# multicycle constraint names are the only ones on its path, and the constraint
-# file comes from the board.
+# multicycle constraint names are the only ones on its path, and with map driven
+# by timing but not packing or replicating for it, which on the one design they
+# were measured on made a seed in twenty fail; the constraint file comes from the
+# board.
 
 function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   b = f.board
@@ -15,7 +17,8 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   name = something(f.name, nameof(T))
   mkpath(joinpath(dir, "src"))
   write(joinpath(dir, "src", "$name.v"), T, Verilog(; name))
-  write(joinpath(dir, "$(b.name).lpf"), T, LPF(b))
+  write(joinpath(dir, "$(b.name).lpf"), T, LPF(b; f.overconstrain))
+  open(io -> _fdc(io, T, b, f.overconstrain), joinpath(dir, "$(b.name).fdc"), "w")
   sources = ["src/$name.v"]
   supplied = Symbol[]
   for v in f.vendor
@@ -26,17 +29,32 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   end
   for BB in _blackboxes(T)
     vname = blackbox(BB).verilogname
-    vname in supplied && continue
+    (vname in supplied || blackbox(BB).primitive) && continue
     file = "src/$vname.v"
     @warn "$vname has no netlist in the workspace; put the vendor's at $(joinpath(dir, file))"
     push!(sources, file)
   end
   write(joinpath(dir, "$name.ldf"), _ldf(name, b, f.implementation, sources))
-  cp(joinpath(@__DIR__, "diamond.sty"), joinpath(dir, "$name.sty"); force=true)
+  write(joinpath(dir, "$name.sty"), _sty(f.paths, f.pack, f.replicate))
   write(joinpath(dir, "build.sh"), _buildsh(name, b, f.implementation))
   chmod(joinpath(dir, "build.sh"), 0o755)
   write(joinpath(dir, "Makefile"), _makefile(name, b, f.implementation))
   dir
+end
+
+# the strategy, with the number of paths each timing report lists -- the one after
+# map, which estimates the routing, and the one after place and route -- and
+# whether map packs and replicates for timing
+function _sty(paths::Int, pack::Bool, replicate::Bool)
+  text = read(joinpath(@__DIR__, "diamond.sty"), String)
+  values = ["MAPSTA_WordCasePaths" => string(paths), "PARSTA_WordCasePaths" => string(paths),
+            "MAP_TimingDrivenPack" => pack ? "True" : "False", "MAP_TimingDrivenNodeRep" => replicate ? "True" : "False"]
+  for (prop, value) in values
+    r = Regex("(<Property name=\"PROP_$prop\" value=\")[^\"]*(\")")
+    occursin(r, text) || error("diamond.sty has no PROP_$prop to set")
+    text = replace(text, r => SubstitutionString("\\g<1>$value\\g<2>"))
+  end
+  text
 end
 
 # the modules a Verilog file defines, so a netlist is matched to its black box by
@@ -69,6 +87,9 @@ function _ldf(name, b::Board, impl, sources)
     println(io, "        </Source>")
   end
   println(io, "        <Source name=\"$(b.name).lpf\" type=\"Logic Preference\" type_short=\"LPF\">")
+  println(io, "            <Options/>")
+  println(io, "        </Source>")
+  println(io, "        <Source name=\"$(b.name).fdc\" type=\"Synplify Design Constraints File\" type_short=\"SDC\">")
   println(io, "            <Options/>")
   println(io, "        </Source>")
   println(io, "    </Implementation>")
@@ -107,7 +128,7 @@ function _makefile(name, b::Board, impl)
   println(io, "# Builds $name for $(b.name) with Lattice Diamond: `make` for the bitstream, `make clean` to start over.")
   println(io, "all: $target")
   println(io)
-  println(io, "$target: src/*.v $(b.name).lpf $name.ldf $name.sty build.sh")
+  println(io, "$target: src/*.v $(b.name).lpf $(b.name).fdc $name.ldf $name.sty build.sh")
   println(io, "\t./build.sh")
   println(io)
   println(io, "clean:")

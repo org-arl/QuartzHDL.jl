@@ -3516,5 +3516,6 @@ end
 
 include("aqua.jl")
 include("soc.jl")
+include("timing.jl")
 include("reference.jl")
 include("library/runtests.jl")

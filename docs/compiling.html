@@ -2,17 +2,23 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.26">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>Verilog output – QuartzHDL</title>
 <style>
-code{white-space: pre-wrap;}
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -67,15 +73,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <meta name="quarto:offset" content="./">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-c0d8b526fa222858bf56437ad6d5e615.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-f84607303771c80386bd6d3edccc808a.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -320,6 +325,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  <span class="menu-text">Boards and constraints</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./timing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Timing</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -421,7 +432,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong>Getting the Verilog out</strong></p>
+<p><strong>Writing a design out as Verilog</strong></p>
 <p>Everything that leaves the package goes through one call: <code>write(path_or_io, thing, format)</code>. The formats are <code>Verilog()</code> for a design, <code>VCD()</code> for a capture, <code>LPF(board)</code> for constraints, and <code>Diamond(board)</code> for a whole Lattice build.</p>
 <section id="verilog" class="level2">
 <h2 class="anchored" data-anchor-id="verilog"><code>Verilog()</code></h2>
@@ -519,6 +530,7 @@ julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">abspath</span>(<span class="cn">PROGRAM_FILE</span>) <span class="op">==</span> <span class="pp">@__FILE__</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># runs only when the file is executed directly, never when compiled</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>quartz timing design.jl --top Top</code> prints the <a href="./timing.html">timing report</a> for a module and does not compile it. With <code>--budget</code>, the exit status shows whether the design is within the budget.</p>
 <p>A parametric module needs a concrete <code>--top</code>, since Verilog is emitted per instantiation. <code>--board</code> also writes the constraint file for that top; the <a href="./boards.html">next chapter</a> says what goes in it.</p>
 </section>
 <section id="a-lattice-diamond-workspace" class="level2">
@@ -528,12 +540,15 @@ julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2
   src/Top.v          the design, and every submodule with it
   src/PLL48.v        the vendor netlists of the black boxes, from `vendor = [...]`
   Rev2.lpf           the constraints, as `LPF(board)` writes them
+  Rev2.fdc           the same clocks and multicycle paths, in the form Synplify reads
   Top.ldf            the project file: device, top, sources, strategy
-  Top.sty            Diamond's default strategy, with synthesis retiming off
+  Top.sty            Diamond's default strategy, with synthesis retiming off and timing-driven map
   build.sh           synthesis, translate, map, place-and-route, bitstream
   Makefile           `make` runs build.sh when a source is newer than the bitstream</code></pre>
+<p>Map and place-and-route read the <code>.lpf</code>. Synplify reads the <code>.fdc</code>, and without one it times every path against a default clock and does not know about the multicycle paths, so it may spend its effort on a path the design allows many cycles for. The two files are written from the same declarations, each in the spelling its reader expects: a clock made by a black box with a netlist is named to Synplify by the pin that drives it, <code>pll1.CLKOP</code>.</p>
 <p>The board’s <code>device</code> must be the full part number Diamond knows, <code>LCMXO2-7000HE-4TG144I</code> rather than a family. A MachXO part boots from its own flash, so its <code>build.sh</code> also exports the JEDEC file, and <code>make</code> targets that. <code>build.sh</code> sources <code>diamond_env</code> from <code>/usr/local/lattice/bin/lin64</code>, or from <code>$DIAMOND_BIN</code> when Diamond is elsewhere.</p>
-<p>A black box needs its netlist in the workspace. Give the files with <code>vendor = ["vendor/PLL48.v", ...]</code> and they are copied into <code>src/</code> and listed in the project; a black box with no netlist among them is still listed, as <code>src/&lt;Name&gt;.v</code>, with a warning saying where to put the file. <code>implementation = "impl"</code> names Diamond’s implementation and its directory.</p>
+<p>A black box needs its netlist in the workspace. Give the files with <code>vendor = ["vendor/PLL48.v", ...]</code> and they are copied into <code>src/</code> and listed in the project; a black box with no netlist among them is still listed, as <code>src/&lt;Name&gt;.v</code>, with a warning saying where to put the file, unless it is declared <code>primitive=true</code>, a module Diamond knows by itself. <code>implementation = "impl"</code> names Diamond’s implementation and its directory.</p>
+<p>The strategy turns synthesis retiming off, which <a href="./multicycle.html">multicycle paths</a> need, and turns timing-driven mapping on. Timing-driven packing and node replication stay off. On the one design they were measured on, over twenty placement seeds, packing raised the median clock speed slightly but made one seed in twenty fail, and replication changed nothing. <code>pack = true</code> and <code>replicate = true</code> turn them on for a design where a measurement shows a gain. Two options help with <a href="./timing.html">measuring timing</a>. <code>overconstrain = 1.2</code> constrains every clock at 1.2 times its real rate, so that a build shows how much margin it has. <code>paths = 100</code> sets how many paths the timing reports list for each constraint. <code>LPF(board; overconstrain = 1.2)</code> writes only the constraint file with the same scaling.</p>
 </section>
 <section id="simulation-models-for-black-boxes" class="level2">
 <h2 class="anchored" data-anchor-id="simulation-models-for-black-boxes">Simulation models for black boxes</h2>

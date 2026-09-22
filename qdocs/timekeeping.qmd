@@ -3,7 +3,7 @@ title: "Pulses, timeouts and edges"
 engine: julia
 ---
 
-**`Pulse`, `Timeout` and `Edge`: registers that clear, count and remember on their own**
+**`Pulse`, `Timeout` and `Edge`: registers that clear themselves, count down, and detect edges**
 
 ```{julia}
 #| echo: false

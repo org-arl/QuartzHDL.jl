@@ -13,8 +13,8 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@v2
-      - name: install Icarus Verilog
-        run: sudo apt-get update && sudo apt-get install -y iverilog
+      - name: install Icarus Verilog and yosys
+        run: sudo apt-get update && sudo apt-get install -y iverilog yosys
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1

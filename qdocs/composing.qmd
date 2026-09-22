@@ -3,7 +3,7 @@ title: "Submodules"
 engine: julia
 ---
 
-**Modules inside modules**
+**Using one module inside another**
 
 ```{julia}
 #| echo: false
