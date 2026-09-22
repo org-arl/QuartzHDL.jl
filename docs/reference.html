@@ -1143,6 +1143,7 @@ encname(e, v)</code></pre>
 <pre class="juliajulia"><code>clocklevel(m, net)
 clocklevel(net)</code></pre>
 <p>The level a clock net is resting at, for a design that samples a slow clock as data – a microsecond tick, say. In Verilog this is the net name in an expression; here it is the square wave the tree produces. Inside a block the one-argument form reads the block’s own module.</p>
+<p>A net at the rate of the design’s own clock pins has no wave the cycle world can track, and reading it is refused: sampled at its own edge, it has no settled level in the hardware either.</p>
 </div>
 </div>
 </div>

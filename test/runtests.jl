@@ -2247,12 +2247,10 @@ end
   end
 end
 
-# a full-rate clock reads low at every sample point, since a sample is taken at a
-# rising edge and every full-rate clock is low there; a mux of such sources reads
-# the same, and its edges are counted all the same
+# a mux of full-rate clocks has no level to read, like its sources, but its edges
+# are counted all the same
 @quartz struct PinMux
   @in sel::Bool
-  @out seen::Bool = false
   @out edges::Bits{8} = 0
   mux::RefMux = RefMux()
 end
@@ -2264,12 +2262,10 @@ end
   mux.sel ← sel
 end
 
-@on PinMux posedge(clk) seen ← clocklevel(this, :picked)
 @on PinMux posedge(picked) edges ← edges + 1
 
 @quartz struct FullMux
   @in sel::Bool
-  @out seen::Bool = false
   @out edges::Bits{8} = 0
   refa::RefA = RefA()
   refb::RefA = RefA()
@@ -2290,10 +2286,12 @@ end
   mux.sel ← sel
 end
 
-@on FullMux posedge(slow) seen ← clocklevel(this, :picked)
 @on FullMux posedge(picked) edges ← edges + 1
 
-@testset "a mux of full-rate clocks reads low and counts every edge" begin
+@testset "a mux of full-rate clocks counts every edge, and has no level" begin
+  @test_throws "runs at full rate" clocklevel(PinMux(), :picked)
+  @test_throws "runs at full rate" clocklevel(FullMux(), :picked)
+  @test_throws "runs at full rate" clocklevel(FullMux(), :clk)
   f = joinpath(mktempdir(), "tree.v")
   simmodels(f, FullMux)
   for (T, clocks) in ((PinMux, (clk = 1, other_i = 1)), (FullMux, (clk_a = 1, clk_b = 1))), at in 20:23
@@ -3513,7 +3511,7 @@ end
   @inferred Driven().sda[]
   @inferred padnet(Driven(), Val(:sda))
   @inferred netlevel(Driven(), Val(:sda), missing)
-  @inferred clocklevel(Driven(), Val(:clk))
+  @test_throws "runs at full rate" clocklevel(Driven(), Val(:clk))
 
   out = capture(sim)
   # fetching a signal from the capture is the function barrier: the vector holds
