@@ -2182,10 +2182,14 @@ end
   clks, every, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
   m = Handover()
   levels = Bool[]
+  edges = Symbol[]
   for i in 1:48
     m = QuartzHDL.stepslot(m, clks, every, internal, (i - 1) % L; switch = i == 40)
     push!(levels, clocklevel(m, :slow))
+    i == 43 && (edges = QuartzHDL.clockedges(m))
   end
+  # the slot's record holds both pins' derived edges, in the slot where B ticks
+  @test edges == [:slow_b, :clk, :slow]
   # source A until the switch; then held low through the rest of B's high half,
   # since a switch is not an edge, and B's wave from B's next tick
   @test levels[33:40] == [true, true, false, false, true, true, false, false]
