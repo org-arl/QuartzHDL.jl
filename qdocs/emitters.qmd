@@ -16,7 +16,7 @@ Everything that leaves the package goes through three small abstract types, and 
 
 | type | dispatches | examples |
 |---|---|---|
-| `Format` | `write(io, x, ::Format)` | `Verilog`, `VCD`, `LPF` |
+| `Format` | `write(io, x, ::Format)` | `Verilog`, `VCD`, `LPF`, `QSF` |
 | `Viewer` | `view(::Viewer, x)` | `Surfer` |
 | `Tool` | `cosim(T, stim; tool=::Tool)` | `Icarus` |
 

@@ -1618,6 +1618,40 @@ simmodels(path, T; scale=NamedTuple())</code></pre>
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-body-container">
+<pre class="juliajulia"><code>QSF(board)</code></pre>
+<p>Quartus settings for a design on a board: <code>write(path, T, QSF(board))</code>. The device and its family, the pin of every port, and what each buffer is told – I/O standard, weak pull-up, drive strength – and the clocks that ride the global network. Clock rates and timing exceptions are not settings; they go in the <code>SDC</code>.</p>
+<p>An I/O standard is written as the board writes it, <code>:LVCMOS33</code>, and spelt as Quartus spells it, <code>"3.3-V LVCMOS"</code>; a standard QuartzHDL has no spelling for is given as a string in Quartus’s own words. Quartus has no weak pull-down, so a <code>pull = :down</code> is refused; a resistor on the board is <code>ext_pull</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>SDC(board; overconstrain = 1)</code></pre>
+<p>Timing constraints for a design on a board, in the form Quartus reads: <code>write(path, T, SDC(board))</code>. The rate of every clock the logic runs on, from the oscillators and the clock tree, and an exception for every multicycle path the design declares. <code>overconstrain</code> scales the clock rates, as described under <code>LPF</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<pre class="juliajulia"><code>Quartus(board; vendor = String[], overconstrain = 1, cable = "usb-blaster")</code></pre>
+<p>A Quartus Prime workspace for a design on a board: <code>write(dir, T, Quartus(board))</code> fills <code>dir</code> with the Verilog under <code>src/</code>, the project file (<code>.qpf</code>), the settings file (<code>.qsf</code>) holding the project and the board’s assignments, the timing constraints (<code>.sdc</code>), and a <code>build.sh</code> and <code>Makefile</code> that run Quartus from synthesis to the programming files, so <code>make</code> there builds the design where Quartus is installed. The build also writes an <code>.svf</code>, and on a MAX 10 a <code>.pof</code>, which <code>make load</code> and <code>make flash</code> send to the board with openFPGALoader over the <code>cable</code> named. <code>vendor</code> lists the netlists of the design’s black boxes, copied into <code>src/</code> and added to the project; a black box with no netlist is listed as <code>src/&lt;Name&gt;.v</code> for the user to supply. <code>overconstrain</code> scales the clock rates in the constraints, as described under <code>LPF</code>.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
 <pre class="juliajulia"><code>Surfer()</code></pre>
 <p>The Surfer waveform viewer (https://surfer-project.org), as a viewer for <code>view</code> and an <code>IO</code> a capture can be written to: what is written to it is what it shows, through a scratch VCD file it is told to load again. One window per <code>Surfer()</code>.</p>
 </div>
@@ -1652,8 +1686,8 @@ simmodels(path, T; scale=NamedTuple())</code></pre>
 <li><code>name</code>, <code>dir</code>, <code>suffix</code>, <code>extra_sources</code> and <code>timeout</code> name the module, say where the files go, put <code>_i</code>/<code>_o</code> on the ports, add Verilog sources to compile, and bound the run in seconds.</li>
 </ul>
 <p>Returns <code>(; ok, mismatches, julia, verilog, dir)</code>: whether the two agree, the differing cycles as <code>(cycle, julia line, verilog line)</code>, the two sets of output lines, and the directory the files were written to.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb129"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb129-1"><a href="#cb129-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">cosim</span>(Blinker, [(en_i <span class="op">=</span> <span class="cn">true</span>,) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">100</span>])</span>
-<span id="cb129-2"><a href="#cb129-2" aria-hidden="true" tabindex="-1"></a>r.ok <span class="op">||</span> <span class="fu">println</span>(r.mismatches[<span class="fl">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb132"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb132-1"><a href="#cb132-1" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> <span class="fu">cosim</span>(Blinker, [(en_i <span class="op">=</span> <span class="cn">true</span>,) for _ <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">100</span>])</span>
+<span id="cb132-2"><a href="#cb132-2" aria-hidden="true" tabindex="-1"></a>r.ok <span class="op">||</span> <span class="fu">println</span>(r.mismatches[<span class="fl">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </div>
@@ -1677,7 +1711,7 @@ timing(T; depth=true, board=nothing, synth=nothing)</code></pre>
 <p>With <code>depth=true</code> the design is also mapped by yosys. Every row and every condition then gets a <code>depth</code>: the number of LUT levels on the longest path between its two ends, with a carry chain counted as one level. If synthesis leaves no path between the two ends, the depth is 0 and the row’s <code>connected</code> field is false. This happens, for example, when a register does not reach any output and is removed. A depth that was not measured is <code>missing</code>, so a rule that uses it raises an error and cannot pass by mistake.</p>
 <p>By default yosys maps to generic LUTs with <code>lut_inputs</code> inputs and uses no device information. If <code>board</code> is given, yosys runs the flow for the board’s FPGA when one is known. <code>synth</code> names a yosys flow directly, for example <code>"synth_lattice -family xo2"</code> for a MachXO2. It takes priority over <code>board</code>, and the flow must flatten the design. If yosys is not installed, there is a warning and no depths.</p>
 <p>If limits are given, a test can check the design against them:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb131"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb131-1"><a href="#cb131-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@test</span> <span class="fu">timing</span>(<span class="bu">Main</span>; max_bits <span class="op">=</span> <span class="fl">8</span> <span class="op">=&gt;</span> <span class="fl">128</span>, max_carry <span class="op">=</span> <span class="fl">48</span>).ok</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb134"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb134-1"><a href="#cb134-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@test</span> <span class="fu">timing</span>(<span class="bu">Main</span>; max_bits <span class="op">=</span> <span class="fl">8</span> <span class="op">=&gt;</span> <span class="fl">128</span>, max_carry <span class="op">=</span> <span class="fl">48</span>).ok</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <ul>
 <li><code>max_bits = 8 =&gt; 128</code>: a condition with more than 8 inputs may control at most 128 register bits. Several pairs can be given: <code>(4 =&gt; 512, 8 =&gt; 128)</code>.</li>
 <li><code>max_carry</code>: the maximum total width of compares and adds in series on a path</li>
@@ -1735,7 +1769,7 @@ timing(T; depth=true, board=nothing, synth=nothing)</code></pre>
 </div>
 <div class="callout-body-container">
 <pre class="juliajulia"><code>write(path_or_io, x, format)</code></pre>
-<p>Write <code>x</code> in a format: a design as <code>Verilog()</code>, a capture as <code>VCD()</code>, a design on a board as <code>LPF(board)</code>. Returns the path when given one.</p>
+<p>Write <code>x</code> in a format: a design as <code>Verilog()</code>, a capture as <code>VCD()</code>, a design on a board as <code>LPF(board)</code> or <code>QSF(board)</code>. Returns the path when given one.</p>
 </div>
 </div>
 </div>

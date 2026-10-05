@@ -7,6 +7,9 @@ Base.write(io::IO, T::Type{<:QuartzModule}, f::LPF) =
   (buf = IOBuffer(); _lpf(buf, T, f.board, f.overconstrain); write(io, take!(buf)))
 
 function _lpf(io::IO, T::Type{<:QuartzModule}, b::Board, overconstrain::Float64)
+  family = _quartusfamily(b.device)
+  family === nothing ||
+    error("$(b.name) names $(b.device), a $family part that Quartus builds for; its constraints are QSF(board) and SDC(board)")
   bad = problems(b, T)
   isempty(bad) ||
     error("$(b.name) and $(nameof(T)) do not agree:\n  " * join(bad, "\n  "))

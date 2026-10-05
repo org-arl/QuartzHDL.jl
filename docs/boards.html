@@ -403,7 +403,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#board" id="toc-board" class="nav-link active" data-scroll-target="#board"><code>@board</code></a></li>
   <li><a href="#lpf-the-constraint-file" id="toc-lpf-the-constraint-file" class="nav-link" data-scroll-target="#lpf-the-constraint-file"><code>LPF</code>: the constraint file</a></li>
-  <li><a href="#what-it-refuses" id="toc-what-it-refuses" class="nav-link" data-scroll-target="#what-it-refuses">What it refuses</a></li>
+  <li><a href="#qsf-and-sdc-the-quartus-files" id="toc-qsf-and-sdc-the-quartus-files" class="nav-link" data-scroll-target="#qsf-and-sdc-the-quartus-files"><code>QSF</code> and <code>SDC</code>: the Quartus files</a></li>
+  <li><a href="#what-they-refuse" id="toc-what-they-refuse" class="nav-link" data-scroll-target="#what-they-refuse">What they refuse</a></li>
   <li><a href="#the-command-line" id="toc-the-command-line" class="nav-link" data-scroll-target="#the-command-line">The command line</a></li>
   <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
   </ul>
@@ -431,8 +432,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><strong><code>@board</code>: pin assignments and the constraint file</strong></p>
-<p>The design says nothing about pins, and the board says nothing about logic. A <code>@board</code> is the pin map of one physical board; the constraint file is written from the two together, and refuses if they disagree.</p>
+<p><strong><code>@board</code>: pin assignments and the constraint files</strong></p>
+<p>The design says nothing about pins, and the board says nothing about logic. A <code>@board</code> is the pin map of one physical board; the constraint files are written from the two together, and refuse if they disagree.</p>
 <section id="board" class="level2">
 <h2 class="anchored" data-anchor-id="board"><code>@board</code></h2>
 <div id="4" class="cell" data-execution_count="1">
@@ -496,9 +497,59 @@ FREQUENCY PORT "clk_i" 12.000000 MHz ;</code></pre>
 <p>Each name must be a clock the design has, and <code>LPF</code> writes a <code>USE PRIMARY NET</code> line for each. A design that says nothing leaves the choice to the tool.</p>
 <p>A clock that arrives on a pin needs care, because synthesis puts a buffer behind the pin and names the net after it <code>clk_i_c</code>: a constraint on the net <code>clk_i</code> would match nothing, and the tool would drop it with only a warning. So its frequency is written against the port, <code>FREQUENCY PORT "clk_i"</code>, and its global buffer against the buffered net, <code>USE PRIMARY NET "clk_i_c"</code> — the name Synplify gives it, the synthesiser a <a href="./compiling.html">Diamond workspace</a> uses. A clock that nothing runs on, such as one only <a href="./blackbox.html">read as data</a>, gets no frequency line, since there is no logic for it to time.</p>
 </section>
-<section id="what-it-refuses" class="level2">
-<h2 class="anchored" data-anchor-id="what-it-refuses">What it refuses</h2>
-<p>The constraint writer checks the design against the board and refuses to write anything if:</p>
+<section id="qsf-and-sdc-the-quartus-files" class="level2">
+<h2 class="anchored" data-anchor-id="qsf-and-sdc-the-quartus-files"><code>QSF</code> and <code>SDC</code>: the Quartus files</h2>
+<p>A part Quartus builds for, such as a MAX 10 or a Cyclone, takes two files, because Quartus keeps settings apart from timing. <code>QSF</code> writes the settings: the family and the device, the pin of every port, the I/O standard, weak pull-up and drive strength of each, and a global clock assignment for every net named by <code>@primary</code>. A board-wide <code>io</code> also becomes the device’s default standard, which sets the voltage of the banks no port lands in; without it Quartus supplies those at 2.5 V, and warns when the configuration pins then sit across two voltages. Quartus also warns of an output with no <code>drive</code>, so a board gives its outputs one, from the drives the standard allows on that part; on a MAX 10 the 3.3 V LVCMOS standard allows only 2 mA, and an LED wants LVTTL. <code>SDC</code> writes the timing constraints: a <code>create_clock</code> for every clock the logic runs on, and for every multicycle path a setup exception of N cycles paired with a hold exception of N-1, which is where Quartus expects the hold check to stay.</p>
+<div id="8" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Kit <span class="cf">begin</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"the MAX 10 10M08S evaluation kit"</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"10M08SAE144C8G"</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  io     <span class="op">=</span> <span class="op">:</span>LVCMOS33</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="fl">27</span>, osc<span class="op">=</span><span class="fl">50</span>MHz)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="fl">120</span>, ext_pull<span class="op">=:</span>up)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="fl">74</span>, ext_pull<span class="op">=:</span>up)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="fl">132</span>, <span class="fl">134</span>, <span class="fl">135</span>, <span class="fl">140</span>])</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, Top, <span class="fu">QSF</span>(Kit));</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">stdout</span>, Top, <span class="fu">SDC</span>(Kit));</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># generated by QuartzHDL for Top on Kit (10M08SAE144C8G)
+set_global_assignment -name FAMILY "MAX 10"
+set_global_assignment -name DEVICE 10M08SAE144C8G
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVCMOS"
+set_location_assignment PIN_27 -to clk_i
+set_location_assignment PIN_120 -to rst_ni
+set_location_assignment PIN_74 -to sda_io
+set_location_assignment PIN_132 -to led_o[0]
+set_location_assignment PIN_134 -to led_o[1]
+set_location_assignment PIN_135 -to led_o[2]
+set_location_assignment PIN_140 -to led_o[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to clk_i
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to clk_i
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to rst_ni
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to rst_ni
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to sda_io
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to sda_io
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to led_o[0]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to led_o[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to led_o[1]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to led_o[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to led_o[2]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to led_o[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to led_o[3]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR OFF -to led_o[3]
+# generated by QuartzHDL for Top on Kit; the clocks and timing exceptions the design declares
+create_clock -name {clk_i} -period 20.0 [get_ports {clk_i}]
+derive_clock_uncertainty</code></pre>
+</div>
+</div>
+<p>The board is written the same way whichever vendor made the part. The device decides which files it takes: <code>LPF</code> refuses a part Quartus builds for, and <code>QSF</code> and <code>SDC</code> refuse any other, so a board cannot be given to the wrong tool by mistake. Two attributes have a vendor’s flavour. An I/O standard is written as <code>:LVCMOS33</code> and spelt for Quartus as <code>"3.3-V LVCMOS"</code>; a standard QuartzHDL has no spelling for is given as a string in Quartus’s own words, <code>io = "3.3-V SCHMITT TRIGGER"</code>. And these parts have no weak pull-down, so <code>pull = :down</code> is refused on them; a resistor on the board is <code>ext_pull = :down</code> on any part.</p>
+</section>
+<section id="what-they-refuse" class="level2">
+<h2 class="anchored" data-anchor-id="what-they-refuse">What they refuse</h2>
+<p>The constraint writers check the design against the board and refuse to write anything if:</p>
 <ul>
 <li>a port has no pin, or a pin names a port that does not exist;</li>
 <li>two ports sit on one site;</li>
@@ -506,15 +557,15 @@ FREQUENCY PORT "clk_i" 12.000000 MHz ;</code></pre>
 <li>a pad relies on a pull and the board provides none, neither <code>pull</code> nor <code>ext_pull</code>, or pulls the other way;</li>
 <li>a black box that makes a clock sits below the top module, where the constraints cannot reliably name its clocks (see <a href="./blackbox.html">black boxes</a>).</li>
 </ul>
-<div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Wrong <span class="cf">begin</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"R1"</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="st">"A9"</span>, <span class="st">"B9"</span>, <span class="st">"A10"</span>])   <span class="co"># three pins for a 4-bit port</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"T2"</span>)                   <span class="co"># and no pull-up for an open-drain pad</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">devnull</span>, Top, <span class="fu">LPF</span>(Wrong))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="10" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@board</span> Wrong <span class="cf">begin</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  device <span class="op">=</span> <span class="st">"LFE5U-25F-6BG381C"</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  clk <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"G2"</span>, osc<span class="op">=</span><span class="fl">12</span>MHz)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  rst <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"R1"</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  led <span class="op">=&gt;</span> (pins<span class="op">=</span>[<span class="st">"A9"</span>, <span class="st">"B9"</span>, <span class="st">"A10"</span>])   <span class="co"># three pins for a 4-bit port</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  sda <span class="op">=&gt;</span> (pin<span class="op">=</span><span class="st">"T2"</span>)                   <span class="co"># and no pull-up for an open-drain pad</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(<span class="cn">devnull</span>, Top, <span class="fu">LPF</span>(Wrong))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-error">
 <div class="ansi-escaped-output">
 <pre>Wrong and Top do not agree:
@@ -524,11 +575,11 @@ Stacktrace:
  [1] <span class="ansi-bold">error</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">s</span>::String<span class="ansi-bold">)</span>
  <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">Base</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">error.jl:44</span>
  [2] <span class="ansi-bold">_lpf</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">io</span>::IOBuffer, <span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{Top}</span>, <span class="ansi-bright-black-fg">b</span>::Board, <span class="ansi-bright-black-fg">overconstrain</span>::Float64<span class="ansi-bold">)</span>
- <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/emitters/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">lpf.jl:11</span>
+ <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/emitters/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">lpf.jl:14</span>
  [3] <span class="ansi-bold">write</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">io</span>::Base.DevNull, <span class="ansi-bright-black-fg">T</span>::Type<span class="ansi-bright-black-fg">{Top}</span>, <span class="ansi-bright-black-fg">f</span>::LPF<span class="ansi-bold">)</span>
  <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/emitters/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">lpf.jl:7</span>
  [4] top-level scope
- <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:93</span></pre>
+ <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/qdocs/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">boards.qmd:115</span></pre>
 </div>
 </div>
 </div>
@@ -543,14 +594,15 @@ Stacktrace:
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><code>@board</code> plus <code>LPF</code> replaces the hand-maintained <code>.lpf</code> and keeps it in step with the design: rename a port, and the constraint line follows; add a <code>Multicycle</code> wire, and its exception appears. Only Lattice’s format is written today; the <code>@board</code> description itself holds nothing vendor-specific except the device name.</p>
+<p><code>@board</code> plus <code>LPF</code>, or <code>QSF</code> and <code>SDC</code>, replaces the hand-maintained <code>.lpf</code> or <code>.qsf</code> and <code>.sdc</code> and keeps them in step with the design: rename a port, and the constraint line follows; add a <code>Multicycle</code> wire, and its exception appears. Lattice’s and Quartus’s formats are written today; the <code>@board</code> description itself holds nothing vendor-specific except the device name and the spelling of an I/O standard given as a string.</p>
 </div>
 </div>
 </section>
 <section id="the-command-line" class="level2">
 <h2 class="anchored" data-anchor-id="the-command-line">The command line</h2>
-<pre><code>quartz design.jl --top Top --board Rev2 --outdir build</code></pre>
-<p>writes <code>Top.v</code> and <code>Rev2.lpf</code> together, which is what a build script calls.</p>
+<pre><code>quartz design.jl --top Top --board Rev2 --outdir build
+quartz design.jl --top Top --board Kit --outdir build</code></pre>
+<p>writes <code>Top.v</code> and <code>Rev2.lpf</code> together, or <code>Top.v</code>, <code>Kit.qsf</code> and <code>Kit.sdc</code>, which is what a build script calls.</p>
 </section>
 <section id="next" class="level2">
 <h2 class="anchored" data-anchor-id="next">Next</h2>

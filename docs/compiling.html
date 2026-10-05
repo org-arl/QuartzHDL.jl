@@ -405,6 +405,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#what-the-verilog-looks-like" id="toc-what-the-verilog-looks-like" class="nav-link" data-scroll-target="#what-the-verilog-looks-like">What the Verilog looks like</a></li>
   <li><a href="#the-command-line" id="toc-the-command-line" class="nav-link" data-scroll-target="#the-command-line">The command line</a></li>
   <li><a href="#a-lattice-diamond-workspace" id="toc-a-lattice-diamond-workspace" class="nav-link" data-scroll-target="#a-lattice-diamond-workspace">A Lattice Diamond workspace</a></li>
+  <li><a href="#a-quartus-prime-workspace" id="toc-a-quartus-prime-workspace" class="nav-link" data-scroll-target="#a-quartus-prime-workspace">A Quartus Prime workspace</a></li>
   <li><a href="#simulation-models-for-black-boxes" id="toc-simulation-models-for-black-boxes" class="nav-link" data-scroll-target="#simulation-models-for-black-boxes">Simulation models for black boxes</a></li>
   <li><a href="#next" id="toc-next" class="nav-link" data-scroll-target="#next">Next</a></li>
   </ul>
@@ -433,7 +434,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p><strong>Writing a design out as Verilog</strong></p>
-<p>Everything that leaves the package goes through one call: <code>write(path_or_io, thing, format)</code>. The formats are <code>Verilog()</code> for a design, <code>VCD()</code> for a capture, <code>LPF(board)</code> for constraints, and <code>Diamond(board)</code> for a whole Lattice build.</p>
+<p>Everything that leaves the package goes through one call: <code>write(path_or_io, thing, format)</code>. The formats are <code>Verilog()</code> for a design, <code>VCD()</code> for a capture, <code>LPF(board)</code> or <code>QSF(board)</code> and <code>SDC(board)</code> for constraints, and <code>Diamond(board)</code> or <code>Quartus(board)</code> for a whole Lattice or Quartus build.</p>
 <section id="verilog" class="level2">
 <h2 class="anchored" data-anchor-id="verilog"><code>Verilog()</code></h2>
 <div id="4" class="cell" data-execution_count="1">
@@ -524,14 +525,15 @@ endmodule</code></pre>
 <pre><code>julia -m QuartzHDL design.jl --top 'Filter{127}' -o filter.v --name filter
 julia -m QuartzHDL design.jl                          # every non-parametric module -&gt; Name.v
 julia -m QuartzHDL design.jl --top Top --board Rev2 --outdir build   # Top.v and Rev2.lpf
-julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace</code></pre>
+julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2   # a Diamond workspace
+julia -m QuartzHDL design.jl --top Top --board Kit --emit Quartus -o build/kit      # a Quartus workspace</code></pre>
 <p><code>Pkg.Apps.add("QuartzHDL")</code> installs a <code>quartz</code> executable, so the <code>julia -m QuartzHDL</code> prefix becomes just <code>quartz</code>. Julia 1.11 has neither <code>-m</code> nor <code>Pkg.Apps</code>; there the package is a library, driven from a script.</p>
 <p>The design file is <code>include</code>d in a fresh module, so guard any test or driver code in it:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">abspath</span>(<span class="cn">PROGRAM_FILE</span>) <span class="op">==</span> <span class="pp">@__FILE__</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># runs only when the file is executed directly, never when compiled</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>quartz timing design.jl --top Top</code> prints the <a href="./timing.html">timing report</a> for a module and does not compile it. With <code>--budget</code>, the exit status shows whether the design is within the budget.</p>
-<p>A parametric module needs a concrete <code>--top</code>, since Verilog is emitted per instantiation. <code>--board</code> also writes the constraint file for that top; the <a href="./boards.html">next chapter</a> says what goes in it.</p>
+<p>A parametric module needs a concrete <code>--top</code>, since Verilog is emitted per instantiation. <code>--board</code> also writes the constraint files for that top, in the form the board’s part takes; the <a href="./boards.html">next chapter</a> says what goes in them.</p>
 </section>
 <section id="a-lattice-diamond-workspace" class="level2">
 <h2 class="anchored" data-anchor-id="a-lattice-diamond-workspace">A Lattice Diamond workspace</h2>
@@ -549,6 +551,21 @@ julia -m QuartzHDL design.jl --top Top --board Rev2 --emit Diamond -o build/rev2
 <p>The board’s <code>device</code> must be the full part number Diamond knows, <code>LCMXO2-7000HE-4TG144I</code> rather than a family. A MachXO part boots from its own flash, so its <code>build.sh</code> also exports the JEDEC file, and <code>make</code> targets that. <code>build.sh</code> sources <code>diamond_env</code> from <code>/usr/local/lattice/bin/lin64</code>, or from <code>$DIAMOND_BIN</code> when Diamond is elsewhere.</p>
 <p>A black box needs its netlist in the workspace. Give the files with <code>vendor = ["vendor/PLL48.v", ...]</code> and they are copied into <code>src/</code> and listed in the project; a black box with no netlist among them is still listed, as <code>src/&lt;Name&gt;.v</code>, with a warning saying where to put the file, unless it is declared <code>primitive=true</code>, a module Diamond knows by itself. <code>implementation = "impl"</code> names Diamond’s implementation and its directory.</p>
 <p>The strategy turns synthesis retiming off, which <a href="./multicycle.html">multicycle paths</a> need, and turns timing-driven mapping on. Timing-driven packing and node replication stay off. On the one design they were measured on, over twenty placement seeds, packing raised the median clock speed slightly but made one seed in twenty fail, and replication changed nothing. <code>pack = true</code> and <code>replicate = true</code> turn them on for a design where a measurement shows a gain. Two options help with <a href="./timing.html">measuring timing</a>. <code>overconstrain = 1.2</code> constrains every clock at 1.2 times its real rate, so that a build shows how much margin it has. <code>paths = 100</code> sets how many paths the timing reports list for each constraint. <code>LPF(board; overconstrain = 1.2)</code> writes only the constraint file with the same scaling.</p>
+</section>
+<section id="a-quartus-prime-workspace" class="level2">
+<h2 class="anchored" data-anchor-id="a-quartus-prime-workspace">A Quartus Prime workspace</h2>
+<p><code>write(dir, Top, Quartus(board))</code> does the same for a part Quartus builds for, such as a MAX 10:</p>
+<pre><code>build/kit/
+  src/Top.v          the design, and every submodule with it
+  src/PLL50.v        the vendor netlists of the black boxes, from `vendor = [...]`
+  Top.qpf            the project file
+  Top.qsf            the project's settings, followed by the board's assignments as `QSF(board)` writes them
+  Kit.sdc            the clocks and multicycle paths, as `SDC(board)` writes them
+  build.sh           the whole flow, then the SRAM image as an SVF
+  Makefile           `make` runs build.sh; `make load` and `make flash` program the board</code></pre>
+<p>Quartus names the settings file after the project, so the board’s assignments share the design’s file instead of keeping the board’s name as the <code>.lpf</code> does. <code>build.sh</code> runs <code>quartus_sh --flow compile</code>, which is synthesis, fitting, assembly and timing analysis, and then converts the <code>.sof</code> to an <code>.svf</code>. <code>QUARTUS_BIN</code> names Quartus’s <code>bin</code> directory when it is not on the PATH. The settings leave every pin the design does not use as an input with a weak pull-up, and on a MAX 10 set the on-chip flash to hold a single compressed image, so the assembler writes a <code>.pof</code> beside the <code>.sof</code>.</p>
+<p>Quartus’s own programmer runs only where Quartus does, so the Makefile programs the board with <a href="https://trabucayre.github.io/openFPGALoader/">openFPGALoader</a>, which runs anywhere: <code>make load</code> plays the <code>.svf</code> into the FPGA over JTAG, and <code>make flash</code> writes the <code>.pof</code> into a MAX 10’s flash so the design survives a power cycle. Both are run where the cable is plugged in, which need not be where Quartus ran, as long as the workspace is shared. <code>cable = "usb-blasterII"</code> names the cable as openFPGALoader does; the default is the original USB Blaster. Loading over SVF takes a minute or so on a small part and is what to use while a design is changing; flash it once it is right.</p>
+<p>Black boxes are handled as in a Diamond workspace: <code>vendor = [...]</code> gives the netlists, and a missing one is listed with a warning. <code>overconstrain</code> scales the clock rates in the <code>.sdc</code> as it does in the <code>.lpf</code>.</p>
 </section>
 <section id="simulation-models-for-black-boxes" class="level2">
 <h2 class="anchored" data-anchor-id="simulation-models-for-black-boxes">Simulation models for black boxes</h2>
