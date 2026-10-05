@@ -21,7 +21,9 @@ _genericsynth(lut::Int) =
 const YOSYS_FLOWS = ["LCMXO2" => "synth_lattice -family xo2", "LCMXO3D" => "synth_lattice -family xo3d",
                      "LCMXO3" => "synth_lattice -family xo3", "LFE5U" => "synth_lattice -family ecp5",
                      "LIFCL" => "synth_lattice -family lifcl", "LFD2NX" => "synth_lattice -family lfd2nx",
-                     "ICE40" => "synth_ice40"]
+                     "ICE40" => "synth_ice40", "10M" => "synth_intel -family max10",
+                     "10CL" => "synth_intel -family cyclone10lp", "EP4CE" => "synth_intel -family cycloneive",
+                     "EP4CGX" => "synth_intel -family cycloneiv", "5C" => "synth_intel_alm -family cyclonev"]
 
 # what a path starts and ends at, beside the design's black boxes
 const STORAGE = r"DFF|_FF|^FD|LATCH|RAM|^DP\d|DPR|^PDP"

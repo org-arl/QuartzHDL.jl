@@ -263,6 +263,25 @@ VERSION >= v"1.12" && @testset "app mode" begin
   @test occursin("module blink", read(joinpath(ws, "src", "blink.v"), String))
   @test !success(`$julia --project=$proj -m QuartzHDL $boarded --top Blinker --emit Diamond -o $ws`)
 
+  # a board Quartus builds for gets its settings and timing files, and a Quartus workspace
+  altera = joinpath(dir, "altera.jl")
+  write(altera, read(design, String) * """
+    @board Kit begin
+      device = "10M08SAE144C8G"
+      io     = :LVCMOS33
+      clk => (pin = 27, osc = 50MHz)
+      led => (pin = 132)
+    end
+    """)
+  run(`$julia --project=$proj -m QuartzHDL $altera --top Blinker --board Kit --outdir $dir`)
+  @test occursin("set_location_assignment PIN_132 -to led_o", read(joinpath(dir, "Kit.qsf"), String))
+  @test occursin("create_clock -name {clk_i} -period 20.0 [get_ports {clk_i}]", read(joinpath(dir, "Kit.sdc"), String))
+  qws = joinpath(dir, "qws")
+  run(`$julia --project=$proj -m QuartzHDL $altera --top Blinker --board Kit --emit "Quartus(cable = \"usb-blasterII\")" -o $qws`)
+  @test isfile(joinpath(qws, "Blinker.qpf")) && isfile(joinpath(qws, "Kit.sdc")) && isfile(joinpath(qws, "src", "Blinker.v"))
+  @test occursin("usb-blasterII", read(joinpath(qws, "Makefile"), String))
+  @test !success(`$julia --project=$proj -m QuartzHDL $altera --top Blinker --emit Quartus -o $qws`)
+
   # a design of any size is split over files
   write(joinpath(dir, "part.jl"), join([
     "@quartz struct Kid",
@@ -3695,6 +3714,7 @@ end
 
 include("aqua.jl")
 include("soc.jl")
+include("quartus.jl")
 include("timing.jl")
 include("reference.jl")
 include("library/runtests.jl")

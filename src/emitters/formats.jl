@@ -95,6 +95,71 @@ function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implement
 end
 
 """
+    QSF(board)
+
+Quartus settings for a design on a board: `write(path, T, QSF(board))`. The device
+and its family, the pin of every port, and what each buffer is told -- I/O standard,
+weak pull-up, drive strength -- and the clocks that ride the global network. Clock
+rates and timing exceptions are not settings; they go in the `SDC`.
+
+An I/O standard is written as the board writes it, `:LVCMOS33`, and spelt as Quartus
+spells it, `"3.3-V LVCMOS"`; a standard QuartzHDL has no spelling for is given as a
+string in Quartus's own words. Quartus has no weak pull-down, so a `pull = :down`
+is refused; a resistor on the board is `ext_pull`.
+"""
+struct QSF <: Format
+  board::Board               # the board the design is placed on
+end
+
+"""
+    SDC(board; overconstrain = 1)
+
+Timing constraints for a design on a board, in the form Quartus reads:
+`write(path, T, SDC(board))`. The rate of every clock the logic runs on, from the
+oscillators and the clock tree, and an exception for every multicycle path the
+design declares. `overconstrain` scales the clock rates, as described under `LPF`.
+"""
+struct SDC <: Format
+  board::Board               # the board the design is placed on
+  overconstrain::Float64     # what every clock rate is multiplied by
+end
+
+SDC(board::Board; overconstrain=1) =
+  (overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"));
+   SDC(board, overconstrain))
+
+"""
+    Quartus(board; vendor = String[], overconstrain = 1, cable = "usb-blaster")
+
+A Quartus Prime workspace for a design on a board: `write(dir, T, Quartus(board))`
+fills `dir` with the Verilog under `src/`, the project file (`.qpf`), the settings
+file (`.qsf`) holding the project and the board's assignments, the timing
+constraints (`.sdc`), and a `build.sh` and `Makefile` that run Quartus from
+synthesis to the programming files, so `make` there builds the design where
+Quartus is installed. The build also writes an `.svf`, and on a MAX 10 a `.pof`,
+which `make load` and `make flash` send to the board with openFPGALoader over the
+`cable` named. `vendor` lists the netlists of the design's black boxes, copied
+into `src/` and added to the project; a black box with no netlist is listed as
+`src/<Name>.v` for the user to supply. `overconstrain` scales the clock rates in
+the constraints, as described under `LPF`.
+"""
+struct Quartus <: Format
+  board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board
+  vendor::Vector{String}       # netlists of the black boxes, to copy into src/
+  name::Union{Nothing,Symbol}  # the module's name, or the type's
+  overconstrain::Float64       # what the constraints multiply every clock rate by
+  cable::String                # the JTAG cable, as openFPGALoader names it
+end
+
+function Quartus(board::Union{Nothing,Board}=nothing; vendor=String[], overconstrain=1, cable="usb-blaster")
+  overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"))
+  Quartus(board, collect(String, vendor), nothing, overconstrain, String(cable))
+end
+
+# a format that fills a directory rather than a file
+const Workspace = Union{Diamond,Quartus}
+
+"""
     Icarus()
 
 Icarus Verilog (`iverilog`/`vvp`) as the simulator a `cosim` runs the generated
@@ -111,12 +176,14 @@ command line can name its output.
 extension(::Verilog) = "v"
 extension(::VCD) = "vcd"
 extension(::LPF) = "lpf"
-extension(::Diamond) = ""
+extension(::QSF) = "qsf"
+extension(::SDC) = "sdc"
+extension(::Workspace) = ""
 
 # where the command line writes a format that is not given a path: a file named
 # after the module, or for a workspace a directory named after it
 outputpath(f::Format, dir::AbstractString, name::Symbol) = joinpath(dir, "$name.$(extension(f))")
-outputpath(::Diamond, dir::AbstractString, name::Symbol) = joinpath(dir, string(name))
+outputpath(::Workspace, dir::AbstractString, name::Symbol) = joinpath(dir, string(name))
 
 # the format with a module name put on it, where a format carries one
 _named(f::Verilog, name::Symbol) = Verilog(name, f.suffix, f.debug, f.inits)
@@ -124,16 +191,19 @@ _named(f::Diamond, name::Symbol) =
   Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths, f.pack, f.replicate)
 _onboard(f::Diamond, board::Board) =
   Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths, f.pack, f.replicate)
+_named(f::Quartus, name::Symbol) = Quartus(f.board, f.vendor, name, f.overconstrain, f.cable)
+_onboard(f::Quartus, board::Board) = Quartus(board, f.vendor, f.name, f.overconstrain, f.cable)
 _named(f::Format, ::Symbol) = f
 
 """
     write(path_or_io, x, format)
 
 Write `x` in a format: a design as `Verilog()`, a capture as `VCD()`, a design on
-a board as `LPF(board)`. Returns the path when given one.
+a board as `LPF(board)` or `QSF(board)`. Returns the path when given one.
 """
 Base.write(path::AbstractString, x, f::Format) = (open(io -> write(io, x, f), path, "w"); path)
 Base.write(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond) = _diamond(dir, T, f)
+Base.write(dir::AbstractString, T::Type{<:QuartzModule}, f::Quartus) = _quartus(dir, T, f)
 
 """
     view([viewer], capture_or_sim)
