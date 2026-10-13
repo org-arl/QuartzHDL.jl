@@ -21,7 +21,7 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   open(io -> _fdc(io, T, b, f.overconstrain), joinpath(dir, "$(b.name).fdc"), "w")
   sources = vcat("src/$name.v", _netlists(dir, T, f.vendor))
   write(joinpath(dir, "$name.ldf"), _ldf(name, b, f.implementation, sources))
-  write(joinpath(dir, "$name.sty"), _sty(f.paths, f.pack, f.replicate))
+  write(joinpath(dir, "$name.sty"), _sty(f))
   write(joinpath(dir, "build.sh"), _buildsh(name, b, f.implementation))
   chmod(joinpath(dir, "build.sh"), 0o755)
   write(joinpath(dir, "Makefile"), _makefile(name, b, f.implementation))
@@ -29,12 +29,15 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
 end
 
 # the strategy, with the number of paths each timing report lists -- the one after
-# map, which estimates the routing, and the one after place and route -- and
-# whether map packs and replicates for timing
-function _sty(paths::Int, pack::Bool, replicate::Bool)
+# map, which estimates the routing, and the one after place and route -- whether
+# map packs and replicates for timing, and the placement, routing and synthesis
+# properties a design tight on timing tunes
+function _sty(f::Diamond)
   text = read(joinpath(@__DIR__, "diamond.sty"), String)
-  values = ["MAPSTA_WordCasePaths" => string(paths), "PARSTA_WordCasePaths" => string(paths),
-            "MAP_TimingDrivenPack" => pack ? "True" : "False", "MAP_TimingDrivenNodeRep" => replicate ? "True" : "False"]
+  values = ["MAPSTA_WordCasePaths" => string(f.paths), "PARSTA_WordCasePaths" => string(f.paths),
+            "MAP_TimingDrivenPack" => _stybool(f.pack), "MAP_TimingDrivenNodeRep" => _stybool(f.replicate),
+            "PAR_PlcIterParDes" => string(f.seeds), "PAR_RouteDlyRedParDes" => string(f.route_delay_reduction),
+            "SYN_EdfFanout" => string(f.fanout), "SYN_EdfResSharing" => _stybool(f.resource_sharing)]
   for (prop, value) in values
     r = Regex("(<Property name=\"PROP_$prop\" value=\")[^\"]*(\")")
     occursin(r, text) || error("diamond.sty has no PROP_$prop to set")
@@ -42,6 +45,8 @@ function _sty(paths::Int, pack::Bool, replicate::Bool)
   end
   text
 end
+
+_stybool(b::Bool) = b ? "True" : "False"
 
 # The netlists of the design's black boxes, copied into the workspace's src/ and
 # listed as sources; a black box with none is listed by the file it should be in.

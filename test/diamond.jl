@@ -358,4 +358,30 @@ end
   @test_throws ArgumentError Diamond(TimingDemo; paths=0)
   f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50, pack=true), :blink), TimingDemo)
   @test (f.board, f.name, f.overconstrain, f.paths, f.pack, f.replicate) == (TimingDemo, :blink, 1.2, 50, true, false)
+
+  # the placement, routing and synthesis properties a design tight on timing tunes,
+  # at the strategy's defaults and as given
+  tuned = ("PROP_PAR_PlcIterParDes" => "1", "PROP_PAR_RouteDlyRedParDes" => "0", "PROP_SYN_EdfFanout" => "1000",
+           "PROP_SYN_EdfResSharing" => "True")
+  for (p, v) in tuned
+    @test occursin("<Property name=\"$p\" value=\"$v\"", sty)
+  end
+  f = Diamond(TimingDemo; seeds=20, route_delay_reduction=1, fanout=100, resource_sharing=false)
+  sty = read(joinpath(write(mktempdir(), TimingBlinker, f), "TimingBlinker.sty"), String)
+  for (p, v) in ("PROP_PAR_PlcIterParDes" => "20", "PROP_PAR_RouteDlyRedParDes" => "1", "PROP_SYN_EdfFanout" => "100",
+                 "PROP_SYN_EdfResSharing" => "False")
+    @test occursin("<Property name=\"$p\" value=\"$v\"", sty)
+  end
+  g = QuartzHDL._onboard(QuartzHDL._named(f, :blink), SocXO)
+  @test (g.board, g.name, g.seeds, g.route_delay_reduction, g.fanout, g.resource_sharing) == (SocXO, :blink, 20, 1, 100, false)
+  @test_throws ArgumentError Diamond(TimingDemo; seeds=0)
+  @test_throws ArgumentError Diamond(TimingDemo; route_delay_reduction=-1)
+  @test_throws ArgumentError Diamond(TimingDemo; fanout=0)
+
+  # a name given to the format names the project, the top module and the outputs
+  dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo; name="blink"))
+  @test isfile(joinpath(dir, "blink.ldf")) && isfile(joinpath(dir, "blink.sty")) && isfile(joinpath(dir, "src", "blink.v"))
+  @test occursin("module blink", read(joinpath(dir, "src", "blink.v"), String))
+  @test occursin("all: impl/blink_impl.jed", read(joinpath(dir, "Makefile"), String))
+  @test Diamond(TimingDemo; name=:blink).name === :blink && Diamond(TimingDemo).name === nothing
 end

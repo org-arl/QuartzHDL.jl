@@ -263,6 +263,15 @@ VERSION >= v"1.12" && @testset "app mode" begin
   @test occursin("module blink", read(joinpath(ws, "src", "blink.v"), String))
   @test !success(`$julia --project=$proj -m QuartzHDL $boarded --top Blinker --emit Diamond -o $ws`)
 
+  # a name given to the format names the outputs, and --name overrides it
+  named = joinpath(dir, "named")
+  run(`$julia --project=$proj -m QuartzHDL $boarded --top Blinker --board Demo --emit "Diamond(name = :fw)" -o $named`)
+  @test isfile(joinpath(named, "fw.ldf")) && occursin("module fw", read(joinpath(named, "src", "fw.v"), String))
+  run(`$julia --project=$proj -m QuartzHDL $boarded --top Blinker --board Demo --emit "Diamond(name = :fw)" -o $named --name rel`)
+  @test isfile(joinpath(named, "rel.ldf")) && occursin("module rel", read(joinpath(named, "src", "rel.v"), String))
+  run(`$julia --project=$proj -m QuartzHDL $design --top Blinker --emit "Verilog(name = :fw)" --outdir $dir`)
+  @test occursin("module fw", read(joinpath(dir, "fw.v"), String))
+
   # a board Quartus builds for gets its settings and timing files, and a Quartus workspace
   altera = joinpath(dir, "altera.jl")
   write(altera, read(design, String) * """

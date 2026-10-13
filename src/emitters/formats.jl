@@ -54,8 +54,9 @@ LPF(board::Board; overconstrain=1) =
    LPF(board, overconstrain))
 
 """
-    Diamond(board; vendor = String[], implementation = "impl", overconstrain = 1, paths = 100,
-            pack = false, replicate = false)
+    Diamond(board; vendor = String[], implementation = "impl", name = nothing, overconstrain = 1,
+            paths = 100, pack = false, replicate = false, seeds = 1, route_delay_reduction = 0,
+            fanout = 1000, resource_sharing = true)
 
 A Lattice Diamond workspace for a design on a board: `write(dir, T, Diamond(board))`
 fills `dir` with the Verilog under `src/`, the constraint file and the same
@@ -65,15 +66,22 @@ Diamond from synthesis to the bitstream -- and the JEDEC file on a MachXO part -
 so `make` there builds the design where Diamond is installed. `vendor` lists the
 netlists of the design's black boxes, copied into `src/` and added to the project;
 a black box with no netlist is listed as `src/<Name>.v` for the user to supply.
-`overconstrain` scales the clock rates in the constraint file, as described under
-`LPF`. `paths` sets how many paths the timing reports list for each constraint,
-starting with the worst.
+`name` names the project, the top module and the outputs, where the type's name
+will not do. `overconstrain` scales the clock rates in the constraint file, as
+described under `LPF`. `paths` sets how many paths the timing reports list for
+each constraint, starting with the worst.
 
 The strategy maps with timing in mind, and leaves timing-driven packing and node
 replication off. On the one design these were measured on, over twenty placement
 seeds, packing raised the median clock a little and made one seed in twenty fail,
 and replication changed nothing. `pack = true` and `replicate = true` turn them on
-for a design where a measurement shows a gain.
+for a design where a measurement shows a gain. Four more properties of the
+strategy are for a design that is tight on timing: `seeds` is how many placements
+place-and-route tries, keeping the best; `route_delay_reduction` is how many
+extra routing passes it spends cutting delay; `fanout` is the fan-out above which
+synthesis replicates a driver; and `resource_sharing = false` stops synthesis
+sharing arithmetic between paths that never run at once, which costs area and
+can gain speed.
 """
 struct Diamond <: Format
   board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board
@@ -84,15 +92,27 @@ struct Diamond <: Format
   paths::Int                   # the paths of each constraint the timing report lists
   pack::Bool                   # timing-driven packing in map
   replicate::Bool              # timing-driven node replication in map
+  seeds::Int                   # placements place-and-route tries, keeping the best
+  route_delay_reduction::Int   # extra routing passes spent cutting delay
+  fanout::Int                  # the fan-out above which synthesis replicates a driver
+  resource_sharing::Bool       # arithmetic shared between paths that never run at once
 end
 
-function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl", overconstrain=1, paths=100,
-    pack=false, replicate=false
+function Diamond(board::Union{Nothing,Board}=nothing; vendor=String[], implementation="impl", name=nothing,
+    overconstrain=1, paths=100, pack=false, replicate=false, seeds=1, route_delay_reduction=0, fanout=1000,
+    resource_sharing=true
 )
   overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"))
   paths > 0 || throw(ArgumentError("paths is a count above zero, got $paths"))
-  Diamond(board, collect(String, vendor), implementation, nothing, overconstrain, paths, pack, replicate)
+  seeds > 0 || throw(ArgumentError("seeds is a count above zero, got $seeds"))
+  route_delay_reduction >= 0 || throw(ArgumentError("route_delay_reduction is a count of passes, got $route_delay_reduction"))
+  fanout > 0 || throw(ArgumentError("fanout is a count above zero, got $fanout"))
+  Diamond(board, collect(String, vendor), implementation, _modulename(name), overconstrain, paths, pack, replicate,
+          seeds, route_delay_reduction, fanout, resource_sharing)
 end
+
+# a module name given as a symbol or a string, or nothing for the type's own
+_modulename(name) = name === nothing ? nothing : Symbol(name)
 
 """
     QSF(board)
@@ -129,7 +149,7 @@ SDC(board::Board; overconstrain=1) =
    SDC(board, overconstrain))
 
 """
-    Quartus(board; vendor = String[], overconstrain = 1, cable = "usb-blaster")
+    Quartus(board; vendor = String[], name = nothing, overconstrain = 1, cable = "usb-blaster")
 
 A Quartus Prime workspace for a design on a board: `write(dir, T, Quartus(board))`
 fills `dir` with the Verilog under `src/`, the project file (`.qpf`), the settings
@@ -140,8 +160,9 @@ Quartus is installed. The build also writes an `.svf`, and on a MAX 10 a `.pof`,
 which `make load` and `make flash` send to the board with openFPGALoader over the
 `cable` named. `vendor` lists the netlists of the design's black boxes, copied
 into `src/` and added to the project; a black box with no netlist is listed as
-`src/<Name>.v` for the user to supply. `overconstrain` scales the clock rates in
-the constraints, as described under `LPF`.
+`src/<Name>.v` for the user to supply. `name` names the project, the top module
+and the outputs, where the type's name will not do. `overconstrain` scales the
+clock rates in the constraints, as described under `LPF`.
 """
 struct Quartus <: Format
   board::Union{Nothing,Board}  # the board the design is placed on; the app fills it in from --board
@@ -151,9 +172,9 @@ struct Quartus <: Format
   cable::String                # the JTAG cable, as openFPGALoader names it
 end
 
-function Quartus(board::Union{Nothing,Board}=nothing; vendor=String[], overconstrain=1, cable="usb-blaster")
+function Quartus(board::Union{Nothing,Board}=nothing; vendor=String[], name=nothing, overconstrain=1, cable="usb-blaster")
   overconstrain > 0 || throw(ArgumentError("overconstrain is a factor above zero, got $overconstrain"))
-  Quartus(board, collect(String, vendor), nothing, overconstrain, String(cable))
+  Quartus(board, collect(String, vendor), _modulename(name), overconstrain, String(cable))
 end
 
 # a format that fills a directory rather than a file
@@ -188,12 +209,18 @@ outputpath(::Workspace, dir::AbstractString, name::Symbol) = joinpath(dir, strin
 # the format with a module name put on it, where a format carries one
 _named(f::Verilog, name::Symbol) = Verilog(name, f.suffix, f.debug, f.inits)
 _named(f::Diamond, name::Symbol) =
-  Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths, f.pack, f.replicate)
+  Diamond(f.board, f.vendor, f.implementation, name, f.overconstrain, f.paths, f.pack, f.replicate,
+          f.seeds, f.route_delay_reduction, f.fanout, f.resource_sharing)
 _onboard(f::Diamond, board::Board) =
-  Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths, f.pack, f.replicate)
+  Diamond(board, f.vendor, f.implementation, f.name, f.overconstrain, f.paths, f.pack, f.replicate,
+          f.seeds, f.route_delay_reduction, f.fanout, f.resource_sharing)
 _named(f::Quartus, name::Symbol) = Quartus(f.board, f.vendor, name, f.overconstrain, f.cable)
 _onboard(f::Quartus, board::Board) = Quartus(board, f.vendor, f.name, f.overconstrain, f.cable)
 _named(f::Format, ::Symbol) = f
+
+# the module name a format carries, or nothing where it carries none or has none set
+_nameof(f::Union{Verilog,Diamond,Quartus}) = f.name
+_nameof(::Format) = nothing
 
 """
     write(path_or_io, x, format)
