@@ -25,7 +25,8 @@ options:
   -o FILE         output file (single --top only; default <name>.<extension>);
                   for a workspace its directory (default <name>/)
   --outdir DIR    output directory (default .)
-  --name NAME     module name in the output (single --top only; default the struct name)
+  --name NAME     module name in the output (single --top only; default the struct
+                  name, or the name the format was given)
   -h, --help      show this help
 """
 
@@ -293,7 +294,7 @@ function _write(types, opt::Options, format, board)
     format = _onboard(format, board)
   end
   for T in types
-    mname = length(types) == 1 && opt.name !== nothing ? Symbol(opt.name) : nameof(T)
+    mname = length(types) == 1 && opt.name !== nothing ? Symbol(opt.name) : something(_nameof(format), nameof(T))
     path = length(types) == 1 && opt.out !== nothing ? opt.out : outputpath(format, opt.outdir, mname)
     try
       write(path, T, _named(format, mname))

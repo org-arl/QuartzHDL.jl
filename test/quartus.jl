@@ -175,6 +175,10 @@ end
   @test occursin("-c usb-blasterII output_files/soc.svf", read(joinpath(dir2, "Makefile"), String))
   f = QuartzHDL._onboard(QuartzHDL._named(Quartus(; overconstrain = 1.2), :blink), SocMax)
   @test (f.board, f.name, f.overconstrain, f.cable) == (SocMax, :blink, 1.2, "usb-blaster")
+  dir3 = mktempdir()
+  Test.@test_logs match_mode = :any (:warn, r"") write(dir3, Soc, Quartus(SocMax; name = "soc"))
+  @test isfile(joinpath(dir3, "soc.qpf")) && occursin("TOP_LEVEL_ENTITY soc", read(joinpath(dir3, "soc.qsf"), String))
+  @test occursin("output_files/soc.svf", read(joinpath(dir3, "Makefile"), String))
 
   @test_throws ArgumentError write(mktempdir(), Soc, Quartus())
   @test_throws ArgumentError Quartus(SocMax; overconstrain = 0)
