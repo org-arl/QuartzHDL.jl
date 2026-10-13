@@ -42,7 +42,7 @@ export
   Simulation, nets, watch!, unwatch!, capture, clear!, reset!, changes, sampled, slots,
   advance_by, advance_until, spawn!, stop!, run!, @run, @stimulus, simrepl, showlogs!,
   # formats and tools
-  Verilog, VCD, LPF, Diamond, Surfer, Icarus, simmodels, stages, timing, TimingReport, cosim, hook!, unhook!, on,
+  Verilog, VCD, LPF, Diamond, QSF, SDC, Quartus, Surfer, Icarus, simmodels, stages, timing, TimingReport, cosim, hook!, unhook!, on,
   # library
   UART, FT2232H, SPIMaster, SPISlave, transfer, I2CMaster, I2CSlave, PWM, RAM
 
@@ -83,6 +83,8 @@ include("emitters/simmodel.jl")
 include("emitters/vcd.jl")
 include("emitters/lpf.jl")
 include("emitters/diamond.jl")
+include("emitters/qsf.jl")
+include("emitters/quartus.jl")
 include("emitters/surfer.jl")
 include("emitters/icarus.jl")
 include("timing/flatten.jl")

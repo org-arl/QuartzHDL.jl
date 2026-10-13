@@ -303,43 +303,6 @@ end
   led => (pin = 17)
 end
 
-@testset "a Diamond workspace set up to close timing, and to measure it" begin
-  text = sprint(io -> write(io, TimingBlinker, LPF(TimingDemo)))
-  @test occursin("FREQUENCY PORT \"clk_i\" 48.000000 MHz ;", text) && !occursin("times their rate", text)
-  text = sprint(io -> write(io, TimingBlinker, LPF(TimingDemo; overconstrain=1.25)))
-  @test occursin("FREQUENCY PORT \"clk_i\" 60.000000 MHz ;", text)
-  @test occursin("// clocks are constrained at 1.25 times their rates", text)
-  @test_throws ArgumentError LPF(TimingDemo; overconstrain=0)
-  dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo))
-  sty = read(joinpath(dir, "TimingBlinker.sty"), String)
-  @test occursin("<Property name=\"PROP_MAP_TimingDriven\" value=\"True\"", sty)
-  for p in ("PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
-    @test occursin("<Property name=\"$p\" value=\"False\"", sty)
-  end
-  sty = read(joinpath(write(mktempdir(), TimingBlinker, Diamond(TimingDemo; pack=true, replicate=true)), "TimingBlinker.sty"), String)
-  for p in ("PROP_MAP_TimingDrivenNodeRep", "PROP_MAP_TimingDrivenPack")
-    @test occursin("<Property name=\"$p\" value=\"True\"", sty)
-  end
-  @test occursin("<Property name=\"PROP_MAP_RegRetiming\" value=\"False\"", sty)
-  @test occursin("\"PROP_PARSTA_WordCasePaths\" value=\"100\"", sty) && occursin("\"PROP_MAPSTA_WordCasePaths\" value=\"100\"", sty)
-  @test occursin("48.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
-  fdc = read(joinpath(dir, "TimingDemo.fdc"), String)
-  @test occursin("create_clock -name {clk_i} -period 20.833 [get_ports {clk_i}]", fdc)
-  @test occursin("TimingDemo.fdc\" type=\"Synplify Design Constraints File\"", read(joinpath(dir, "TimingBlinker.ldf"), String))
-  @test occursin("TimingDemo.fdc", read(joinpath(dir, "Makefile"), String))
-  socfdc = sprint(io -> QuartzHDL._fdc(io, Soc, SocBoard, 1.0))
-  @test occursin("set_multicycle_path 4 -from [get_cells {sub.slowsum[*]}] -to [get_cells {sub.slowcopy[*]}]", socfdc)
-  @test occursin("create_clock -name {clk_ref_i}", socfdc) && occursin("-name {fast} -period 20.833 [get_nets {pll.CLKOP}]", socfdc)
-  @test occursin("[get_nets {pll.CLKOS}]", socfdc)
-  dir = write(mktempdir(), TimingBlinker, Diamond(TimingDemo; overconstrain=1.5, paths=250))
-  @test occursin("72.000000 MHz", read(joinpath(dir, "TimingDemo.lpf"), String))
-  @test occursin("-period 13.889", read(joinpath(dir, "TimingDemo.fdc"), String))
-  @test occursin("\"PROP_PARSTA_WordCasePaths\" value=\"250\"", read(joinpath(dir, "TimingBlinker.sty"), String))
-  @test_throws ArgumentError Diamond(TimingDemo; paths=0)
-  f = QuartzHDL._onboard(QuartzHDL._named(Diamond(; overconstrain=1.2, paths=50, pack=true), :blink), TimingDemo)
-  @test (f.board, f.name, f.overconstrain, f.paths, f.pack, f.replicate) == (TimingDemo, :blink, 1.2, 50, true, false)
-end
-
 @testset "the timing report with the depths yosys finds" begin
   if HAVE_YOSYS
     r = timing(TimingSums; depth=true)

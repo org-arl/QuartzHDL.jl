@@ -19,21 +19,7 @@ function _diamond(dir::AbstractString, T::Type{<:QuartzModule}, f::Diamond)
   write(joinpath(dir, "src", "$name.v"), T, Verilog(; name))
   write(joinpath(dir, "$(b.name).lpf"), T, LPF(b; f.overconstrain))
   open(io -> _fdc(io, T, b, f.overconstrain), joinpath(dir, "$(b.name).fdc"), "w")
-  sources = ["src/$name.v"]
-  supplied = Symbol[]
-  for v in f.vendor
-    isfile(v) || error("no such vendor netlist: $v")
-    cp(v, joinpath(dir, "src", basename(v)); force=true)
-    push!(sources, "src/" * basename(v))
-    append!(supplied, _modulesin(read(v, String)))
-  end
-  for BB in _blackboxes(T)
-    vname = blackbox(BB).verilogname
-    (vname in supplied || blackbox(BB).primitive) && continue
-    file = "src/$vname.v"
-    @warn "$vname has no netlist in the workspace; put the vendor's at $(joinpath(dir, file))"
-    push!(sources, file)
-  end
+  sources = vcat("src/$name.v", _netlists(dir, T, f.vendor))
   write(joinpath(dir, "$name.ldf"), _ldf(name, b, f.implementation, sources))
   write(joinpath(dir, "$name.sty"), _sty(f.paths, f.pack, f.replicate))
   write(joinpath(dir, "build.sh"), _buildsh(name, b, f.implementation))
@@ -55,6 +41,27 @@ function _sty(paths::Int, pack::Bool, replicate::Bool)
     text = replace(text, r => SubstitutionString("\\g<1>$value\\g<2>"))
   end
   text
+end
+
+# The netlists of the design's black boxes, copied into the workspace's src/ and
+# listed as sources; a black box with none is listed by the file it should be in.
+function _netlists(dir, T::Type, vendor)
+  sources = String[]
+  supplied = Symbol[]
+  for v in vendor
+    isfile(v) || error("no such vendor netlist: $v")
+    cp(v, joinpath(dir, "src", basename(v)); force=true)
+    push!(sources, "src/" * basename(v))
+    append!(supplied, _modulesin(read(v, String)))
+  end
+  for BB in _blackboxes(T)
+    vname = blackbox(BB).verilogname
+    (vname in supplied || blackbox(BB).primitive) && continue
+    file = "src/$vname.v"
+    @warn "$vname has no netlist in the workspace; put the vendor's at $(joinpath(dir, file))"
+    push!(sources, file)
+  end
+  sources
 end
 
 # the modules a Verilog file defines, so a netlist is matched to its black box by

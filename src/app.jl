@@ -9,7 +9,7 @@ usage: quartz <design.jl> [options]
        quartz timing <design.jl> [options]        (quartz timing --help)
 
 Write @quartz modules in a Julia design file out in an emitter's format --
-Verilog unless another is named -- and a design on a board to its constraint file.
+Verilog unless another is named -- and a design on a board to its constraint files.
 
 options:
   --top T         module to compile, as a Julia expression evaluated in the design
@@ -17,11 +17,13 @@ options:
                   every non-parametric @quartz module in the file is compiled
   --emit E        the format, as QuartzHDL spells it: Verilog (the default),
                   or with options, 'Verilog(debug = true, suffix = false)';
-                  Diamond, with --board, writes a Lattice Diamond workspace
-  --board B       a @board in the design file: also write the Lattice constraint
-                  file for the --top on it, as <B>.lpf beside the output
+                  Diamond or Quartus, with --board, writes a workspace for
+                  Lattice Diamond or Quartus Prime
+  --board B       a @board in the design file: also write the constraint files
+                  for the --top on it beside the output -- <B>.lpf for a Lattice
+                  part, <B>.qsf and <B>.sdc for one Quartus builds for
   -o FILE         output file (single --top only; default <name>.<extension>);
-                  for Diamond the workspace directory (default <name>/)
+                  for a workspace its directory (default <name>/)
   --outdir DIR    output directory (default .)
   --name NAME     module name in the output (single --top only; default the struct name)
   -h, --help      show this help
@@ -286,8 +288,8 @@ function _board(design, board)
 end
 
 function _write(types, opt::Options, format, board)
-  if format isa Diamond
-    board === nothing && return _fail("--emit Diamond needs --board")
+  if format isa Workspace
+    board === nothing && return _fail("--emit $(nameof(typeof(format))) needs --board")
     format = _onboard(format, board)
   end
   for T in types
@@ -299,17 +301,24 @@ function _write(types, opt::Options, format, board)
       return _fail(sprint(showerror, e))
     end
     println(path)
-    (board === nothing || format isa Diamond) && continue
-    lpfpath = joinpath(dirname(path), "$(board.name).lpf")
-    try
-      write(lpfpath, T, LPF(board))
-    catch e
-      return _fail(sprint(showerror, e))
+    (board === nothing || format isa Workspace) && continue
+    for c in _constraints(board)
+      cpath = joinpath(dirname(path), "$(board.name).$(extension(c))")
+      try
+        write(cpath, T, c)
+      catch e
+        return _fail(sprint(showerror, e))
+      end
+      println(cpath)
     end
-    println(lpfpath)
   end
   0
 end
+
+# the constraint files a board's part takes: one for a Lattice part, settings and
+# timing for one Quartus builds for
+_constraints(board::Board) =
+  _quartusfamily(board.device) === nothing ? Format[LPF(board)] : Format[QSF(board), SDC(board)]
 
 _fail(msg, status=1) = (println(stderr, "quartz: ", msg); status)
 

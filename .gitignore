@@ -8,3 +8,4 @@ qdocs/_freeze
 .claude
 .vscode
 .DS_Store
+tmp

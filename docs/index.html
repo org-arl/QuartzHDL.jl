@@ -466,7 +466,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Runs as plain Julia</strong> — one function call per clock edge, tested with <code>@test</code> and debugged at the REPL.</li>
 <li><strong>Simulation</strong> with peripheral logic — real clock rates, models of a USB FIFO, UART, SPI, I2C, PWM and RAM, stand-ins for black boxes, live waveforms in Surfer or <code>Plots</code>, and a <code>sim&gt;</code> custom REPL.</li>
 <li><strong>Compiles to Verilog</strong> – co-simulated using Icarus Verilog to ensure that Julia and Verilog outputs match cycle for cycle.</li>
-<li><strong>Board to bitstream</strong> — <code>@board</code> describes the pins, and the constraint file and a Lattice Diamond workspace, with a Makefile that builds the bitstream, are generated from it.</li>
+<li><strong>Board to bitstream</strong> — <code>@board</code> describes the pins, and the constraint files and a Lattice Diamond or Quartus Prime workspace, with a Makefile that builds the bitstream, are generated from it.</li>
 <li><strong>Timing report</strong> — lists the conditions and arithmetic most likely to limit the clock speed, with their source lines; supports limits that a test can check; and can add logic depth from yosys.</li>
 </ul>
 </section>
