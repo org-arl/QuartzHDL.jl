@@ -3473,6 +3473,71 @@ end
   @test cosim(Unnamed{8}, [(x = Bits{8}(rand(0:255)),) for _ in 1:100]).ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct Saturating
+  @in x::SBits{8}
+  @in rst::Bool = false
+  @in clear::Bool = false
+  @out y::SBits{8} = 0
+  @out z::Bits{8} = 0
+end
+
+@on Saturating posedge(clk) begin
+  @reset(rst || clear)
+  y ← clamp(x, -10, 10)
+  z ← clamp(Bits{8}(x), 20, 200)
+end
+
+"a divider, documented where Julia puts a docstring"
+@blackbox DocBox begin
+  clock(CLKI)
+  clockout(CLKOP, from=CLKI, divide=2)
+end
+
+module ShadowsCore
+using QuartzHDL
+@quartz struct Core
+  @in a::Bool
+  @out y::Bool = false
+end
+@on Core posedge(clk) begin
+  y ← a
+end
+@board CoreBoard begin
+  "a board for a module named Core"
+  device = "10M08SAE144C8G"
+  clk => (pin = 27, osc = 50MHz)
+end
+end
+
+@testset "issue 11: clamp, clauses with ||, locals in if, guards, docstrings, Core" begin
+  m = step(Saturating(); x = SBits{8}(-100))
+  @test m.y == -10 && m.z == 156
+  m = step(m; x = SBits{8}(3))
+  @test m.y == 3 && m.z == 20
+  m = step(m; x = SBits{8}(3), clear = true)
+  @test m.y == 0 && m.z == 0
+  v = sprint(io -> write(io, Saturating, Verilog()))
+  @test occursin("rst | clear", v)
+  Random.seed!(11)
+  stim = [(x = SBits{8}(rand(-128:127)), rst = rand() < 0.05, clear = rand() < 0.05) for _ in 1:200]
+  r = cosim(Saturating, stim)
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  @test_throws Exception @eval @on Saturating posedge(clk) begin
+    if x > 3
+      t = x + 1
+      y ← t
+    end
+  end
+  @test_throws Exception @eval @quartz struct WideGuard
+    @in sw::Bits{3}
+    sw::MetaGuard{2}
+    @out y::Bool = false
+  end
+  @test occursin("where Julia puts", string(@doc DocBox))
+  @test occursin("named Core", string(@doc ShadowsCore.CoreBoard))
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("timing.jl")

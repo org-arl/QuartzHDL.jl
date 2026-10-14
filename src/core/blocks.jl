@@ -669,7 +669,7 @@ _writevalue(ex) = ex.head == :call ? ex.args[3] :
 # rewrites statement-position register writes into slot assignments; with `acc` it
 # also records the written field names, which is how a block learns its owned
 # registers without a second walker
-function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing)
+function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing, inbranch=false)
   ex isa Expr || return ex
   iswrite = stmt && (_iswrite(ex, state) || _ischainwrite(ex, state))
   # `←` binds tighter than `? :`, so `x ← c ? a : b` parses as `(x ← c) ? a : b` and
@@ -694,18 +694,20 @@ function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing)
     return :($slot = $value; $flag = true)
   elseif ex.head == :(=) && _iswritelhs(ex.args[1], state)
     error("use `x ← value`, not `=`, to write a register")
+  elseif ex.head == :(=) && inbranch && ex.args[1] isa Symbol && !Base.isgensym(ex.args[1])
+    error("a local variable may not be assigned inside an `if` (hardware would evaluate both branches): $ex")
   elseif ex.head == :block
     out = Any[]
     for a in ex.args
       a isa LineNumberNode && (line = a)
-      push!(out, _rewrite_sim(a, state, w; stmt, acc, line))
+      push!(out, _rewrite_sim(a, state, w; stmt, acc, line, inbranch))
     end
     return Expr(:block, out...)
   elseif ex.head in (:if, :elseif)
-    return Expr(ex.head, _rewrite_sim(ex.args[1], state, w; stmt=false, acc, line),
-                map(a -> _rewrite_sim(a, state, w; stmt, acc, line), ex.args[2:end])...)
+    return Expr(ex.head, _rewrite_sim(ex.args[1], state, w; stmt=false, acc, line, inbranch),
+                map(a -> _rewrite_sim(a, state, w; stmt, acc, line, inbranch=true), ex.args[2:end])...)
   elseif ex.head in (:for, :let)
-    return Expr(ex.head, ex.args[1], _rewrite_sim(ex.args[2], state, w; stmt, acc, line))
+    return Expr(ex.head, ex.args[1], _rewrite_sim(ex.args[2], state, w; stmt, acc, line, inbranch))
   elseif ex.head == :while
     error("`while` is not allowed in a block")
   end

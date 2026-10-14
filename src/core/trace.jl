@@ -115,6 +115,7 @@ Base.max(a::Wire, b::BIGLIT) = max(a, constant(b, bitwidth(a); signed=a.signed))
 Base.max(a::BIGLIT, b::Wire) = max(constant(a, bitwidth(b); signed=b.signed), b)
 Base.min(a::Wire, b::BIGLIT) = min(a, constant(b, bitwidth(a); signed=a.signed))
 Base.min(a::BIGLIT, b::Wire) = min(constant(a, bitwidth(b); signed=b.signed), b)
+Base.clamp(x::Wire, lo, hi) = min(max(x, lo), hi)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 Base.zero(::Wire{N}) where N = constant(0, N)
 Base.zero(::Type{Wire{N}}) where N = constant(0, N)
