@@ -19,7 +19,8 @@ per-cycle inputs, and compare every output after every clock.
 the module and per pad the outside world drives. A pad entry is a value, or a
 `(value, enable)` pair for driving part of a bus.
 
-  * `clocks` gives the edges per cycle of each clock of a multi-clock module,
+  * `clocks` gives the edges per cycle of each clock of a multi-clock module, a
+    clock a black box multiplies included,
     e.g. `clocks = (clk_i = 4, clk_slow_i = 1)`: one stimulus entry is one slot,
     `clk_i` is pulsed in every slot, `clk_slow_i` in every fourth. Each count
     must divide the largest; clocks scheduled in the same slot are pulsed in the
@@ -201,7 +202,13 @@ function _testbench(T::Type, name, N::Int, clks, every, internal, ports, pads, o
     println(tb, "reg $(p.width == 1 ? "" : "[$(p.width-1):0] ")$(p.name)_s;")
     push!(conn, ".$(p.vname)($(p.name))")
   end
-  println(tb, "$name dut($(join(vcat([".$(vname(c))($c)" for c in clks if !(c in internal)], conn), ", ")));")
+  multiplied = [x[1] for x in _multiplied(T)]
+  println(tb, "$name dut($(join(vcat([".$(vname(c))($c)" for c in clks if !(c in internal) && !(c in multiplied)], conn), ", ")));")
+  # a multiplied clock has edges its source does not, so the stand-in cannot make
+  # it from edges: the bench pulses it on its schedule, over the stand-in's output
+  for c in multiplied
+    println(tb, "initial force dut.$(_clockref(T, c)) = $c;")
+  end
   println(tb, "integer qz_n;\ninitial begin")
   for (sig, v) in ref_init
     println(tb, "  dut.$sig = $v;")

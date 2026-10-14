@@ -11,8 +11,10 @@
 Write a behavioural Verilog stand-in for the black box `T`, built from its
 `@clockout` declarations: a module of the same name and ports whose clock
 outputs divide, phase and gate exactly as the simulator's model of `T` does.
-Its data outputs are tied to zero. `scale` overrides the divider of a clock by
-name, to cover many periods of a slow domain in a few thousand cycles.
+Its data outputs are tied to zero, and a multiplied clock output rests low: it
+has edges its source does not, so a testbench drives it, as `cosim` does. `scale`
+overrides the divider of a clock by name, to cover many periods of a slow domain
+in a few thousand cycles.
 
 ```julia
 simmodel("pll.v", PLL; scale=Dict(:clk_slow => 4))
@@ -32,7 +34,8 @@ function simmodel(io::IO, T::Type; scale=Dict{Symbol,Int}())
   println(out, ");\n")
   enables = _simenables(e, T, bb)
   for (i, c) in enumerate(bb.tree)
-    get(divs, c.name, c.divide) > 1 && println(out, "  reg [31:0] n$(i)_$(_vport(bb, c.name)) = 32'd0;")
+    get(divs, c.name, c.divide) > 1 && !ismultiplied(c) &&
+      println(out, "  reg [31:0] n$(i)_$(_vport(bb, c.name)) = 32'd0;")
   end
   println(out, "  initial begin")
   for c in unique(x.name for x in bb.tree)
@@ -43,7 +46,7 @@ function simmodel(io::IO, T::Type; scale=Dict{Symbol,Int}())
   # a clock that divides by one is its source under another name, low half included,
   # so a design that samples it as data reads the level the source has
   for (i, c) in enumerate(bb.tree)
-    (c.from === nothing || get(divs, c.name, c.divide) != 1) && continue
+    (c.from === nothing || get(divs, c.name, c.divide) != 1 || ismultiplied(c)) && continue
     en = get(enables, i, nothing)
     println(out, "  always @(negedge $(_vport(bb, c.from)))",
             en === nothing ? "" : " if ($(_ref(e, en)))", " #1 $(_vport(bb, c.name)) = 1'b0;")
@@ -106,7 +109,7 @@ end
 # same source edge the faster ones do
 function _simsource(out, e::Emitter, bb::BlackboxDef, divs, enables, src)
   println(out, "  always @(posedge $(_vport(bb, src))) begin")
-  order = sort([i for (i, c) in enumerate(bb.tree) if c.from === src];
+  order = sort([i for (i, c) in enumerate(bb.tree) if c.from === src && !ismultiplied(c)];
                by = i -> -get(divs, bb.tree[i].name, bb.tree[i].divide),
                alg = Base.Sort.MergeSort)
   for i in order

@@ -44,7 +44,7 @@ nothing connected. Each remaining keyword is a model of something the design is
 wired to.
 """
 function Bench(dut; clocks, wiring=Wiring(), stubs...)
-  clocks = _asplan(clocks)
+  clocks = _withmultiplied(_asplan(clocks), typeof(dut))
   nt = NamedTuple(stubs)
   clks = collect(_clocks(typeof(dut)))
   for e in clocks.entries

@@ -457,7 +457,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-stdout">
 <div class="ansi-escaped-output">
 <pre><span class="ansi-bold">Test Summary: | </span><span class="ansi-green-fg ansi-bold">Pass  </span><span class="ansi-cyan-fg ansi-bold">Total  </span><span class="ansi-bold">Time</span>
-gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.4s
+gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-fg">   16  </span>0.3s
 </pre>
 </div>
 </div>
@@ -567,7 +567,7 @@ gray code     | <span class="ansi-green-fg">  16  </span><span class="ansi-cyan-
 <ul>
 <li><code>reference = "movsum.v"</code> compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.</li>
 <li><code>ref_init = ["state" =&gt; "3'd0"]</code> initializes registers of the reference that the Julia model powers up differently.</li>
-<li><code>clocks = (clk=48MHz, clk_slow=1MHz)</code> for a module with several clocks; the testbench then advances them in the right ratio.</li>
+<li><code>clocks = (clk=48MHz, clk_slow=1MHz)</code> for a module with several clocks; the testbench then advances them in the right ratio. A clock a part multiplies is given a ratio the same way.</li>
 <li><code>scale = (clk_slow=10,)</code> runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.</li>
 <li><code>debug = true</code> emits <code>@info</code> messages and <code>@check</code> failures into the Verilog as <code>$display</code> and <code>$error</code>.</li>
 </ul>

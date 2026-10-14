@@ -23,6 +23,7 @@ struct ClockPlan
   entries::Vector{ClockEntry}
   every::Vector{Int}           # slots per edge, for the exact ones
   step::Vector{Rational{Int}}  # accumulator increment, for the dithered ones
+  fixed::Bool                  # the grid was set by hand, and stays when clocks are added
 end
 
 Base.show(io::IO, p::ClockPlan) =
@@ -111,7 +112,25 @@ function _clockplan(entries::Vector{ClockEntry}, gridrate)
       push!(stepv, 0//1)
     end
   end
-  ClockPlan(1 // grid, entries, every, stepv)
+  ClockPlan(1 // grid, entries, every, stepv, gridrate !== nothing)
+end
+
+# The clocks a design's black boxes multiply, with the plan's entries: each gets
+# the rate its recipe makes from its source's, and a place on the grid, which is
+# refined to fit it unless it was set by hand. A source is a pin clock of the plan
+# or another multiplied clock settled before it.
+function _withmultiplied(p::ClockPlan, T::Type)
+  made = _multiplied(T)
+  isempty(made) && return p
+  entries = copy(p.entries)
+  rate(net) = (i = findfirst(e -> e.name === net, entries); i === nothing ? nothing : entries[i].rate)
+  for _ in eachindex(made), (net, src, m, d) in made
+    rate(net) === nothing && rate(src) !== nothing && push!(entries, ClockEntry(net, rate(src) * m // d, false))
+  end
+  for (net, src, _, _) in made
+    rate(net) === nothing && error("$net is multiplied from $src, which has no rate in the clock plan")
+  end
+  _clockplan(entries, p.fixed ? 1 // p.grid : nothing)
 end
 
 # A one-line plan needs no macro: `clocks = (clk = 1MHz,)` with the Units module

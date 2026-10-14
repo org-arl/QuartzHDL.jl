@@ -294,7 +294,7 @@ function _walkrates!(rates, T::Type, default)
         out = _boundnet(binds, c.name)
         (src === nothing || out === nothing || !haskey(rates, src)) && continue
         haskey(rates, out) && continue    # a mux names one output twice; the first wins
-        rates[out] = rates[src] // c.divide
+        rates[out] = rates[src] * c.multiply // c.divide
         changed = true
       end
     else

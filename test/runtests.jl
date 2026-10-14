@@ -2119,6 +2119,89 @@ end
   @test r.ok skip=!HAVE_IVERILOG
 end
 
+@blackbox PLL4X begin
+  clock(INCLK0)
+  clockout(C0, from=INCLK0, multiply=4)
+  clockout(C1, from=INCLK0, multiply=2)
+  clockout(C2, from=INCLK0, divide=2)
+  output(LOCKED::Bool)
+end
+
+@quartz struct Multiplied
+  @in en::Bool = true
+  pll::PLL4X = PLL4X()
+  n::Bits{8} = 0
+  m::Bits{8} = 0
+  s::Bits{8} = 0
+  x::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+  @out m_q::Bits{8} = 0
+  @out s_q::Bits{8} = 0
+  @out x_q::Bits{8} = 0
+end
+
+@wire Multiplied begin
+  pll.inclk0 ← clk
+  fast ← pll.c0
+  mid ← pll.c1
+  slow ← pll.c2
+end
+@on Multiplied posedge(fast) begin
+  en && (n ← n + 1)
+  n_q ← n
+end
+@on Multiplied posedge(mid) begin
+  m ← m + 1
+  m_q ← m
+end
+@on Multiplied posedge(slow) begin
+  s ← s + 1
+  s_q ← s
+end
+@on Multiplied posedge(clk) begin
+  x ← x + 1
+  x_q ← x
+end
+
+@testset "a multiplied clock is on the grid in its own right" begin
+  t = QuartzHDL.blackbox(PLL4X).tree
+  @test [(c.name, c.from, c.divide, c.multiply) for c in t] == [(:c0, :inclk0, 1, 4), (:c1, :inclk0, 1, 2), (:c2, :inclk0, 2, 1)]
+  @test QuartzHDL._multiplied(Multiplied) == [(:fast, :clk, 4, 1), (:mid, :clk, 2, 1)]
+  @test_throws Exception @eval @blackbox BadPhase begin
+    clock(I)
+    clockout(O, from=I, multiply=2, phase=1)
+  end
+  @test_throws Exception @eval @blackbox BadEnable begin
+    clock(I)
+    input(S::Bool)
+    clockout(O, from=I, multiply=2, enable=!s)
+  end
+  @test_throws Exception @eval @blackbox BadSource begin
+    clock(I)
+    clockout(O, multiply=2)
+  end
+  b = Bench(Multiplied(); clocks = (clk = 50_000_000,))
+  @test b.plan.grid == 1 // 200_000_000
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 200_000_000), (:mid, 100_000_000)]
+  b = step(b, 40)
+  @test (b.dut.x, b.dut.n, b.dut.m, b.dut.s) == (10, 40, 20, 5)
+  @test Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 400_000_000)).plan.grid == 1 // 400_000_000
+  @test_throws ErrorException Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 100_000_000))
+  # a source edge does not tick it, and it has no wave to read as data
+  m = step(QuartzHDL._clearticks(Multiplied()), :clk)
+  @test QuartzHDL.clockedges(m) == [:slow]
+  @test_throws ErrorException clocklevel(m, :fast)
+  @test_throws ErrorException cosim(Multiplied, [(en = true,)]; clocks = (clk = 1,))
+  f = joinpath(mktempdir(), "pll4x.v")
+  simmodels(f, Multiplied)
+  v = read(f, String)
+  @test occursin("output reg C0", v) && !occursin("C0 = 1'b1", v) && occursin("n3_C2 % 32'd2", v)
+  Random.seed!(5)
+  r = cosim(Multiplied, [(en = rand(Bool),) for _ in 1:200]; clocks = (clk = 1, fast = 4, mid = 2), extra_sources = [f])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+end
+
 @quartz struct Muxed
   @in sel::Bool
   mux::MUX2 = MUX2()

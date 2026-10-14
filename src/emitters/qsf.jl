@@ -51,13 +51,22 @@ function _sdc(io::IO, T::Type{<:QuartzModule}, b::Board, overconstrain::Float64)
   rates = clockrates(T, b)
   used = _clocks(T)
   made = _clocksmade(T)
+  period(net) = round(1e9 / float(rates[net] * rationalize(overconstrain)); digits=3)
   for net in sort(collect(keys(rates)))
-    net in used || continue
-    period = 1e9 / float(rates[net] * rationalize(overconstrain))
+    net in used && !haskey(made, net) || continue
     name = _pinname(T, net)
-    target = haskey(made, net) ? "[get_pins {$(replace(made[net], "." => "|"))}]" :
-             _onpin(T, net) ? "[get_ports {$name}]" : "[get_nets {$name}]"
-    println(io, "create_clock -name {$name} -period $(round(period; digits=3)) $target")
+    target = _onpin(T, net) ? "[get_ports {$name}]" : "[get_nets {$name}]"
+    println(io, "create_clock -name {$name} -period $(period(net)) $target")
+  end
+  # a clock a vendor part makes is a pin of an atom inside the part's netlist, which
+  # the SDC cannot name; Quartus derives it from the part's own settings, and the
+  # periods the design expects are listed so its report can be checked against them
+  derived = [net for net in sort(collect(keys(rates))) if net in used && haskey(made, net)]
+  if !isempty(derived)
+    for net in derived
+      println(io, "# $(_pinname(T, net)) from $(replace(made[net], "." => "|")): period $(period(net)) expected")
+    end
+    println(io, "derive_pll_clocks")
   end
   println(io, "derive_clock_uncertainty")
   for M in _allmodules(T), m in _allmulticycles(M)

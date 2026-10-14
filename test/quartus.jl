@@ -127,8 +127,10 @@ end
 @testset "quartus: constraints reach into a submodule and through the clock tree" begin
   sdc = sprint(io -> write(io, Soc, SDC(SocMax)))
   @test occursin("create_clock -name {clk_ref_i} -period 20.833 [get_ports {clk_ref_i}]", sdc)
-  @test occursin("create_clock -name {fast} -period 20.833 [get_pins {pll|CLKOP}]", sdc)
-  @test occursin("[get_pins {pll|CLKOS}]", sdc)
+  @test !occursin("get_pins", sdc)                   # a part's output pin is not an atom pin after synthesis
+  @test occursin("# fast from pll|CLKOP: period 20.833 expected", sdc)
+  @test occursin("# slow from pll|CLKOS: period", sdc)
+  @test count("derive_pll_clocks", sdc) == 1
   @test occursin("set_multicycle_path -setup 4 -from [get_registers {sub|slowsum*}] -to [get_registers {sub|slowcopy*}]", sdc)
   @test occursin("set_multicycle_path -hold 3 -from [get_registers {sub|slowsum*}] -to [get_registers {sub|slowcopy*}]", sdc)
   @test count("set_multicycle_path", sdc) == 2
