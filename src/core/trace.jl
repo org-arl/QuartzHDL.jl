@@ -116,6 +116,15 @@ Base.max(a::BIGLIT, b::Wire) = max(constant(a, bitwidth(b); signed=b.signed), b)
 Base.min(a::Wire, b::BIGLIT) = min(a, constant(b, bitwidth(a); signed=a.signed))
 Base.min(a::BIGLIT, b::Wire) = min(constant(a, bitwidth(b); signed=b.signed), b)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
+function Base.widemul(a::Wire, b::Wire)
+  issigned(a) == issigned(b) ||
+    throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+  Wire{bitwidth(a) + bitwidth(b)}(:mul, Any[a, b]; signed=issigned(a))
+end
+Base.widemul(a::Wire, b::BIGLIT) = widemul(a, constant(b, bitwidth(a); signed=a.signed))
+Base.widemul(a::BIGLIT, b::Wire) = widemul(constant(a, bitwidth(b); signed=b.signed), b)
+Base.widemul(a::Wire, b::Bool) = widemul(a, constant(b, bitwidth(a); signed=a.signed))
+Base.widemul(a::Bool, b::Wire) = widemul(constant(a, bitwidth(b); signed=b.signed), b)
 Base.zero(::Wire{N}) where N = constant(0, N)
 Base.zero(::Type{Wire{N}}) where N = constant(0, N)
 Base.one(::Wire{N}) where N = constant(1, N)

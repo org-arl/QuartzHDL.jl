@@ -107,7 +107,7 @@ end
 ### helpers
 
 _cost(w::Wire) = w.op in (:add, :sub, :lt, :le, :gt, :ge, :eq, :ne) ? bitwidth(w.args[1]) :
-                 w.op == :mul ? 2 * bitwidth(w) :
+                 w.op == :mul ? bitwidth(w.args[1]) + bitwidth(w.args[2]) :
                  w.op == :popcount ? _treecost(bitwidth(w.args[1])) :
                  w.op in (:and, :or, :xor, :not, :neg, :mux) ? 1 : 0
 

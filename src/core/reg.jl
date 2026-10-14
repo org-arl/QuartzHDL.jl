@@ -164,6 +164,26 @@ Base.min(a::HWInt, b::HWInt) = (T = resulttype(typeof(a), typeof(b));
 Base.abs(a::SBits) = ifelse(a < 0, -a, a)
 Base.abs(a::Bits) = a
 
+"""
+    widemul(a::HWInt, b)
+
+The full product of `a` and `b`, `bitwidth(a) + bitwidth(b)` bits wide, where `a * b`
+is as wide as the wider operand and wraps there. Both operands are signed or both
+unsigned, as for `*`; a plain integer takes the width of the other operand. The
+Verilog is `a * b` with the result declared at the full width, which a synthesiser
+sizes to the operands.
+"""
+function Base.widemul(a::HWInt, b::HWInt)
+  resulttype(typeof(a), typeof(b))
+  N = bitwidth(a) + bitwidth(b)
+  N ≤ 128 || throw(ArgumentError("widemul of $(bitwidth(a)) and $(bitwidth(b)) bits is wider than 128"))
+  a isa SBits ? SBits{N}(Int128(a) * Int128(b)) : Bits{N}(a.val * b.val)
+end
+Base.widemul(a::HWInt, b::Union{Bool,Base.BitInteger}) = widemul(a, _lift(typeof(a), b))
+Base.widemul(a::Union{Bool,Base.BitInteger}, b::HWInt) = widemul(_lift(typeof(b), a), b)
+Base.widemul(a::HWInt, b::Bool) = widemul(a, _lift(typeof(a), b))
+Base.widemul(a::Bool, b::HWInt) = widemul(_lift(typeof(b), a), b)
+
 Base.isodd(a::HWInt) = isodd(a.val)
 Base.iseven(a::HWInt) = iseven(a.val)
 Base.convert(::Type{T}, x::HWInt) where T<:HWInt = T(x)

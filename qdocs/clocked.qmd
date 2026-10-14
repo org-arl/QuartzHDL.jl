@@ -195,6 +195,7 @@ A few bit-level operations are common in hardware. Some are Julia functions that
 | `onehot(Bits{N}, i)` | an N-bit word with only bit `i` set |
 | `popcount(x)` | the number of set bits (`count_ones` works too) |
 | `leading_zeros(x)`, `trailing_zeros(x)` | as in Julia |
+| `widemul(a, b)` | the full product, as wide as both operands together |
 | `bitwidth(x)` | the width of a value or type |
 | `bits(a, b, ...)`, `a ⊞ b`, `split(x, w...)` | join and take apart |
 

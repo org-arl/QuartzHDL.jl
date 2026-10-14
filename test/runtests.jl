@@ -3473,6 +3473,46 @@ end
   @test cosim(Unnamed{8}, [(x = Bits{8}(rand(0:255)),) for _ in 1:100]).ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct WideProduct
+  @in a::SBits{17}
+  @in b::SBits{16}
+  @in u::Bits{9}
+  @in v::Bits{7}
+  @out p::SBits{33} = 0
+  @out q::Bits{16} = 0
+  @out r::Bits{18} = 0
+  @out n::SBits{17} = 0
+end
+
+@on WideProduct posedge(clk) begin
+  p ← widemul(a, b)
+  q ← widemul(u, v)
+  r ← widemul(u, 7)
+  n ← a * b
+end
+
+@testset "widemul gives the full product" begin
+  @test widemul(SBits{17}(-60000), SBits{16}(30000)) == SBits{33}(-1_800_000_000)
+  @test widemul(SBits{17}(-60000), SBits{16}(30000)) isa SBits{33}
+  @test widemul(Bits{9}(511), Bits{7}(127)) == Bits{16}(64897)
+  @test widemul(Bits{9}(511), 7) isa Bits{18}
+  @test widemul(3, Bits{9}(511)) == Bits{18}(1533)
+  @test widemul(Bits{64}(typemax(UInt64)), Bits{64}(typemax(UInt64))) == Bits{128}(UInt128(typemax(UInt64)) * typemax(UInt64))
+  @test_throws ArgumentError widemul(Bits{65}(1), Bits{64}(1))
+  @test_throws ArgumentError widemul(Bits{8}(1), SBits{8}(1))
+  @test SBits{17}(-60000) * SBits{16}(30000) != -1_800_000_000
+  m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127))
+  @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577
+  v = sprint(io -> write(io, WideProduct, Verilog()))
+  @test occursin("wire signed [32:0]", v) && occursin("a * b", v)
+  Random.seed!(17)
+  stim = [(a = SBits{17}(rand(-65536:65535)), b = SBits{16}(rand(-32768:32767)),
+           u = Bits{9}(rand(0:511)), v = Bits{7}(rand(0:127))) for _ in 1:300]
+  r = cosim(WideProduct, stim)
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("timing.jl")

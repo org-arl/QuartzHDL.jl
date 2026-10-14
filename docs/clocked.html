@@ -621,6 +621,10 @@ endmodule</code></pre>
 <p>This is how an algorithm moves from Julia to hardware a step at a time: the reference implementation and the hardware share helper functions, and each helper is checked in both worlds.</p>
 <p>A few bit-level operations are common in hardware. Some are Julia functions that work on <code>Bits</code> as they do on any integer; the rest the package supplies:</p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>function</th>
@@ -645,10 +649,14 @@ endmodule</code></pre>
 <td>as in Julia</td>
 </tr>
 <tr class="odd">
+<td><code>widemul(a, b)</code></td>
+<td>the full product, as wide as both operands together</td>
+</tr>
+<tr class="even">
 <td><code>bitwidth(x)</code></td>
 <td>the width of a value or type</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>bits(a, b, ...)</code>, <code>a ⊞ b</code>, <code>split(x, w...)</code></td>
 <td>join and take apart</td>
 </tr>
