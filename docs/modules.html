@@ -523,7 +523,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>The width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.</p>
-<p>A product is the one place that rule loses bits by design, since the full product of two words is as wide as both together. <code>widemul(a, b)</code> gives it at that width:</p>
+<p>A product is the one place that rule loses bits by design, since the full product of two words is as wide as both together. <code>widemul(a, b)</code> gives it at that width, up to 128 bits; a plain integer takes the other operand’s width, and two unsigned bits give one bit, their AND, as two <code>Bool</code>s do in Julia:</p>
 <div id="10" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">widemul</span>(<span class="fu">SBits</span><span class="dt">{17}</span>(<span class="op">-</span><span class="fl">60000</span>), <span class="fu">SBits</span><span class="dt">{16}</span>(<span class="fl">30000</span>))   <span class="co"># 33 bits, the exact product</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
@@ -545,7 +545,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre>ArgumentError: QuartzHDL.Bits{8}(...) would drop bits from a 16-bit value; write trunc(QuartzHDL.Bits{8}, x) if that is what you mean
 Stacktrace:
  [1] <span class="ansi-bold">_checkwiden</span><span class="ansi-bold">(</span>::Type<span class="ansi-bright-black-fg">{Bits{8}}</span>, <span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
- <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:644</span>
+ <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:649</span>
  [2] <span class="ansi-bold">Bits{8}</span><span class="ansi-bold">(</span><span class="ansi-bright-black-fg">x</span>::Bits<span class="ansi-bright-black-fg">{16}</span><span class="ansi-bold">)</span>
  <span class="ansi-bright-black-fg">  @</span> <span class="ansi-magenta-fg">QuartzHDL</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:55</span>
  [3] top-level scope
@@ -564,9 +564,9 @@ Stacktrace:
 <pre>InexactError: convert(Bits{4}, 20)
 Stacktrace:
  [1] <span class="ansi-bold">_lift</span>
- <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:664</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:669</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [2] <span class="ansi-bold">convert</span>
- <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:190</span><span class="ansi-bright-black-fg"> [inlined]</span>
+ <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">~/Projects/QuartzHDL.jl/src/core/</span><span style="text-decoration:underline" class="ansi-bright-black-fg">reg.jl:195</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [3] <span class="ansi-bold">TooBig</span>
  <span class="ansi-bright-black-fg">  @</span> <span class="ansi-bright-black-fg">./</span><span style="text-decoration:underline" class="ansi-bright-black-fg">&lt;missing&gt;:-1</span><span class="ansi-bright-black-fg"> [inlined]</span>
  [4] <span class="ansi-bold">TooBig</span><span class="ansi-bold">(</span>; <span class="ansi-bright-black-fg">n</span>::Int64, <span class="ansi-bright-black-fg">#inputs</span>::@NamedTuple<span class="ansi-bright-black-fg">{}</span><span class="ansi-bold">)</span>
