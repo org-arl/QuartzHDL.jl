@@ -531,6 +531,14 @@ ul.task-list li input[type="checkbox"] {
 <td>a local is a wire, so compute it above the <code>if</code>; a value that differs by condition is an <code>ifelse</code></td>
 </tr>
 <tr class="odd">
+<td>an <code>if</code> used as a value has an <code>else</code></td>
+<td>it is a mux, and a mux has two arms; this holds in a clause such as <code>@reset</code> too</td>
+</tr>
+<tr class="even">
+<td>a bound of <code>clamp</code>, <code>min</code> or <code>max</code> fits the value’s width</td>
+<td>a hardware-typed bound sets the width and the value is widened to it; a plain integer takes that width and has to fit; the signedness rule of <code>*</code> applies</td>
+</tr>
+<tr class="odd">
 <td>a condition may not make Julia branch on a hardware value</td>
 <td>Julia would branch; the hardware cannot</td>
 </tr>
