@@ -159,8 +159,8 @@ end
 # multiplies, tick on their declared schedule, and every other clock a black box
 # makes ticks when its tree says so -- in topological order, since a part cannot
 # produce an edge until its source has had one.
-stepslot(m::QuartzModule, clks, every, internal, slot; kwargs...) =
-  _slotstep(m, [c for (c, ev) in zip(clks, every) if !(c in internal) && slot % ev == 0],
+stepslot(m::QuartzModule, clks, every, offsets, internal, slot; kwargs...) =
+  _slotstep(m, [c for (c, ev, off) in zip(clks, every, offsets) if !(c in internal) && slot ≥ off && (slot - off) % ev == 0],
             clks, values(kwargs))
 
 # The schedule of a run: the clocks that come from pins, and the ones a part
@@ -190,7 +190,45 @@ function clockschedule(T::Type, clocks)
   clks, counts = clks[order], counts[order]
   L = isempty(counts) ? 1 : maximum(counts)
   all(L % n == 0 for n in counts) || error("each clock count must divide the largest ($L)")
-  (clks, [L ÷ n for n in counts], internal, L)
+  every = [L ÷ n for n in counts]
+  offsets = _slotoffsets(T, clks, every, internal, multiplied)
+  (clks, every, offsets, internal, L)
+end
+
+# Where each clock the top's parts make has its first edge, in slots, and how many
+# slots its period is, from the pins' schedule through the recipes: a divided
+# clock's first edge is its source's edge number `phase`, a multiplied clock's is
+# its source's first. The ratio given for a multiplied clock has to be the
+# recipe's, as it is for a Bench.
+function _slotoffsets(T::Type, clks, every, internal, multiplied)
+  known = Dict{Symbol,Tuple{Int,Int}}(c => (ev, 0) for (c, ev) in zip(clks, every) if !(c in internal || c in multiplied))
+  for _ in 1:16
+    changed = false
+    for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+      isblackbox(FT) || continue
+      binds = _clockbind(T, f)
+      for c in blackbox(FT).tree
+        c.from === nothing && continue
+        src, out = _boundnet(binds, c.from), _boundnet(binds, c.name)
+        (src === nothing || out === nothing || !haskey(known, src) || haskey(known, out)) && continue
+        ev, off = known[src]
+        d = _divide(FT, c)
+        period = ev * d // c.multiply
+        isinteger(period) || error("$out is made at $(c.multiply)/$d of $src, which has $ev slots per edge; give $src a higher ratio")
+        known[out] = (Int(period), off + mod(c.phase, d) * ev)
+        changed = true
+      end
+    end
+    changed || break
+  end
+  for (c, ev) in zip(clks, every)
+    c in multiplied || continue
+    haskey(known, c) || error("$c is multiplied from a clock with no ratio")
+    known[c][1] == ev ||
+      error("$c is made by a part at one edge every $(known[c][1]) slots, and the ratio given makes it $ev; " *
+            "a clock a part makes takes its ratio from the recipe")
+  end
+  [c in multiplied ? known[c][2] : 0 for c in clks]
 end
 
 ### helpers

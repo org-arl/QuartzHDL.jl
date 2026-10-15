@@ -65,18 +65,18 @@ end
 function _cosim_suffixed(T::Type, stimulus::AbstractVector; name, dir, timeout, clocks,
     extra_sources, reference, ref_init
 )
-  clks, every, internal, L = clockschedule(T, clocks)
+  clks, every, offsets, internal, L = clockschedule(T, clocks)
   ports = _coports(T)
   pads = _allpads(T)
   outs = [CoPort(fn, bitwidth(fieldtype(T, fn)), issigned(fieldtype(T, fn))) for fn in outputs(T)]
-  jl = _juliarun(T, stimulus, clks, every, internal, L, pads, outs)
+  jl = _juliarun(T, stimulus, clks, every, offsets, internal, pads, outs)
   vfile = reference === nothing ? joinpath(dir, "$name.v") : reference
   reference === nothing && write(vfile, T, Verilog(; name, inits=:all))
   stimfile = joinpath(dir, "stim.hex")
   stimports = _stimports(ports, pads)
   _writestim(stimfile, stimulus, T, ports, pads, stimports)
   tbfile = joinpath(dir, "tb.v")
-  write(tbfile, _testbench(T, name, length(stimulus), clks, every, internal,
+  write(tbfile, _testbench(T, name, length(stimulus), clks, every, offsets, internal,
                            ports, pads, outs, stimports, stimfile, ref_init))
   vlines = _runsim(dir, tbfile, vfile, extra_sources, timeout)
   mism = [(i, jl[i], vlines[i]) for i in 1:min(length(jl), length(vlines)) if jl[i] != vlines[i]]
@@ -109,17 +109,17 @@ end
 _stimwidth(stimports) = sum(p.width for p in stimports; init=0)
 
 # the model's outputs, one line per cycle, in the form the testbench prints them
-function _juliarun(T::Type, stimulus, clks, every, internal, L, pads, outs)
+function _juliarun(T::Type, stimulus, clks, every, offsets, internal, pads, outs)
   m = T()
   jl = String[]
   for (i, s) in enumerate(stimulus)
-    slot = (i - 1) % L
+    slot = i - 1
     # a pad's value belongs to the cycle: what the module drives entering the cycle,
     # resolved against what the outside drives during it -- sampled before the edge
     settled = _presettle(m, s)                  # this cycle's inputs, pre-edge state
     padstr = [padchars(netpad(settled, p.name, p.width, p.pull,
                               haskey(s, p.name) ? s[p.name] : missing)) for p in pads]
-    m = stepslot(m, clks, every, internal, slot; s...)
+    m = stepslot(m, clks, every, offsets, internal, slot; s...)
     push!(jl, join(vcat([string(_toint(getfield(m, o.name))) for o in outs], padstr), " "))
   end
   jl
@@ -155,7 +155,7 @@ function _padstim(s, p)
   (BigInt(_toint(pv)), (BigInt(1) << p.width) - 1)
 end
 
-function _testbench(T::Type, name, N::Int, clks, every, internal, ports, pads, outs,
+function _testbench(T::Type, name, N::Int, clks, every, offsets, internal, ports, pads, outs,
     stimports, stimfile, ref_init
 )
   # an active-low pin carries the inverted value; the model's value always means
@@ -220,13 +220,14 @@ function _testbench(T::Type, name, N::Int, clks, every, internal, ports, pads, o
   for p in pads
     println(tb, "    $(p.name)_s = $(p.name);")
   end
-  for (c, ev) in zip(clks, every)
+  for (c, ev, off) in zip(clks, every, offsets)
     c in internal && continue
-    ind = ev == 1 ? "    " : "      "
-    ev == 1 || println(tb, "    if (qz_n % $ev == 0) begin")
+    plain = ev == 1 && off == 0
+    ind = plain ? "    " : "      "
+    plain || println(tb, "    if (qz_n >= $off && (qz_n - $off) % $ev == 0) begin")
     println(tb, ind, "#10 $c = 1;")
     println(tb, ind, "#10 $c = 0;")
-    ev == 1 || println(tb, "    end")
+    plain || println(tb, "    end")
   end
   fmt = join(vcat(["%0d" for _ in outs], ["%b" for _ in pads]), " ")
   args = join(vcat([string(o.name) for o in outs], ["$(p.name)_s" for p in pads]), ", ")

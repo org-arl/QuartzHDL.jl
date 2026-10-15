@@ -142,11 +142,14 @@ function _withmultiplied(p::ClockPlan, T::Type)
   for (net, src, _, _) in made
     haskey(rates, net) || error("$net is multiplied from $src, which has no rate in the clock plan")
     i = findfirst(e -> e.name === net, entries)
+    entry = ClockEntry(net, rates[net], false, get(offsets, net, 0 // 1))
     if i === nothing
-      push!(entries, ClockEntry(net, rates[net], false, get(offsets, net, 0 // 1)))
+      push!(entries, entry)
     elseif entries[i].rate != rates[net]
       error("$net is made by a part at $(_ratestr(rates[net])), and the clock plan says $(_ratestr(entries[i].rate)); " *
             "a clock a part makes takes its rate from the recipe")
+    else
+      entries[i] = entry
     end
   end
   _clockplan(entries, p.fixed ? 1 // p.grid : nothing)
@@ -166,7 +169,7 @@ function _offsets(T::Type, rates, given)
         c.from === nothing && continue
         src, out = _boundnet(binds, c.from), _boundnet(binds, c.name)
         (src === nothing || out === nothing || !haskey(offsets, src) || !haskey(rates, src)) && continue
-        o = offsets[src] + c.phase // rates[src]
+        o = offsets[src] + mod(c.phase, c.divide) // rates[src]
         (haskey(offsets, out) && offsets[out] == o) && continue
         haskey(offsets, out) && continue      # a mux names one output twice; the first wins
         offsets[out] = o

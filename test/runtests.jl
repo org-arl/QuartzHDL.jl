@@ -2200,6 +2200,29 @@ end
   clockout(CLKO, from=CLKI, divide=2, phase=1)
 end
 
+@blackbox HALFLATER begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2, phase=3)
+end
+
+@quartz struct ChainedLater
+  half::HALFLATER = HALFLATER()
+  quad::QUAD = QUAD()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedLater begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedLater posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
 @quartz struct ChainedLate
   half::HALFLATE = HALFLATE()
   quad::QUAD = QUAD()
@@ -2307,6 +2330,22 @@ end
   @test (b.dut.h, b.dut.n) == (0, 0)
   b = step(b, 38)
   @test (b.dut.h, b.dut.n) == (10, 38)
+  # listed with its rate, it keeps the offset; a phase past the divider wraps as the divider does
+  b = Bench(ChainedLate(); clocks = (clk = 50_000_000, fast = 100_000_000))
+  @test b.plan.offset == [0, 2]
+  b = Bench(ChainedLater(); clocks = (clk = 50_000_000,))
+  @test b.plan.offset == [0, 2]
+  # cosim schedules it the same way, and checks the ratio against the recipe
+  f = joinpath(mktempdir(), "late.v")
+  simmodels(f, ChainedLate)
+  clks, every, offsets, internal, L = QuartzHDL.clockschedule(ChainedLate, (clk = 1, fast = 2))
+  @test clks == [:clk, :mid, :fast] && offsets == [0, 0, 2]
+  m = QuartzHDL.stepslot(ChainedLate(), clks, every, offsets, internal, 0)
+  @test (m.h, m.n) == (0, 0)
+  @test_throws "takes its ratio from the recipe" QuartzHDL.clockschedule(ChainedLate, (clk = 1, fast = 4))
+  r = cosim(ChainedLate, [NamedTuple() for _ in 1:60]; clocks = (clk = 1, fast = 2), extra_sources = [f])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
   # a rate the plan gives a made clock has to be the recipe's
   @test_throws "takes its rate from the recipe" Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 100_000_000))
   @test [e.name for e in Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 200_000_000)).plan.entries] == [:clk, :fast, :mid]
@@ -2425,12 +2464,12 @@ end
 @on Handover posedge(slow) edges ← edges + 1
 
 @testset "a clock mux read as data follows the selected source" begin
-  clks, every, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
+  clks, every, offsets, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
   m = Handover()
   levels = Bool[]
   edges = Symbol[]
   for i in 1:48
-    m = QuartzHDL.stepslot(m, clks, every, internal, (i - 1) % L; switch = i == 40)
+    m = QuartzHDL.stepslot(m, clks, every, offsets, internal, (i - 1) % L; switch = i == 40)
     push!(levels, clocklevel(m, :slow))
     i == 43 && (edges = QuartzHDL.clockedges(m))
   end
@@ -3080,10 +3119,10 @@ end
   # module whose logic is all continuous has no edge to run, and used to come back
   # from a slot untouched, holding its defaults while the Verilog `assign` followed
   # its inputs
-  clks, every, internal, _ = QuartzHDL.clockschedule(Continuous, nothing)
+  clks, every, offsets, internal, _ = QuartzHDL.clockschedule(Continuous, nothing)
   for (a, b) in ((true, 7), (false, 0), (false, 255))
     direct = step(Continuous(); a = a, b = Bits{8}(b))
-    slot = QuartzHDL.stepslot(Continuous(), clks, every, internal, 0; a = a, b = Bits{8}(b))
+    slot = QuartzHDL.stepslot(Continuous(), clks, every, offsets, internal, 0; a = a, b = Bits{8}(b))
     @test direct.y == slot.y == !a
     @test direct.z == slot.z == Bits{8}(b) + 1
   end
