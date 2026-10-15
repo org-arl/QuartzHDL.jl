@@ -3598,6 +3598,16 @@ end
     @test agree(() -> clamp(sx, sl, sh), () -> clamp(tx, something(tl, sl), something(th, sh)))
   end
   @test_throws InexactError clamp(Bits{4}(2), 20, 30)
+  # a mux of two plain arms is as narrow as both fit, signed if either is negative
+  c = QuartzHDL.Wire{1}(:input, Any[]; name = :c)
+  for a in -9:9, b in -9:9
+    w = ifelse(c, a, b)
+    T = w.signed ? SBits{bitwidth(w)} : Bits{bitwidth(w)}
+    @test QuartzHDL._fits(T, a) && QuartzHDL._fits(T, b)
+    @test bitwidth(w) == 1 || !(QuartzHDL._fits(w.signed ? SBits{bitwidth(w) - 1} : Bits{bitwidth(w) - 1}, a) &&
+                                QuartzHDL._fits(w.signed ? SBits{bitwidth(w) - 1} : Bits{bitwidth(w) - 1}, b))
+  end
+  @test bitwidth(ifelse(c, -1, 0)) == 1 && ifelse(c, -1, 0).signed
   @test clamp(Bits{4}(2), 20, Bits{8}(30)) === Bits{8}(20)
   m = step(m; x = Bits{4}(15), s = SBits{4}(7), rst = true)
   @test m.y == 0 && m.v == 0
