@@ -574,14 +574,15 @@ function _blackbox(name, args, mod)
                     :($QuartzHDL._clockenable(::Type{<:$T}, ::Val{$k}, i::NamedTuple)),
                     Expr(:block, (:($n = i.$n) for n in inputnames)..., tree[k].enable))
                for k in eachindex(tree) if tree[k].enable !== nothing]
+  structdef = :(struct $name <: $QuartzHDL.BlackBox
+    $(_inputsfield(ins).args[1])
+    counts::NTuple{$(length(tree)),Int}
+    ticked::UInt64
+    levels::UInt64
+    model::Any
+  end)
   stub = quote
-    struct $name <: $QuartzHDL.BlackBox
-      $(_inputsfield(ins).args[1])
-      counts::NTuple{$(length(tree)),Int}
-      ticked::UInt64
-      levels::UInt64
-      model::Any
-    end
+    $(_docmarked(structdef))
     function $name(; kwargs...)
       isempty(kwargs) || error($("$name takes no keywords: wire its clocks and inputs in a @wire block, " *
                                  "`inst.port ← net`"))
@@ -594,7 +595,7 @@ function _blackbox(name, args, mod)
   end
   quote
     $stub
-    $(doc === nothing ? nothing : :(Core.@doc $doc $T))
+    $(doc === nothing ? nothing : _withdoc(doc, T))
     const $store = let tree = $QuartzHDL.ClockOut[$(treeexprs...)]
       $QuartzHDL.BlackboxDef($(QuoteNode(vname)), $QuartzHDL.Port[$(ports...)], $pragma, tree, $clockouts,
                              Dict{Symbol,String}($(docs...)), $primitive, $QuartzHDL._gates(tree))

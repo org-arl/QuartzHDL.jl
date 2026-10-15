@@ -428,6 +428,7 @@ function _traceblocks(T::Type)
 end
 
 function _emitmodule(io::IO, T::Type{<:QuartzModule}, name::Symbol, emitted::Dict{Type,Symbol})
+  _checkguards(T)
   (; default, fields, blks, conns) = _traceblocks(T)
   e = Emitter(_emitencodings(T))
   ports = _ports(T, default)
@@ -884,7 +885,10 @@ _valstr(e::Emitter, v, W, signed) = _lit(_toint(v), W, signed)
 _condstr(e::Emitter, w::Wire) = _ref(e, w)
 _condstr(e::Emitter, b::Bool) = b ? "1'b1" : "1'b0"
 
+# a clause is an expression, so it takes the body's rewrite in value position:
+# `&&`, `||` and `? :` on wires are not Julia's
 function _trace_expr(def::BlockDef, ex, state, params, args)
+  ex = _rewrite_trace(ex, :this, gensym(:ctx); stmt=false)
   f = Core.eval(def.mod, :((this, $(def.params...), $(def.inputs...)) -> $ex))
   Base.invokelatest(f, state, params..., args...)
 end

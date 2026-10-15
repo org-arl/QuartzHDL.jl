@@ -164,6 +164,39 @@ Base.min(a::HWInt, b::HWInt) = (T = resulttype(typeof(a), typeof(b));
 Base.abs(a::SBits) = ifelse(a < 0, -a, a)
 Base.abs(a::Bits) = a
 
+# clamp at the width the value and its hardware-typed bounds share, as trace.jl
+# does: a plain-integer bound has to fit that width, and a bound of the other
+# signedness is refused
+function Base.clamp(x::HWInt, lo, hi)
+  T = _boundtype(_boundtype(typeof(x), hi), lo)
+  v, l, h = _lift(T, x), _lift(T, lo), _lift(T, hi)
+  ifelse(v > h, h, ifelse(v < l, l, v))
+end
+_boundtype(::Type{T}, b::HWInt) where T<:HWInt = resulttype(T, typeof(b))
+_boundtype(::Type{T}, b) where T<:HWInt = T
+"""
+    widemul(a::HWInt, b)
+
+The full product of `a` and `b`, `bitwidth(a) + bitwidth(b)` bits wide, where `a * b`
+is as wide as the wider operand and wraps there. Both operands are signed or both
+unsigned, as for `*`; a plain integer takes the width of the other operand, and a
+`Bool` is one unsigned bit. Two unsigned bits give one bit, their AND, as two `Bool`s
+do in Julia. The Verilog is `a * b` with the result declared at the full width,
+which a synthesiser sizes to the operands.
+"""
+function Base.widemul(a::HWInt, b::HWInt)
+  resulttype(typeof(a), typeof(b))
+  N = bitwidth(a) + bitwidth(b)
+  N ≤ 128 || throw(ArgumentError("widemul of $(bitwidth(a)) and $(bitwidth(b)) bits is wider than 128"))
+  a isa SBits ? SBits{N}(Int128(a) * Int128(b)) : Bits{N}(a.val * b.val)
+end
+Base.widemul(a::HWInt, b::Base.BitInteger) = widemul(a, _lift(typeof(a), b))
+Base.widemul(a::Base.BitInteger, b::HWInt) = widemul(_lift(typeof(b), a), b)
+# a Bool is one bit on both sides, where the trace sees it as a one-bit wire
+Base.widemul(a::HWInt, b::Bool) = widemul(a, Bits{1}(b))
+Base.widemul(a::Bool, b::HWInt) = widemul(Bits{1}(a), b)
+Base.widemul(a::Bits{1}, b::Bits{1}) = a & b
+
 Base.isodd(a::HWInt) = isodd(a.val)
 Base.iseven(a::HWInt) = iseven(a.val)
 Base.convert(::Type{T}, x::HWInt) where T<:HWInt = T(x)

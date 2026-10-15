@@ -65,6 +65,12 @@ Bits{8}(200) + Bits{12}(100)   # mixed widths: the result takes the wider one
 
 The width of an expression never depends on the data: two operands give a result as wide as the wider operand, and the result wraps there. That is what an adder does, and it means the Julia model and the Verilog agree on every carry.
 
+A product is the one place that rule loses bits by design, since the full product of two words is as wide as both together. `widemul(a, b)` gives it at that width, up to 128 bits; a plain integer takes the other operand's width, and two unsigned bits give one bit, their AND, as two `Bool`s do in Julia:
+
+```{julia}
+widemul(SBits{17}(-60000), SBits{16}(30000))   # 33 bits, the exact product
+```
+
 Bits are never dropped silently; narrowing is written down:
 
 ```{julia}

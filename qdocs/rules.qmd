@@ -27,6 +27,7 @@ Everything QuartzHDL refuses to compile, it refuses with a message naming the li
 | a port attribute must be one of `verilog`, `active` | a misspelt attribute that was ignored would leave a pin the wrong way round |
 | a pad's Verilog name is the same in every module that declares it | it is one net on both sides |
 | an input may not share a field's name | it would be two things — except a `MetaGuard`, which is fed by the input of its name by design |
+| a `MetaGuard` shadows a one-bit input only | a word crossing a domain goes through a flag and held data; its bits would arrive on different cycles |
 | a `Timeout` needs a width | `Timeout` alone has no size |
 | an instance's constructor takes no arguments | the wiring is stated once, in `@wire` |
 
@@ -40,6 +41,8 @@ Everything QuartzHDL refuses to compile, it refuses with a message naming the li
 | a field written by `@on` is not driven by `@wire` | one net, one kind of driver |
 | no `while` in a block | it would not have a fixed depth |
 | no local assignment inside `if` | a local is a wire, so compute it above the `if`; a value that differs by condition is an `ifelse` |
+| an `if` used as a value has an `else` | it is a mux, and a mux has two arms; this holds in a clause such as `@reset` too |
+| a bound of `clamp`, `min` or `max` fits the value's width | a hardware-typed bound sets the width and the value is widened to it; a plain integer takes that width and has to fit; the signedness rule of `*` applies |
 | a condition may not make Julia branch on a hardware value | Julia would branch; the hardware cannot |
 | a bare name must be a field, an input, a local, or defined in the enclosing Julia module | a typo would otherwise become a port nothing drives |
 | a local may not shadow a field or an input | a silent shadow |
