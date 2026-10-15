@@ -119,6 +119,7 @@ Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 function Base.widemul(a::Wire, b::Wire)
   issigned(a) == issigned(b) ||
     throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+  bitwidth(a) == 1 && bitwidth(b) == 1 && !issigned(a) && return a & b
   Wire{bitwidth(a) + bitwidth(b)}(:mul, Any[a, b]; signed=issigned(a))
 end
 # a plain integer takes the wire's width; a hardware integer keeps its own, and a

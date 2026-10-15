@@ -3479,7 +3479,10 @@ end
   @in u::Bits{9}
   @in v::Bits{7}
   @in en::Bool
+  @in en2::Bool
+  @in one::Bits{1}
   @out p::SBits{33} = 0
+  @out j::Bits{10} = 0
   @out q::Bits{16} = 0
   @out r::Bits{18} = 0
   @out t::Bits{18} = 0
@@ -3499,6 +3502,7 @@ end
   g ← widemul(u, en) + widemul(en, u)
   h ← widemul(u, Bits{7}(127))
   k ← widemul(SBits{8}(-100), a)
+  j ← widemul(u, widemul(en, en2)) + widemul(widemul(one, en), u)
   n ← a * b
 end
 
@@ -3523,16 +3527,19 @@ end
   @test_throws ArgumentError widemul(Bits{8}(1), SBits{8}(1))
   @test widemul(Bits{9}(5), true) == Bits{10}(5) && widemul(false, Bits{9}(5)) == Bits{10}(0)
   @test_throws ArgumentError widemul(SBits{9}(5), true)
+  @test widemul(Bits{1}(1), Bits{1}(1)) === Bits{1}(1) && widemul(SBits{1}(-1), SBits{1}(-1)) === SBits{2}(1)
   @test_throws ArgumentError sprint(io -> write(io, MixedProduct, Verilog()))
   @test SBits{17}(-60000) * SBits{16}(30000) != -1_800_000_000
-  m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127), en = true)
+  m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127),
+           en = true, en2 = true, one = Bits{1}(1))
   @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577 && m.t == 1533 && m.w == 511
-  @test m.g == 1022 && m.h == 64897 && m.k == 6_000_000
+  @test m.g == 1022 && m.h == 64897 && m.k == 6_000_000 && m.j == 1022
   v = sprint(io -> write(io, WideProduct, Verilog()))
   @test occursin("wire signed [32:0]", v) && occursin("a * b", v)
   Random.seed!(17)
   stim = [(a = SBits{17}(rand(-65536:65535)), b = SBits{16}(rand(-32768:32767)),
-           u = Bits{9}(rand(0:511)), v = Bits{7}(rand(0:127)), en = rand(Bool)) for _ in 1:300]
+           u = Bits{9}(rand(0:511)), v = Bits{7}(rand(0:127)), en = rand(Bool), en2 = rand(Bool),
+           one = Bits{1}(rand(0:1))) for _ in 1:300]
   r = cosim(WideProduct, stim)
   showmismatches(r)
   @test r.ok skip=!HAVE_IVERILOG

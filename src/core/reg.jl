@@ -170,8 +170,9 @@ Base.abs(a::Bits) = a
 The full product of `a` and `b`, `bitwidth(a) + bitwidth(b)` bits wide, where `a * b`
 is as wide as the wider operand and wraps there. Both operands are signed or both
 unsigned, as for `*`; a plain integer takes the width of the other operand, and a
-`Bool` is one unsigned bit. The Verilog is `a * b` with the result declared at the
-full width, which a synthesiser sizes to the operands.
+`Bool` is one unsigned bit. Two unsigned bits give one bit, their AND, as two `Bool`s
+do in Julia. The Verilog is `a * b` with the result declared at the full width,
+which a synthesiser sizes to the operands.
 """
 function Base.widemul(a::HWInt, b::HWInt)
   resulttype(typeof(a), typeof(b))
@@ -184,6 +185,7 @@ Base.widemul(a::Base.BitInteger, b::HWInt) = widemul(_lift(typeof(b), a), b)
 # a Bool is one bit on both sides, where the trace sees it as a one-bit wire
 Base.widemul(a::HWInt, b::Bool) = widemul(a, Bits{1}(b))
 Base.widemul(a::Bool, b::HWInt) = widemul(Bits{1}(a), b)
+Base.widemul(a::Bits{1}, b::Bits{1}) = a & b
 
 Base.isodd(a::HWInt) = isodd(a.val)
 Base.iseven(a::HWInt) = iseven(a.val)
