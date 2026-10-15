@@ -121,14 +121,19 @@ Base.max(a::Wire, b::HWInt) = max(_lifted(a, b)...)
 Base.max(a::HWInt, b::Wire) = max(reverse(_lifted(b, a))...)
 Base.min(a::Wire, b::HWInt) = min(_lifted(a, b)...)
 Base.min(a::HWInt, b::Wire) = min(reverse(_lifted(b, a))...)
-Base.clamp(x::Wire, lo, hi) = min(max(x, lo), hi)
+# the wire is widened to the widest hardware-typed bound before either bound is
+# applied, so a plain-integer bound takes the width the other bound sets
+Base.clamp(x::Wire, lo, hi) = (w = _widened(_widened(x, hi), lo); min(max(w, lo), hi))
 
 function _lifted(a::Wire, b::HWInt)
   a.signed == issigned(typeof(b)) ||
     throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
-  W = max(bitwidth(a), bitwidth(b))
-  (W == bitwidth(a) ? a : resize(a.signed ? SBits{W} : Bits{W}, a), constant(Int128(b), W; signed=a.signed))
+  w = _widened(a, b)
+  (w, constant(b, bitwidth(w); signed=a.signed))
 end
+_widened(a::Wire, b) = a
+_widened(a::Wire, b::HWInt) =
+  bitwidth(b) ≤ bitwidth(a) ? a : resize(a.signed ? SBits{bitwidth(b)} : Bits{bitwidth(b)}, a)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 Base.zero(::Wire{N}) where N = constant(0, N)
 Base.zero(::Type{Wire{N}}) where N = constant(0, N)
@@ -364,8 +369,9 @@ function _rewrite_trace(ex, state, ctx; inbranch=false, stmt=true, at=nothing, h
     return :(push!($QuartzHDL.current($ctx), $QuartzHDL.ExemptNode($(ex.args[2]))))
   elseif ex.head == :call && _isqcall(ex.args[1], :simcheck)
     return :($QuartzHDL.trace_check!($ctx, $(ex.args[2]), $(ex.args[3])))
-  elseif !stmt && ex.head == :if && length(ex.args) == 3
-    # `c ? a : b` in a value position is a mux, not a branch: both arms are wires
+  elseif !stmt && ex.head in (:if, :elseif) && length(ex.args) == 3
+    # `c ? a : b` in a value position is a mux, not a branch: both arms are wires,
+    # and an `elseif` arm of an `if` written as a value is a mux in its turn
     return :($(Base.ifelse)($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[3], state, ctx; inbranch, stmt=false, at, home))))

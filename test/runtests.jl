@@ -3512,15 +3512,20 @@ end
 @quartz struct Bounded
   @in x::Bits{4}
   @in s::SBits{4}
+  @in rst::Bool = false
+  @in clear::Bool = false
   @out y::Bits{8} = 0
   @out z::SBits{8} = 0
   @out w::Bits{4} = 0
+  @out v::Bits{8} = 0
 end
 
 @on Bounded posedge(clk) begin
+  @reset(if x == 15; rst; elseif x == 14; clear; else false; end)
   y ← clamp(x, Bits{8}(5), Bits{8}(200))
   z ← max(SBits{8}(-100), min(s, SBits{8}(3)))
   w ← min(x, Bits{3}(6))
+  v ← clamp(x, 20, Bits{8}(200))
 end
 
 const N = 8
@@ -3536,14 +3541,18 @@ end
 
 @testset "issue 11: clamp, clauses with ||, locals in if, guards, docstrings, Core" begin
   m = step(Bounded(); x = Bits{4}(10), s = SBits{4}(-8))
-  @test m.y == 10 && m.z == -8 && m.w == 6
+  @test m.y == 10 && m.z == -8 && m.w == 6 && m.v == 20
   m = step(m; x = Bits{4}(2), s = SBits{4}(7))
-  @test m.y == 5 && m.z == 3 && m.w == 2
+  @test m.y == 5 && m.z == 3 && m.w == 2 && m.v == 20
+  m = step(m; x = Bits{4}(15), s = SBits{4}(7), rst = true)
+  @test m.y == 0 && m.v == 0
   xw = QuartzHDL.Wire{4}(:input, Any[]; name = :x)
   @test_throws ArgumentError max(xw, SBits{8}(3))
   @test bitwidth(min(xw, Bits{8}(3))) == 8 && bitwidth(max(Bits{3}(1), xw)) == 4
+  sw = QuartzHDL.Wire{128}(:input, Any[]; signed = true, name = :s)
+  @test bitwidth(max(sw, SBits{8}(3))) == 128 && bitwidth(min(sw, SBits{128}(-3))) == 128
   Random.seed!(13)
-  r = cosim(Bounded, [(x = Bits{4}(rand(0:15)), s = SBits{4}(rand(-8:7))) for _ in 1:100])
+  r = cosim(Bounded, [(x = Bits{4}(rand(0:15)), s = SBits{4}(rand(-8:7)), rst = rand() < 0.1, clear = rand() < 0.1) for _ in 1:200])
   showmismatches(r)
   @test r.ok skip=!HAVE_IVERILOG
   @test step(GuardedWord{1}(); sw = Bits{1}(1)).y == false
