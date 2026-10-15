@@ -10,7 +10,9 @@ struct ClockEntry
   name::Symbol
   rate::Rational{Int}          # in Hz
   dithered::Bool               # ticks on the nearest slot, rather than dividing the grid
+  offset::Rational{Int}        # seconds before its first edge: a clock made from a phased source
 end
+ClockEntry(name::Symbol, rate::Rational{Int}, dithered::Bool) = ClockEntry(name, rate, dithered, 0 // 1)
 
 """
     ClockPlan
@@ -23,6 +25,7 @@ struct ClockPlan
   entries::Vector{ClockEntry}
   every::Vector{Int}           # slots per edge, for the exact ones
   step::Vector{Rational{Int}}  # accumulator increment, for the dithered ones
+  offset::Vector{Int}          # slots before the first edge, for the exact ones
   fixed::Bool                  # the grid was set by hand, and stays when clocks are added
 end
 
@@ -99,40 +102,80 @@ function _clockplan(entries::Vector{ClockEntry}, gridrate)
   end
   every = Int[]
   stepv = Rational{Int}[]
+  offset = Int[]
   for e in entries
     if e.dithered
       push!(every, 0)
       push!(stepv, e.rate // grid)
+      push!(offset, 0)
     else
       n = grid // e.rate
       isinteger(n) ||
         error("@clocks: $(e.name) at $(_ratestr(e.rate)) is not a multiple of the " *
               "$(_ratestr(grid)) grid; mark it `dithered` or set `grid`")
+      o = e.offset * grid
+      isinteger(o) || error("@clocks: $(e.name) starts $(float(e.offset)) s in, which is not a whole number of slots")
       push!(every, Int(n))
       push!(stepv, 0//1)
+      push!(offset, Int(o))
     end
   end
-  ClockPlan(1 // grid, entries, every, stepv, gridrate !== nothing)
+  ClockPlan(1 // grid, entries, every, stepv, offset, gridrate !== nothing)
 end
 
 # The clocks a design's black boxes multiply, with the plan's entries: each gets
 # the rate the tree makes for it from the plan's pin clocks, through whatever
 # dividers and multipliers lie between, and a place on the grid, which is refined
 # to fit it unless it was set by hand. The divided clocks on the way stay off the
-# grid: the tree ticks them from their source's edges. Only the top's recipes are
+# grid: the tree ticks them from their source's edges, and a phase among them
+# delays the first edge of what is made from them. Only the top's recipes are
 # followed, as only the top's multiplied clocks are scheduled: a submodule's net
-# of the same name is another net.
+# of the same name is another net. A rate the plan gives such a clock itself
+# has to be the recipe's.
 function _withmultiplied(p::ClockPlan, T::Type)
   made = _multiplied(T)
   isempty(made) && return p
-  rates = _derivedrates!(Dict{Symbol,Rational{Int}}(e.name => e.rate for e in p.entries), T; deep=false)
+  given = [e for e in p.entries if !any(x -> x[1] === e.name, made)]
+  rates = _derivedrates!(Dict{Symbol,Rational{Int}}(e.name => e.rate for e in given), T; deep=false)
+  offsets = _offsets(T, rates, [e.name for e in given])
   entries = copy(p.entries)
   for (net, src, _, _) in made
-    any(e -> e.name === net, entries) && continue
     haskey(rates, net) || error("$net is multiplied from $src, which has no rate in the clock plan")
-    push!(entries, ClockEntry(net, rates[net], false))
+    i = findfirst(e -> e.name === net, entries)
+    if i === nothing
+      push!(entries, ClockEntry(net, rates[net], false, get(offsets, net, 0 // 1)))
+    elseif entries[i].rate != rates[net]
+      error("$net is made by a part at $(_ratestr(rates[net])), and the clock plan says $(_ratestr(entries[i].rate)); " *
+            "a clock a part makes takes its rate from the recipe")
+    end
   end
   _clockplan(entries, p.fixed ? 1 // p.grid : nothing)
+end
+
+# when each clock the top's parts make has its first edge: a divided clock's
+# first edge is its source's edge number `phase`, and a multiplied clock starts
+# with its source
+function _offsets(T::Type, rates, given)
+  offsets = Dict{Symbol,Rational{Int}}(e => 0 // 1 for e in given)
+  for _ in 1:16
+    changed = false
+    for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+      isblackbox(FT) || continue
+      binds = _clockbind(T, f)
+      for c in blackbox(FT).tree
+        c.from === nothing && continue
+        src, out = _boundnet(binds, c.from), _boundnet(binds, c.name)
+        (src === nothing || out === nothing || !haskey(offsets, src) || !haskey(rates, src)) && continue
+        o = offsets[src] + c.phase // rates[src]
+        (haskey(offsets, out) && offsets[out] == o) && continue
+        haskey(offsets, out) && continue      # a mux names one output twice; the first wins
+        offsets[out] = o
+        changed = true
+      end
+    end
+    changed || break
+  end
+  offsets
 end
 
 # A one-line plan needs no macro: `clocks = (clk = 1MHz,)` with the Units module
@@ -176,7 +219,7 @@ function _tickers(p::ClockPlan, slot::Int, acc::NTuple{K,Rational{Int}}) where K
         mask |= UInt64(1) << (i - 1)
       end
       acc = Base.setindex(acc, a, i)
-    elseif slot % p.every[i] == 0
+    elseif slot ≥ p.offset[i] && (slot - p.offset[i]) % p.every[i] == 0
       mask |= UInt64(1) << (i - 1)
     end
   end

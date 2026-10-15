@@ -2195,6 +2195,33 @@ end
   n_q ← n
 end
 
+@blackbox HALFLATE begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2, phase=1)
+end
+
+@quartz struct ChainedLate
+  half::HALFLATE = HALFLATE()
+  quad::QUAD = QUAD()
+  h::Bits{8} = 0
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedLate begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedLate posedge(mid) begin
+  h ← h + 1
+end
+@on ChainedLate posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
 @quartz struct HalfInside
   half::HALF = HALF()
   h::Bits{8} = 0
@@ -2273,6 +2300,16 @@ end
   @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 100_000_000)]
   b = step(b, 40)
   @test (b.dut.h, b.dut.n) == (10, 40)
+  # a phase on the way delays the multiplied clock's first edge to its source's
+  b = Bench(ChainedLate(); clocks = (clk = 50_000_000,))
+  @test b.plan.offset == [0, 2]
+  b = step(b, 2)
+  @test (b.dut.h, b.dut.n) == (0, 0)
+  b = step(b, 38)
+  @test (b.dut.h, b.dut.n) == (10, 38)
+  # a rate the plan gives a made clock has to be the recipe's
+  @test_throws "takes its rate from the recipe" Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 100_000_000))
+  @test [e.name for e in Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 200_000_000)).plan.entries] == [:clk, :fast, :mid]
   # a submodule's net of the same name is another net, and does not set the rate;
   # the simulator does not run a clock a part makes below the top, which the
   # constraint writers refuse, so only the plan is checked here
