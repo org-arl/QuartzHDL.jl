@@ -127,7 +127,7 @@ function _board(name, block, mod)
                                          $QuartzHDL.PinBinding[$(pins...)],
                                          $raw,
                                          Dict{Symbol,Any}($(defaults...))))
-  doc === nothing ? def : :(Core.@doc $doc $def)
+  doc === nothing ? def : _withdoc(doc, def)
 end
 
 # `pull = :up`, or `pull = (0:2 => :down,)` where it differs bit by bit

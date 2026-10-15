@@ -649,8 +649,8 @@ endmodule</code></pre>
 <td>as in Julia</td>
 </tr>
 <tr class="odd">
-<td><code>widemul(a, b)</code></td>
-<td>the full product, as wide as both operands together</td>
+<td><code>min</code>, <code>max</code>, <code>abs</code>, <code>clamp(x, lo, hi)</code></td>
+<td>as in Julia, crossed bounds included; each is a compare and a mux, at the width of the value and its hardware-typed bounds</td>
 </tr>
 <tr class="even">
 <td><code>bitwidth(x)</code></td>

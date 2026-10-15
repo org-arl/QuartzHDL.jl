@@ -108,13 +108,54 @@ end
 Base.ifelse(c::Wire{1}, a::Wire, b::BIGLIT) = ifelse(c, a, constant(b, bitwidth(a); signed=a.signed))
 Base.ifelse(c::Wire{1}, a::BIGLIT, b::Wire) = ifelse(c, constant(a, bitwidth(b); signed=b.signed), b)
 Base.ifelse(c::Wire{1}, a::Bool, b::Bool) = ifelse(c, constant(a), constant(b))
-Base.ifelse(c::Wire{1}, a::BIGLIT, b::BIGLIT) = ifelse(c, constant(a), constant(b))
+# two plain arms take the width that holds both, signed if either is negative, as
+# the register they are written to then widens the value the way it would a literal
+function Base.ifelse(c::Wire{1}, a::BIGLIT, b::BIGLIT)
+  a isa Union{Bool,HWInt} && b isa Union{Bool,HWInt} && return ifelse(c, constant(a), constant(b))
+  signed = a < 0 || b < 0
+  N = maximum(_litwidth(x, signed) for x in (a, b))
+  ifelse(c, constant(Integer(a), N; signed), constant(Integer(b), N; signed))
+end
+_bitlen(y::Integer) = y == 0 ? 0 : ndigits(y; base=2)
+_litwidth(x::Integer, signed::Bool) = signed ? _bitlen(x < 0 ? -x - 1 : x) + 1 : max(1, _bitlen(x))
+_litwidth(x::HWInt, signed::Bool) = bitwidth(x) + (signed && !issigned(typeof(x)))
 Base.max(a::Wire, b::Wire) = ifelse(a < b, b, a)
 Base.min(a::Wire, b::Wire) = ifelse(a < b, a, b)
 Base.max(a::Wire, b::BIGLIT) = max(a, constant(b, bitwidth(a); signed=a.signed))
 Base.max(a::BIGLIT, b::Wire) = max(constant(a, bitwidth(b); signed=b.signed), b)
 Base.min(a::Wire, b::BIGLIT) = min(a, constant(b, bitwidth(a); signed=a.signed))
 Base.min(a::BIGLIT, b::Wire) = min(constant(a, bitwidth(b); signed=b.signed), b)
+# a hardware-typed bound keeps its width, as reg.jl's resulttype gives the wider
+# operand's: the wire is widened to it rather than the bound narrowed to the wire
+Base.max(a::Wire, b::HWInt) = max(_lifted(a, b)...)
+Base.max(a::HWInt, b::Wire) = max(reverse(_lifted(b, a))...)
+Base.min(a::Wire, b::HWInt) = min(_lifted(a, b)...)
+Base.min(a::HWInt, b::Wire) = min(reverse(_lifted(b, a))...)
+# Base's clamp, bound by bound, so crossed bounds give what Julia gives; the wire
+# is widened to the widest hardware-typed bound first, so a plain-integer bound
+# takes the width the other bound sets
+function Base.clamp(x::Wire, lo, hi)
+  _checksign(x, lo)
+  _checksign(x, hi)
+  w = _widened(_widened(x, hi), lo)
+  ifelse(w > hi, _asbound(hi, w), ifelse(w < lo, _asbound(lo, w), w))
+end
+_asbound(b::Wire, w::Wire) = b
+_asbound(b::HWInt, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
+_asbound(b, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
+_checksign(a::Wire, b) = nothing
+_checksign(a::Wire, b::Union{HWInt,Wire}) = a.signed == issigned(b isa Wire ? b : typeof(b)) ||
+  throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+
+function _lifted(a::Wire, b::HWInt)
+  a.signed == issigned(typeof(b)) ||
+    throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+  w = _widened(a, b)
+  (w, constant(b, bitwidth(w); signed=a.signed))
+end
+_widened(a::Wire, b) = a
+_widened(a::Wire, b::Union{HWInt,Wire}) =
+  bitwidth(b) ≤ bitwidth(a) ? a : resize(a.signed ? SBits{bitwidth(b)} : Bits{bitwidth(b)}, a)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 function Base.widemul(a::Wire, b::Wire)
   issigned(a) == issigned(b) ||
@@ -366,11 +407,14 @@ function _rewrite_trace(ex, state, ctx; inbranch=false, stmt=true, at=nothing, h
     return :(push!($QuartzHDL.current($ctx), $QuartzHDL.ExemptNode($(ex.args[2]))))
   elseif ex.head == :call && _isqcall(ex.args[1], :simcheck)
     return :($QuartzHDL.trace_check!($ctx, $(ex.args[2]), $(ex.args[3])))
-  elseif !stmt && ex.head == :if && length(ex.args) == 3
-    # `c ? a : b` in a value position is a mux, not a branch: both arms are wires
+  elseif !stmt && ex.head in (:if, :elseif) && length(ex.args) == 3
+    # `c ? a : b` in a value position is a mux, not a branch: both arms are wires,
+    # and an `elseif` arm of an `if` written as a value is a mux in its turn
     return :($(Base.ifelse)($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[3], state, ctx; inbranch, stmt=false, at, home))))
+  elseif !stmt && ex.head in (:if, :elseif)
+    error("an `if` used as a value needs an `else`: both arms of a mux are wires")
   elseif ex.head == :if || ex.head == :elseif
     at = _condline(ex.args[1], at, home)
     c = _rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)
