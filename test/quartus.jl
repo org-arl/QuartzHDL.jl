@@ -128,7 +128,7 @@ end
   sdc = sprint(io -> write(io, Soc, SDC(SocMax)))
   @test occursin("create_clock -name {clk_ref_i} -period 20.833 [get_ports {clk_ref_i}]", sdc)
   @test !occursin("get_pins", sdc)                   # a part's output pin is not an atom pin after synthesis
-  @test occursin("# fast from pll|CLKOP: period 20.833 expected", sdc)
+  @test occursin("# fast from pll|CLKOP: period 20.833 expected, derived below if the part is a PLL", sdc)
   @test occursin("# slow from pll|CLKOS: period", sdc)
   @test count("derive_pll_clocks", sdc) == 1
   @test occursin("set_multicycle_path -setup 4 -from [get_registers {sub|slowsum*}] -to [get_registers {sub|slowcopy*}]", sdc)

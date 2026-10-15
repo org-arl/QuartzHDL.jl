@@ -116,19 +116,19 @@ function _clockplan(entries::Vector{ClockEntry}, gridrate)
 end
 
 # The clocks a design's black boxes multiply, with the plan's entries: each gets
-# the rate its recipe makes from its source's, and a place on the grid, which is
-# refined to fit it unless it was set by hand. A source is a pin clock of the plan
-# or another multiplied clock settled before it.
+# the rate the tree makes for it from the plan's pin clocks, through whatever
+# dividers and multipliers lie between, and a place on the grid, which is refined
+# to fit it unless it was set by hand. The divided clocks on the way stay off the
+# grid: the tree ticks them from their source's edges.
 function _withmultiplied(p::ClockPlan, T::Type)
   made = _multiplied(T)
   isempty(made) && return p
+  rates = _derivedrates!(Dict{Symbol,Rational{Int}}(e.name => e.rate for e in p.entries), T)
   entries = copy(p.entries)
-  rate(net) = (i = findfirst(e -> e.name === net, entries); i === nothing ? nothing : entries[i].rate)
-  for _ in eachindex(made), (net, src, m, d) in made
-    rate(net) === nothing && rate(src) !== nothing && push!(entries, ClockEntry(net, rate(src) * m // d, false))
-  end
   for (net, src, _, _) in made
-    rate(net) === nothing && error("$net is multiplied from $src, which has no rate in the clock plan")
+    any(e -> e.name === net, entries) && continue
+    haskey(rates, net) || error("$net is multiplied from $src, which has no rate in the clock plan")
+    push!(entries, ClockEntry(net, rates[net], false))
   end
   _clockplan(entries, p.fixed ? 1 // p.grid : nothing)
 end

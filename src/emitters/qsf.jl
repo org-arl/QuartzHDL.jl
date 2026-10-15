@@ -59,12 +59,15 @@ function _sdc(io::IO, T::Type{<:QuartzModule}, b::Board, overconstrain::Float64)
     println(io, "create_clock -name {$name} -period $(period(net)) $target")
   end
   # a clock a vendor part makes is a pin of an atom inside the part's netlist, which
-  # the SDC cannot name; Quartus derives it from the part's own settings, and the
-  # periods the design expects are listed so its report can be checked against them
+  # the SDC cannot name; Quartus derives it from a PLL's own settings, and the
+  # periods the design expects are listed so its report can be checked against them.
+  # A part that is not a PLL gets nothing from derive_pll_clocks, and its clock
+  # needs a create_generated_clock written by hand on the pin inside its netlist.
   derived = [net for net in sort(collect(keys(rates))) if net in used && haskey(made, net)]
   if !isempty(derived)
     for net in derived
-      println(io, "# $(_pinname(T, net)) from $(replace(made[net], "." => "|")): period $(period(net)) expected")
+      println(io, "# $(_pinname(T, net)) from $(replace(made[net], "." => "|")): period $(period(net)) expected, " *
+                  "derived below if the part is a PLL")
     end
     println(io, "derive_pll_clocks")
   end

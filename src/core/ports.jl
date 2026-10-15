@@ -235,17 +235,19 @@ end
 # Clock nets a black box in this module produces: internal wires, not input ports.
 # In declaration order, not the order a Dict happens to iterate in -- the emitted
 # Verilog has to be the same every time it is generated.
-# the clock nets of the top module that a black box multiplies, each with the net
-# it multiplies from and the ratio, in declaration order
+# the clock nets of the top module that a black box multiplies and something runs
+# on -- a block, or another part's clock input -- each with the net it multiplies
+# from and the ratio, in declaration order
 function _multiplied(T::Type)
   out = Tuple{Symbol,Symbol,Int,Int}[]
+  used = _clocks(T)
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))
     isblackbox(FT) || continue
     binds = _clockbind(T, f)
     for c in blackbox(FT).tree
       ismultiplied(c) || continue
       net, src = _boundnet(binds, c.name), _boundnet(binds, c.from)
-      net === nothing || src === nothing || any(x -> x[1] === net, out) ||
+      net === nothing || src === nothing || !(net in used) || any(x -> x[1] === net, out) ||
         push!(out, (net, src, c.multiply, c.divide))
     end
   end

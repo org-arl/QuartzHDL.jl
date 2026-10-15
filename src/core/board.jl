@@ -272,8 +272,10 @@ _boardports(T::Type) =
 # Every clock's rate, worked out from the oscillators the board provides and the
 # dividers the black boxes declare. The design says nothing about frequency; the
 # board says nothing about the tree.
-function clockrates(T::Type, b::Board)
-  rates = Dict{Symbol,Rational{Int}}(oscillators(b)...)
+clockrates(T::Type, b::Board) = _derivedrates!(Dict{Symbol,Rational{Int}}(oscillators(b)...), T)
+
+# the rates the tree makes from the ones given, pin clocks and multiplied clocks alike
+function _derivedrates!(rates::Dict{Symbol,Rational{Int}}, T::Type)
   default = T()
   for _ in 1:16                      # deep enough for any tree; it settles in one or two
     _walkrates!(rates, T, default) || break

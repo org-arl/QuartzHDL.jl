@@ -2163,6 +2163,55 @@ end
   x_q ← x
 end
 
+@blackbox HALF begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2)
+end
+
+@blackbox QUAD begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, multiply=4)
+end
+
+@quartz struct ChainedPLL
+  half::HALF = HALF()
+  quad::QUAD = QUAD()
+  h::Bits{8} = 0
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedPLL begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedPLL posedge(mid) begin
+  h ← h + 1
+end
+@on ChainedPLL posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
+@quartz struct Unused
+  @in en::Bool = true
+  pll::PLL4X = PLL4X()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire Unused begin
+  pll.inclk0 ← clk
+  fast ← pll.c0
+  mid ← pll.c1
+end
+@on Unused posedge(fast) begin
+  en && (n ← n + 1)
+  n_q ← n
+end
+
 @testset "a multiplied clock is on the grid in its own right" begin
   t = QuartzHDL.blackbox(PLL4X).tree
   @test [(c.name, c.from, c.divide, c.multiply) for c in t] == [(:c0, :inclk0, 1, 4), (:c1, :inclk0, 1, 2), (:c2, :inclk0, 2, 1)]
@@ -2186,6 +2235,18 @@ end
   b = step(b, 40)
   @test (b.dut.x, b.dut.n, b.dut.m, b.dut.s) == (10, 40, 20, 5)
   @test Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 400_000_000)).plan.grid == 1 // 400_000_000
+  # a multiplier fed by a divided clock: the rate comes through the tree, and the
+  # divided clock stays off the grid
+  b = Bench(ChainedPLL(); clocks = (clk = 50_000_000,))
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 100_000_000)]
+  b = step(b, 40)
+  @test (b.dut.h, b.dut.n) == (10, 40)
+  # a multiplied output nothing runs on is wired but not scheduled
+  @test QuartzHDL._multiplied(Unused) == [(:fast, :clk, 4, 1)]
+  @test [e.name for e in Bench(Unused(); clocks = (clk = 50_000_000,)).plan.entries] == [:clk, :fast]
+  f = joinpath(mktempdir(), "pll4x.v")
+  simmodels(f, Unused)
+  @test cosim(Unused, [(en = true,) for _ in 1:8]; clocks = (clk = 1, fast = 4), extra_sources = [f]).ok skip=!HAVE_IVERILOG
   @test_throws ErrorException Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 100_000_000))
   # a source edge does not tick it, and it has no wave to read as data
   m = step(QuartzHDL._clearticks(Multiplied()), :clk)
