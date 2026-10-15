@@ -125,12 +125,17 @@ Base.min(a::HWInt, b::Wire) = min(reverse(_lifted(b, a))...)
 # is widened to the widest hardware-typed bound first, so a plain-integer bound
 # takes the width the other bound sets
 function Base.clamp(x::Wire, lo, hi)
+  _checksign(x, lo)
+  _checksign(x, hi)
   w = _widened(_widened(x, hi), lo)
   ifelse(w > hi, _asbound(hi, w), ifelse(w < lo, _asbound(lo, w), w))
 end
 _asbound(b::Wire, w::Wire) = b
 _asbound(b::HWInt, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
 _asbound(b, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
+_checksign(a::Wire, b) = nothing
+_checksign(a::Wire, b::Union{HWInt,Wire}) = a.signed == issigned(b isa Wire ? b : typeof(b)) ||
+  throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
 
 function _lifted(a::Wire, b::HWInt)
   a.signed == issigned(typeof(b)) ||

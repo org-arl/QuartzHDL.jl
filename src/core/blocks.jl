@@ -834,6 +834,21 @@ function _warndiscarded(ex, line)
   @warn "block$where: statement computes a value and discards it; a write needs `x ← v`"
 end
 
+# A MetaGuard shadowing an input wider than one bit is refused at the declaration
+# when the width is known there; one whose width is a parameter of the struct is
+# refused here, on the first step of the instantiation, at no cost to the others.
+@generated function _checkguards(m::T) where T
+  hasfield(T, INPUTS) || return nothing
+  IT = fieldtype(T, INPUTS)
+  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+    FT <: MetaGuard && f in fieldnames(IT) || continue
+    W = _portinfo(fieldtype(IT, f))[1]
+    W == 1 || return :(error($("@in $f of $T is $W bits wide and a MetaGuard holds one; " *
+                                "a word crossing a domain wants a one-bit flag and held data")))
+  end
+  nothing
+end
+
 # the value a slot holds before the block writes it, in the type a write resolves to
 _slotinit(this::T, ::Val{f}) where {T,f} = _slotinit(fieldtype(T, f), getfield(this, f))
 _slotinit(::Type{Pipeline{K,ET}}, cur) where {K,ET} = zero(ET)
@@ -1064,6 +1079,7 @@ struct PadContext{D<:NamedTuple,N<:NamedTuple}
 end
 
 function _stepwith(m::T, clk::Val, kw::NamedTuple) where T
+  _checkguards(m)
   m = _presettle(_wirepresent(m, kw), kw)
   _stepinner(m, clk, kw, PadContext(kw, _netdrives(m)))
 end

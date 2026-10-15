@@ -3570,6 +3570,10 @@ end
                        hi = Bits{8}(rand(0:255))) for _ in 1:200])
   showmismatches(r)
   @test r.ok skip=!HAVE_IVERILOG
+  @test_throws "3 bits wide and a MetaGuard holds one" step(GuardedWord{3}(); sw = Bits{3}(1))
+  xw4 = QuartzHDL.Wire{4}(:input, Any[]; name = :x)
+  @test_throws ArgumentError clamp(xw4, SBits{8}(0), Bits{8}(10))
+  @test_throws ArgumentError clamp(xw4, 0, QuartzHDL.Wire{8}(:input, Any[]; signed = true, name = :h))
   @test step(GuardedWord{1}(); sw = Bits{1}(1)).y == false
   @test step(step(step(GuardedWord{1}(); sw = Bits{1}(1)); sw = Bits{1}(1)); sw = Bits{1}(1)).y == true
   m = step(Saturating(); x = SBits{8}(-100))
