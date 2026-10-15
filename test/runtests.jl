@@ -3473,6 +3473,188 @@ end
   @test cosim(Unnamed{8}, [(x = Bits{8}(rand(0:255)),) for _ in 1:100]).ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct Saturating
+  @in x::SBits{8}
+  @in rst::Bool = false
+  @in clear::Bool = false
+  @out y::SBits{8} = 0
+  @out z::Bits{8} = 0
+end
+
+@on Saturating posedge(clk) begin
+  @reset(rst || clear)
+  y ← clamp(x, -10, 10)
+  z ← clamp(Bits{8}(x), 20, 200)
+end
+
+"a divider, documented where Julia puts a docstring"
+@blackbox DocBox begin
+  clock(CLKI)
+  clockout(CLKOP, from=CLKI, divide=2)
+end
+
+module ShadowsCore
+using QuartzHDL
+@quartz struct Core
+  @in a::Bool
+  @out y::Bool = false
+end
+@on Core posedge(clk) begin
+  y ← a
+end
+@board CoreBoard begin
+  "a board for a module named Core"
+  device = "10M08SAE144C8G"
+  clk => (pin = 27, osc = 50MHz)
+end
+end
+
+@quartz struct Bounded
+  @in x::Bits{4}
+  @in s::SBits{4}
+  @in rst::Bool = false
+  @in clear::Bool = false
+  @in hi::Bits{8} = 200
+  @out y::Bits{8} = 0
+  @out z::SBits{8} = 0
+  @out w::Bits{4} = 0
+  @out v::Bits{8} = 0
+  @out u::Bits{8} = 0
+end
+
+@on Bounded posedge(clk) begin
+  @reset(if x == 15; rst; elseif x == 14; clear; else false; end)
+  y ← clamp(x, Bits{8}(5), Bits{8}(200))
+  z ← max(SBits{8}(-100), min(s, SBits{8}(3)))
+  w ← min(x, Bits{3}(6))
+  v ← clamp(x, 20, Bits{8}(200))
+  u ← clamp(x, 20, hi)
+end
+
+@quartz struct ClauseForms
+  @in a::Bool = false
+  @in b::Bool = false
+  @in c::Bool = false
+  @out y::Bits{4} = 0
+  @out z::Bits{4} = 0
+end
+
+@on ClauseForms posedge(clk) begin
+  @reset(a && b; y = c ? 3 : 5)
+  @only_when(a || !c)
+  @clockout(g; gate = b || c)
+  y ← y + 1
+  z ← y
+end
+
+@quartz struct HalfIf
+  @in rst::Bool = false
+  @out y::Bits{4} = 0
+end
+
+@on HalfIf posedge(clk) begin
+  @reset(if true; rst; end)
+  y ← y + 1
+end
+
+const N = 8
+@quartz struct GuardedWord{N}
+  @in sw::Bits{N}
+  sw::MetaGuard{2}
+  @out y::Bool = false
+end
+
+@on GuardedWord posedge(clk) begin
+  y ← sw
+end
+
+@testset "issue 11: clamp, clauses with ||, locals in if, guards, docstrings, Core" begin
+  m = step(Bounded(); x = Bits{4}(10), s = SBits{4}(-8))
+  @test m.y == 10 && m.z == -8 && m.w == 6 && m.v == 20 && m.u == 20
+  m = step(m; x = Bits{4}(2), s = SBits{4}(7), hi = Bits{8}(3))
+  @test m.y == 5 && m.z == 3 && m.w == 2 && m.v == 20 && m.u == 20    # crossed bounds give lo, as Base does
+  @test_throws ErrorException sprint(io -> write(io, HalfIf, Verilog()))
+  Random.seed!(21)
+  r = cosim(ClauseForms, [(a = rand(Bool), b = rand(Bool), c = rand(Bool)) for _ in 1:200])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  # clamp, min and max: every bound shape against each value shape, the same answer
+  # in both worlds, a width the simulation's value fits in the trace's or a refusal
+  W = QuartzHDL.Wire
+  values = [(Bits{4}(10), W{4}(:input, Any[]; name = :x)), (SBits{4}(-3), W{4}(:input, Any[]; signed = true, name = :s))]
+  bounds = [(20, nothing), (-2, nothing), (true, nothing), (Bits{8}(200), nothing), (SBits{8}(-100), nothing),
+            (Bits{3}(6), nothing), (Bits{8}(200), W{8}(:input, Any[]; name = :hi)),
+            (SBits{8}(-100), W{8}(:input, Any[]; signed = true, name = :shi)), (Bits{4}(3), W{4}(:input, Any[]; name = :lo4))]
+  needs(v::QuartzHDL.HWInt) = bitwidth(v)
+  needs(v::Bool) = 1
+  needs(v::W) = bitwidth(v)
+  agree(f, g) = (a = try; (:ok, needs(f())); catch; (:err,); end; b = try; (:ok, needs(g())); catch; (:err,); end;
+                 a[1] == b[1] && (a[1] == :err || a[2] ≤ b[2]))
+  for (sx, tx) in values, (sb, tb) in bounds, f in (min, max)
+    @test agree(() -> f(sx, sb), () -> f(tx, something(tb, sb)))
+    @test agree(() -> f(sb, sx), () -> f(something(tb, sb), tx))
+  end
+  for (sx, tx) in values, (sl, tl) in bounds, (sh, th) in bounds
+    @test agree(() -> clamp(sx, sl, sh), () -> clamp(tx, something(tl, sl), something(th, sh)))
+  end
+  @test_throws InexactError clamp(Bits{4}(2), 20, 30)
+  # a mux of two plain arms is as narrow as both fit, signed if either is negative
+  c = QuartzHDL.Wire{1}(:input, Any[]; name = :c)
+  for a in -9:9, b in -9:9
+    w = ifelse(c, a, b)
+    T = w.signed ? SBits{bitwidth(w)} : Bits{bitwidth(w)}
+    @test QuartzHDL._fits(T, a) && QuartzHDL._fits(T, b)
+    @test bitwidth(w) == 1 || !(QuartzHDL._fits(w.signed ? SBits{bitwidth(w) - 1} : Bits{bitwidth(w) - 1}, a) &&
+                                QuartzHDL._fits(w.signed ? SBits{bitwidth(w) - 1} : Bits{bitwidth(w) - 1}, b))
+  end
+  @test bitwidth(ifelse(c, -1, 0)) == 1 && ifelse(c, -1, 0).signed
+  @test clamp(Bits{4}(2), 20, Bits{8}(30)) === Bits{8}(20)
+  m = step(m; x = Bits{4}(15), s = SBits{4}(7), rst = true)
+  @test m.y == 0 && m.v == 0
+  xw = QuartzHDL.Wire{4}(:input, Any[]; name = :x)
+  @test_throws ArgumentError max(xw, SBits{8}(3))
+  @test bitwidth(min(xw, Bits{8}(3))) == 8 && bitwidth(max(Bits{3}(1), xw)) == 4
+  sw = QuartzHDL.Wire{128}(:input, Any[]; signed = true, name = :s)
+  @test bitwidth(max(sw, SBits{8}(3))) == 128 && bitwidth(min(sw, SBits{128}(-3))) == 128
+  Random.seed!(13)
+  r = cosim(Bounded, [(x = Bits{4}(rand(0:15)), s = SBits{4}(rand(-8:7)), rst = rand() < 0.1, clear = rand() < 0.1,
+                       hi = Bits{8}(rand(0:255))) for _ in 1:200])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  @test_throws "3 bits wide and a MetaGuard holds one" step(GuardedWord{3}(); sw = Bits{3}(1))
+  xw4 = QuartzHDL.Wire{4}(:input, Any[]; name = :x)
+  @test_throws ArgumentError clamp(xw4, SBits{8}(0), Bits{8}(10))
+  @test_throws ArgumentError clamp(xw4, 0, QuartzHDL.Wire{8}(:input, Any[]; signed = true, name = :h))
+  @test step(GuardedWord{1}(); sw = Bits{1}(1)).y == false
+  @test step(step(step(GuardedWord{1}(); sw = Bits{1}(1)); sw = Bits{1}(1)); sw = Bits{1}(1)).y == true
+  m = step(Saturating(); x = SBits{8}(-100))
+  @test m.y == -10 && m.z == 156
+  m = step(m; x = SBits{8}(3))
+  @test m.y == 3 && m.z == 20
+  m = step(m; x = SBits{8}(3), clear = true)
+  @test m.y == 0 && m.z == 0
+  v = sprint(io -> write(io, Saturating, Verilog()))
+  @test occursin("rst | clear", v)
+  Random.seed!(11)
+  stim = [(x = SBits{8}(rand(-128:127)), rst = rand() < 0.05, clear = rand() < 0.05) for _ in 1:200]
+  r = cosim(Saturating, stim)
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  @test_throws Exception @eval @on Saturating posedge(clk) begin
+    if x > 3
+      t = x + 1
+      y ← t
+    end
+  end
+  @test_throws Exception @eval @quartz struct WideGuard
+    @in sw::Bits{3}
+    sw::MetaGuard{2}
+    @out y::Bool = false
+  end
+  @test occursin("where Julia puts", string(@doc DocBox))
+  @test occursin("named Core", string(@doc ShadowsCore.CoreBoard))
+end
+
 include("aqua.jl")
 include("soc.jl")
 include("timing.jl")

@@ -284,6 +284,8 @@ function _blockdoc(args, what)
 end
 
 _withdoc(doc, x) = Expr(:macrocall, GlobalRef(Core, Symbol("@doc")), LineNumberNode(0), doc, x)
+# marks what a docstring written before a macro call documents
+_docmarked(x) = Expr(:macrocall, GlobalRef(Core, Symbol("@__doc__")), LineNumberNode(0), x)
 
 # `@out a::Bits{8} = 1  active=:low  verilog="a_no"`: the first argument declares,
 # the rest are attributes that apply to every declaration in it
@@ -559,6 +561,15 @@ function _validate(T::Type)
   T
 end
 
+# the width of the input a MetaGuard shadows; one whose type names a parameter of
+# the struct is only known per instantiation, and is taken on trust here rather
+# than read against a module global of the same name
+function _guardedwidth(T::Type, p::PortDecl)
+  params = [v.name for v in Base.unwrap_unionall(T).parameters if v isa TypeVar]
+  any(in(params), _freesyms(p.typeexpr, Symbol[])) && return 1
+  _portinfo(_porttype(p.typeexpr, parentmodule(T), Dict{Symbol,Any}()))[1]
+end
+
 # The declarations and the fields have to agree: a port that is not a field, a pad
 # left undeclared, or an input sharing a field's name would each be a quiet mistake.
 function _validateinterface(T::Type)
@@ -567,6 +578,9 @@ function _validateinterface(T::Type)
       !hasfield(T, p.name) || fieldtype(T, p.name) <: MetaGuard ||
         error("@in $(p.name) of $(nameof(T)) is also a field; an input and a register " *
               "cannot share a name")
+      !hasfield(T, p.name) || _guardedwidth(T, p) == 1 ||
+        error("@in $(p.name) of $(nameof(T)) is $(_guardedwidth(T, p)) bits wide and a MetaGuard " *
+              "holds one; a word crossing a domain wants a one-bit flag and held data")
     else
       hasfield(T, p.name) || error("@$(p.dir) $(p.name) is not a field of $(nameof(T))")
       ispad = fieldtype(T, p.name) <: Pad

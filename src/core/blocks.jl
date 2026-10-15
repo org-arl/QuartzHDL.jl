@@ -669,7 +669,7 @@ _writevalue(ex) = ex.head == :call ? ex.args[3] :
 # rewrites statement-position register writes into slot assignments; with `acc` it
 # also records the written field names, which is how a block learns its owned
 # registers without a second walker
-function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing)
+function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing, inbranch=false)
   ex isa Expr || return ex
   iswrite = stmt && (_iswrite(ex, state) || _ischainwrite(ex, state))
   # `←` binds tighter than `? :`, so `x ← c ? a : b` parses as `(x ← c) ? a : b` and
@@ -694,18 +694,20 @@ function _rewrite_sim(ex, state, w; stmt=true, acc=nothing, line=nothing)
     return :($slot = $value; $flag = true)
   elseif ex.head == :(=) && _iswritelhs(ex.args[1], state)
     error("use `x ← value`, not `=`, to write a register")
+  elseif ex.head == :(=) && inbranch && ex.args[1] isa Symbol && !Base.isgensym(ex.args[1])
+    error("a local variable may not be assigned inside an `if` (hardware would evaluate both branches): $ex")
   elseif ex.head == :block
     out = Any[]
     for a in ex.args
       a isa LineNumberNode && (line = a)
-      push!(out, _rewrite_sim(a, state, w; stmt, acc, line))
+      push!(out, _rewrite_sim(a, state, w; stmt, acc, line, inbranch))
     end
     return Expr(:block, out...)
   elseif ex.head in (:if, :elseif)
-    return Expr(ex.head, _rewrite_sim(ex.args[1], state, w; stmt=false, acc, line),
-                map(a -> _rewrite_sim(a, state, w; stmt, acc, line), ex.args[2:end])...)
+    return Expr(ex.head, _rewrite_sim(ex.args[1], state, w; stmt=false, acc, line, inbranch),
+                map(a -> _rewrite_sim(a, state, w; stmt, acc, line, inbranch=true), ex.args[2:end])...)
   elseif ex.head in (:for, :let)
-    return Expr(ex.head, ex.args[1], _rewrite_sim(ex.args[2], state, w; stmt, acc, line))
+    return Expr(ex.head, ex.args[1], _rewrite_sim(ex.args[2], state, w; stmt, acc, line, inbranch))
   elseif ex.head == :while
     error("`while` is not allowed in a block")
   end
@@ -830,6 +832,22 @@ function _warndiscarded(ex, line)
   bad || return
   where = line === nothing ? "" : " at $(line.file):$(line.line)"
   @warn "block$where: statement computes a value and discards it; a write needs `x ← v`"
+end
+
+# A MetaGuard shadowing an input wider than one bit is refused at the declaration
+# when the width is known there; one whose width is a parameter of the struct is
+# refused here, on the first step of the instantiation, at no cost to the others.
+_checkguards(m::T) where T = _checkguards(T)
+@generated function _checkguards(::Type{T}) where T
+  hasfield(T, INPUTS) || return nothing
+  IT = fieldtype(T, INPUTS)
+  for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+    FT <: MetaGuard && f in fieldnames(IT) || continue
+    W = _portinfo(fieldtype(IT, f))[1]
+    W == 1 || return :(error($("@in $f of $T is $W bits wide and a MetaGuard holds one; " *
+                                "a word crossing a domain wants a one-bit flag and held data")))
+  end
+  nothing
 end
 
 # the value a slot holds before the block writes it, in the type a write resolves to
@@ -1062,6 +1080,7 @@ struct PadContext{D<:NamedTuple,N<:NamedTuple}
 end
 
 function _stepwith(m::T, clk::Val, kw::NamedTuple) where T
+  _checkguards(m)
   m = _presettle(_wirepresent(m, kw), kw)
   _stepinner(m, clk, kw, PadContext(kw, _netdrives(m)))
 end
