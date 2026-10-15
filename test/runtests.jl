@@ -2195,6 +2195,38 @@ end
   n_q ← n
 end
 
+@quartz struct HalfInside
+  half::HALF = HALF()
+  h::Bits{8} = 0
+  @out h_q::Bits{8} = 0
+end
+
+@wire HalfInside begin
+  half.clki ← clk
+  fast ← half.clko
+end
+@on HalfInside posedge(fast) begin
+  h ← h + 1
+  h_q ← h
+end
+
+@quartz struct SameName
+  inner::HalfInside = HalfInside()
+  quad::QUAD = QUAD()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire SameName begin
+  inner.clk ← clk
+  quad.clki ← clk
+  fast ← quad.clko
+end
+@on SameName posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
 @quartz struct Unused
   @in en::Bool = true
   pll::PLL4X = PLL4X()
@@ -2241,6 +2273,11 @@ end
   @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 100_000_000)]
   b = step(b, 40)
   @test (b.dut.h, b.dut.n) == (10, 40)
+  # a submodule's net of the same name is another net, and does not set the rate;
+  # the simulator does not run a clock a part makes below the top, which the
+  # constraint writers refuse, so only the plan is checked here
+  b = Bench(SameName(); clocks = (clk = 50_000_000,))
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 200_000_000)]
   # a multiplied output nothing runs on is wired but not scheduled
   @test QuartzHDL._multiplied(Unused) == [(:fast, :clk, 4, 1)]
   @test [e.name for e in Bench(Unused(); clocks = (clk = 50_000_000,)).plan.entries] == [:clk, :fast]

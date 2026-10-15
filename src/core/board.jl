@@ -274,16 +274,17 @@ _boardports(T::Type) =
 # board says nothing about the tree.
 clockrates(T::Type, b::Board) = _derivedrates!(Dict{Symbol,Rational{Int}}(oscillators(b)...), T)
 
-# the rates the tree makes from the ones given, pin clocks and multiplied clocks alike
-function _derivedrates!(rates::Dict{Symbol,Rational{Int}}, T::Type)
+# the rates the tree makes from the ones given, pin clocks and multiplied clocks
+# alike; `deep` follows the tree into submodules, whose nets share this one map
+function _derivedrates!(rates::Dict{Symbol,Rational{Int}}, T::Type; deep=true)
   default = T()
   for _ in 1:16                      # deep enough for any tree; it settles in one or two
-    _walkrates!(rates, T, default) || break
+    _walkrates!(rates, T, default, deep) || break
   end
   rates
 end
 
-function _walkrates!(rates, T::Type, default)
+function _walkrates!(rates, T::Type, default, deep)
   changed = false
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))
     FT <: QuartzModule || continue
@@ -299,8 +300,8 @@ function _walkrates!(rates, T::Type, default)
         rates[out] = rates[src] * c.multiply // c.divide
         changed = true
       end
-    else
-      _walkrates!(rates, FT, v) && (changed = true)
+    elseif deep
+      _walkrates!(rates, FT, v, deep) && (changed = true)
     end
   end
   changed

@@ -119,11 +119,13 @@ end
 # the rate the tree makes for it from the plan's pin clocks, through whatever
 # dividers and multipliers lie between, and a place on the grid, which is refined
 # to fit it unless it was set by hand. The divided clocks on the way stay off the
-# grid: the tree ticks them from their source's edges.
+# grid: the tree ticks them from their source's edges. Only the top's recipes are
+# followed, as only the top's multiplied clocks are scheduled: a submodule's net
+# of the same name is another net.
 function _withmultiplied(p::ClockPlan, T::Type)
   made = _multiplied(T)
   isempty(made) && return p
-  rates = _derivedrates!(Dict{Symbol,Rational{Int}}(e.name => e.rate for e in p.entries), T)
+  rates = _derivedrates!(Dict{Symbol,Rational{Int}}(e.name => e.rate for e in p.entries), T; deep=false)
   entries = copy(p.entries)
   for (net, src, _, _) in made
     any(e -> e.name === net, entries) && continue
