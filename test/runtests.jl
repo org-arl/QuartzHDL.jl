@@ -3473,6 +3473,94 @@ end
   @test cosim(Unnamed{8}, [(x = Bits{8}(rand(0:255)),) for _ in 1:100]).ok skip=!HAVE_IVERILOG
 end
 
+@quartz struct WideProduct
+  @in a::SBits{17}
+  @in b::SBits{16}
+  @in u::Bits{9}
+  @in v::Bits{7}
+  @in en::Bool
+  @in en2::Bool
+  @in one::Bits{1}
+  @out p::SBits{33} = 0
+  @out j::Bits{10} = 0
+  @out q::Bits{16} = 0
+  @out r::Bits{18} = 0
+  @out t::Bits{18} = 0
+  @out w::Bits{10} = 0
+  @out g::Bits{10} = 0
+  @out h::Bits{16} = 0
+  @out k::SBits{25} = 0
+  @out n::SBits{17} = 0
+end
+
+@on WideProduct posedge(clk) begin
+  p ← widemul(a, b)
+  q ← widemul(u, v)
+  r ← widemul(u, 7)
+  t ← widemul(3, u)
+  w ← widemul(u, true) + widemul(false, u)
+  g ← widemul(u, en) + widemul(en, u)
+  h ← widemul(u, Bits{7}(127))
+  k ← widemul(SBits{8}(-100), a)
+  j ← widemul(u, widemul(en, en2)) + widemul(widemul(one, en), u)
+  n ← a * b
+end
+
+@quartz struct MixedProduct
+  @in a::SBits{8}
+  @in u::Bits{8}
+  @out p::SBits{16} = 0
+end
+
+@on MixedProduct posedge(clk) begin
+  p ← widemul(a, u)
+end
+
+@testset "widemul gives the full product" begin
+  @test widemul(SBits{17}(-60000), SBits{16}(30000)) == SBits{33}(-1_800_000_000)
+  @test widemul(SBits{17}(-60000), SBits{16}(30000)) isa SBits{33}
+  @test widemul(Bits{9}(511), Bits{7}(127)) == Bits{16}(64897)
+  @test widemul(Bits{9}(511), 7) isa Bits{18}
+  @test widemul(3, Bits{9}(511)) == Bits{18}(1533)
+  @test widemul(Bits{64}(typemax(UInt64)), Bits{64}(typemax(UInt64))) == Bits{128}(UInt128(typemax(UInt64)) * typemax(UInt64))
+  @test_throws ArgumentError widemul(Bits{65}(1), Bits{64}(1))
+  @test_throws ArgumentError widemul(QuartzHDL.Wire{65}(:input, Any[]; name = :a), QuartzHDL.Wire{64}(:input, Any[]; name = :b))
+  @test_throws ArgumentError widemul(Bits{8}(1), SBits{8}(1))
+  @test widemul(Bits{9}(5), true) == Bits{10}(5) && widemul(false, Bits{9}(5)) == Bits{10}(0)
+  @test_throws ArgumentError widemul(SBits{9}(5), true)
+  @test widemul(Bits{1}(1), Bits{1}(1)) === Bits{1}(1) && widemul(SBits{1}(-1), SBits{1}(-1)) === SBits{2}(1)
+  @test_throws ArgumentError sprint(io -> write(io, MixedProduct, Verilog()))
+  @test SBits{17}(-60000) * SBits{16}(30000) != -1_800_000_000
+  # every operand shape against every other, the same answer in both worlds: a
+  # width and signedness, or a refusal
+  W = QuartzHDL.Wire
+  shapes = [(Bits{9}(5), W{9}(:input, Any[]; name = :u)), (SBits{9}(-5), W{9}(:input, Any[]; signed = true, name = :a)),
+            (Bits{1}(1), W{1}(:input, Any[]; name = :o)), (SBits{1}(-1), W{1}(:input, Any[]; signed = true, name = :so)),
+            (true, nothing), (7, nothing), (-7, nothing), (Bits{7}(3), nothing), (SBits{7}(-3), nothing),
+            (Bits{64}(1), W{64}(:input, Any[]; name = :big)), (Bits{65}(1), W{65}(:input, Any[]; name = :bigger))]
+  shape(v::QuartzHDL.HWInt) = (bitwidth(v), v isa SBits)
+  shape(v::Bool) = (1, false)
+  shape(v::W) = (bitwidth(v), v.signed)
+  outcome(f) = try; (:ok, shape(f())); catch e; (:err,); end
+  for (sa, ta) in shapes, (sb, tb) in shapes
+    ta === nothing && tb === nothing && continue
+    @test outcome(() -> widemul(sa, sb)) == outcome(() -> widemul(something(ta, sa), something(tb, sb)))
+  end
+  m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127),
+           en = true, en2 = true, one = Bits{1}(1))
+  @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577 && m.t == 1533 && m.w == 511
+  @test m.g == 1022 && m.h == 64897 && m.k == 6_000_000 && m.j == 1022
+  v = sprint(io -> write(io, WideProduct, Verilog()))
+  @test occursin("wire signed [32:0]", v) && occursin("a * b", v)
+  Random.seed!(17)
+  stim = [(a = SBits{17}(rand(-65536:65535)), b = SBits{16}(rand(-32768:32767)),
+           u = Bits{9}(rand(0:511)), v = Bits{7}(rand(0:127)), en = rand(Bool), en2 = rand(Bool),
+           one = Bits{1}(rand(0:1))) for _ in 1:300]
+  r = cosim(WideProduct, stim)
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+end
+
 @quartz struct Saturating
   @in x::SBits{8}
   @in rst::Bool = false

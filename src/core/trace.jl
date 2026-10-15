@@ -157,6 +157,22 @@ _widened(a::Wire, b) = a
 _widened(a::Wire, b::Union{HWInt,Wire}) =
   bitwidth(b) ≤ bitwidth(a) ? a : resize(a.signed ? SBits{bitwidth(b)} : Bits{bitwidth(b)}, a)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
+function Base.widemul(a::Wire, b::Wire)
+  issigned(a) == issigned(b) ||
+    throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+  bitwidth(a) == 1 && bitwidth(b) == 1 && !issigned(a) && return a & b
+  N = bitwidth(a) + bitwidth(b)
+  N ≤ 128 || throw(ArgumentError("widemul of $(bitwidth(a)) and $(bitwidth(b)) bits is wider than 128"))
+  Wire{N}(:mul, Any[a, b]; signed=issigned(a))
+end
+# a plain integer takes the wire's width; a hardware integer keeps its own, and a
+# Bool is one bit, as reg.jl has them
+Base.widemul(a::Wire, b::BIGLIT) = widemul(a, constant(b, bitwidth(a); signed=a.signed))
+Base.widemul(a::BIGLIT, b::Wire) = widemul(constant(a, bitwidth(b); signed=b.signed), b)
+Base.widemul(a::Wire, b::HWInt) = widemul(a, constant(b))
+Base.widemul(a::HWInt, b::Wire) = widemul(constant(a), b)
+Base.widemul(a::Wire, b::Bool) = widemul(a, constant(b))
+Base.widemul(a::Bool, b::Wire) = widemul(constant(a), b)
 Base.zero(::Wire{N}) where N = constant(0, N)
 Base.zero(::Type{Wire{N}}) where N = constant(0, N)
 Base.one(::Wire{N}) where N = constant(1, N)
