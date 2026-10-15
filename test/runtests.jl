@@ -3531,6 +3531,22 @@ end
   u ← clamp(x, 20, hi)
 end
 
+@quartz struct ClauseForms
+  @in a::Bool = false
+  @in b::Bool = false
+  @in c::Bool = false
+  @out y::Bits{4} = 0
+  @out z::Bits{4} = 0
+end
+
+@on ClauseForms posedge(clk) begin
+  @reset(a && b; y = c ? 3 : 5)
+  @only_when(a || !c)
+  @clockout(g; gate = b || c)
+  y ← y + 1
+  z ← y
+end
+
 @quartz struct HalfIf
   @in rst::Bool = false
   @out y::Bits{4} = 0
@@ -3558,6 +3574,31 @@ end
   m = step(m; x = Bits{4}(2), s = SBits{4}(7), hi = Bits{8}(3))
   @test m.y == 5 && m.z == 3 && m.w == 2 && m.v == 20 && m.u == 20    # crossed bounds give lo, as Base does
   @test_throws ErrorException sprint(io -> write(io, HalfIf, Verilog()))
+  Random.seed!(21)
+  r = cosim(ClauseForms, [(a = rand(Bool), b = rand(Bool), c = rand(Bool)) for _ in 1:200])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  # clamp, min and max: every bound shape against each value shape, the same answer
+  # in both worlds, a width the simulation's value fits in the trace's or a refusal
+  W = QuartzHDL.Wire
+  values = [(Bits{4}(10), W{4}(:input, Any[]; name = :x)), (SBits{4}(-3), W{4}(:input, Any[]; signed = true, name = :s))]
+  bounds = [(20, nothing), (-2, nothing), (true, nothing), (Bits{8}(200), nothing), (SBits{8}(-100), nothing),
+            (Bits{3}(6), nothing), (Bits{8}(200), W{8}(:input, Any[]; name = :hi)),
+            (SBits{8}(-100), W{8}(:input, Any[]; signed = true, name = :shi)), (Bits{4}(3), W{4}(:input, Any[]; name = :lo4))]
+  needs(v::QuartzHDL.HWInt) = bitwidth(v)
+  needs(v::Bool) = 1
+  needs(v::W) = bitwidth(v)
+  agree(f, g) = (a = try; (:ok, needs(f())); catch; (:err,); end; b = try; (:ok, needs(g())); catch; (:err,); end;
+                 a[1] == b[1] && (a[1] == :err || a[2] ≤ b[2]))
+  for (sx, tx) in values, (sb, tb) in bounds, f in (min, max)
+    @test agree(() -> f(sx, sb), () -> f(tx, something(tb, sb)))
+    @test agree(() -> f(sb, sx), () -> f(something(tb, sb), tx))
+  end
+  for (sx, tx) in values, (sl, tl) in bounds, (sh, th) in bounds
+    @test agree(() -> clamp(sx, sl, sh), () -> clamp(tx, something(tl, sl), something(th, sh)))
+  end
+  @test_throws InexactError clamp(Bits{4}(2), 20, 30)
+  @test clamp(Bits{4}(2), 20, Bits{8}(30)) === Bits{8}(20)
   m = step(m; x = Bits{4}(15), s = SBits{4}(7), rst = true)
   @test m.y == 0 && m.v == 0
   xw = QuartzHDL.Wire{4}(:input, Any[]; name = :x)

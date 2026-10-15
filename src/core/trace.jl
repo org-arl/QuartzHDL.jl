@@ -108,7 +108,16 @@ end
 Base.ifelse(c::Wire{1}, a::Wire, b::BIGLIT) = ifelse(c, a, constant(b, bitwidth(a); signed=a.signed))
 Base.ifelse(c::Wire{1}, a::BIGLIT, b::Wire) = ifelse(c, constant(a, bitwidth(b); signed=b.signed), b)
 Base.ifelse(c::Wire{1}, a::Bool, b::Bool) = ifelse(c, constant(a), constant(b))
-Base.ifelse(c::Wire{1}, a::BIGLIT, b::BIGLIT) = ifelse(c, constant(a), constant(b))
+# two plain arms take the width that holds both, signed if either is negative, as
+# the register they are written to then widens the value the way it would a literal
+function Base.ifelse(c::Wire{1}, a::BIGLIT, b::BIGLIT)
+  a isa Union{Bool,HWInt} && b isa Union{Bool,HWInt} && return ifelse(c, constant(a), constant(b))
+  signed = a < 0 || b < 0
+  N = maximum(_litwidth(x, signed) for x in (a, b))
+  ifelse(c, constant(Integer(a), N; signed), constant(Integer(b), N; signed))
+end
+_litwidth(x::Integer, signed::Bool) = max(1, signed ? ndigits(x < 0 ? -x - 1 : x; base=2) + 1 : ndigits(x; base=2))
+_litwidth(x::HWInt, signed::Bool) = bitwidth(x) + (signed && !issigned(typeof(x)))
 Base.max(a::Wire, b::Wire) = ifelse(a < b, b, a)
 Base.min(a::Wire, b::Wire) = ifelse(a < b, a, b)
 Base.max(a::Wire, b::BIGLIT) = max(a, constant(b, bitwidth(a); signed=a.signed))

@@ -164,6 +164,17 @@ Base.min(a::HWInt, b::HWInt) = (T = resulttype(typeof(a), typeof(b));
 Base.abs(a::SBits) = ifelse(a < 0, -a, a)
 Base.abs(a::Bits) = a
 
+# clamp at the width the value and its hardware-typed bounds share, as trace.jl
+# does: a plain-integer bound has to fit that width, and a bound of the other
+# signedness is refused
+function Base.clamp(x::HWInt, lo, hi)
+  T = _boundtype(_boundtype(typeof(x), hi), lo)
+  v, l, h = _lift(T, x), _lift(T, lo), _lift(T, hi)
+  ifelse(v > h, h, ifelse(v < l, l, v))
+end
+_boundtype(::Type{T}, b::HWInt) where T<:HWInt = resulttype(T, typeof(b))
+_boundtype(::Type{T}, b) where T<:HWInt = T
+
 Base.isodd(a::HWInt) = isodd(a.val)
 Base.iseven(a::HWInt) = iseven(a.val)
 Base.convert(::Type{T}, x::HWInt) where T<:HWInt = T(x)

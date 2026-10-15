@@ -837,7 +837,8 @@ end
 # A MetaGuard shadowing an input wider than one bit is refused at the declaration
 # when the width is known there; one whose width is a parameter of the struct is
 # refused here, on the first step of the instantiation, at no cost to the others.
-@generated function _checkguards(m::T) where T
+_checkguards(m::T) where T = _checkguards(T)
+@generated function _checkguards(::Type{T}) where T
   hasfield(T, INPUTS) || return nothing
   IT = fieldtype(T, INPUTS)
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))

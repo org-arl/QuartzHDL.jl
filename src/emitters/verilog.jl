@@ -428,6 +428,7 @@ function _traceblocks(T::Type)
 end
 
 function _emitmodule(io::IO, T::Type{<:QuartzModule}, name::Symbol, emitted::Dict{Type,Symbol})
+  _checkguards(T)
   (; default, fields, blks, conns) = _traceblocks(T)
   e = Emitter(_emitencodings(T))
   ports = _ports(T, default)
