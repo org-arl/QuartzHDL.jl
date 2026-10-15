@@ -120,7 +120,9 @@ function Base.widemul(a::Wire, b::Wire)
   issigned(a) == issigned(b) ||
     throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
   bitwidth(a) == 1 && bitwidth(b) == 1 && !issigned(a) && return a & b
-  Wire{bitwidth(a) + bitwidth(b)}(:mul, Any[a, b]; signed=issigned(a))
+  N = bitwidth(a) + bitwidth(b)
+  N ≤ 128 || throw(ArgumentError("widemul of $(bitwidth(a)) and $(bitwidth(b)) bits is wider than 128"))
+  Wire{N}(:mul, Any[a, b]; signed=issigned(a))
 end
 # a plain integer takes the wire's width; a hardware integer keeps its own, and a
 # Bool is one bit, as reg.jl has them

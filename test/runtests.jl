@@ -3524,6 +3524,7 @@ end
   @test widemul(3, Bits{9}(511)) == Bits{18}(1533)
   @test widemul(Bits{64}(typemax(UInt64)), Bits{64}(typemax(UInt64))) == Bits{128}(UInt128(typemax(UInt64)) * typemax(UInt64))
   @test_throws ArgumentError widemul(Bits{65}(1), Bits{64}(1))
+  @test_throws ArgumentError widemul(QuartzHDL.Wire{65}(:input, Any[]; name = :a), QuartzHDL.Wire{64}(:input, Any[]; name = :b))
   @test_throws ArgumentError widemul(Bits{8}(1), SBits{8}(1))
   @test widemul(Bits{9}(5), true) == Bits{10}(5) && widemul(false, Bits{9}(5)) == Bits{10}(0)
   @test_throws ArgumentError widemul(SBits{9}(5), true)
