@@ -121,9 +121,16 @@ Base.max(a::Wire, b::HWInt) = max(_lifted(a, b)...)
 Base.max(a::HWInt, b::Wire) = max(reverse(_lifted(b, a))...)
 Base.min(a::Wire, b::HWInt) = min(_lifted(a, b)...)
 Base.min(a::HWInt, b::Wire) = min(reverse(_lifted(b, a))...)
-# the wire is widened to the widest hardware-typed bound before either bound is
-# applied, so a plain-integer bound takes the width the other bound sets
-Base.clamp(x::Wire, lo, hi) = (w = _widened(_widened(x, hi), lo); min(max(w, lo), hi))
+# Base's clamp, bound by bound, so crossed bounds give what Julia gives; the wire
+# is widened to the widest hardware-typed bound first, so a plain-integer bound
+# takes the width the other bound sets
+function Base.clamp(x::Wire, lo, hi)
+  w = _widened(_widened(x, hi), lo)
+  ifelse(w > hi, _asbound(hi, w), ifelse(w < lo, _asbound(lo, w), w))
+end
+_asbound(b::Wire, w::Wire) = b
+_asbound(b::HWInt, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
+_asbound(b, w::Wire) = constant(b, bitwidth(w); signed=w.signed)
 
 function _lifted(a::Wire, b::HWInt)
   a.signed == issigned(typeof(b)) ||
@@ -132,7 +139,7 @@ function _lifted(a::Wire, b::HWInt)
   (w, constant(b, bitwidth(w); signed=a.signed))
 end
 _widened(a::Wire, b) = a
-_widened(a::Wire, b::HWInt) =
+_widened(a::Wire, b::Union{HWInt,Wire}) =
   bitwidth(b) ≤ bitwidth(a) ? a : resize(a.signed ? SBits{bitwidth(b)} : Bits{bitwidth(b)}, a)
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 Base.zero(::Wire{N}) where N = constant(0, N)
@@ -375,6 +382,8 @@ function _rewrite_trace(ex, state, ctx; inbranch=false, stmt=true, at=nothing, h
     return :($(Base.ifelse)($(_rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[2], state, ctx; inbranch, stmt=false, at, home)),
                             $(_rewrite_trace(ex.args[3], state, ctx; inbranch, stmt=false, at, home))))
+  elseif !stmt && ex.head in (:if, :elseif)
+    error("an `if` used as a value needs an `else`: both arms of a mux are wires")
   elseif ex.head == :if || ex.head == :elseif
     at = _condline(ex.args[1], at, home)
     c = _rewrite_trace(ex.args[1], state, ctx; inbranch, stmt=false, at, home)

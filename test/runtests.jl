@@ -3514,10 +3514,12 @@ end
   @in s::SBits{4}
   @in rst::Bool = false
   @in clear::Bool = false
+  @in hi::Bits{8} = 200
   @out y::Bits{8} = 0
   @out z::SBits{8} = 0
   @out w::Bits{4} = 0
   @out v::Bits{8} = 0
+  @out u::Bits{8} = 0
 end
 
 @on Bounded posedge(clk) begin
@@ -3526,6 +3528,17 @@ end
   z ← max(SBits{8}(-100), min(s, SBits{8}(3)))
   w ← min(x, Bits{3}(6))
   v ← clamp(x, 20, Bits{8}(200))
+  u ← clamp(x, 20, hi)
+end
+
+@quartz struct HalfIf
+  @in rst::Bool = false
+  @out y::Bits{4} = 0
+end
+
+@on HalfIf posedge(clk) begin
+  @reset(if true; rst; end)
+  y ← y + 1
 end
 
 const N = 8
@@ -3541,9 +3554,10 @@ end
 
 @testset "issue 11: clamp, clauses with ||, locals in if, guards, docstrings, Core" begin
   m = step(Bounded(); x = Bits{4}(10), s = SBits{4}(-8))
-  @test m.y == 10 && m.z == -8 && m.w == 6 && m.v == 20
-  m = step(m; x = Bits{4}(2), s = SBits{4}(7))
-  @test m.y == 5 && m.z == 3 && m.w == 2 && m.v == 20
+  @test m.y == 10 && m.z == -8 && m.w == 6 && m.v == 20 && m.u == 20
+  m = step(m; x = Bits{4}(2), s = SBits{4}(7), hi = Bits{8}(3))
+  @test m.y == 5 && m.z == 3 && m.w == 2 && m.v == 20 && m.u == 20    # crossed bounds give lo, as Base does
+  @test_throws ErrorException sprint(io -> write(io, HalfIf, Verilog()))
   m = step(m; x = Bits{4}(15), s = SBits{4}(7), rst = true)
   @test m.y == 0 && m.v == 0
   xw = QuartzHDL.Wire{4}(:input, Any[]; name = :x)
@@ -3552,7 +3566,8 @@ end
   sw = QuartzHDL.Wire{128}(:input, Any[]; signed = true, name = :s)
   @test bitwidth(max(sw, SBits{8}(3))) == 128 && bitwidth(min(sw, SBits{128}(-3))) == 128
   Random.seed!(13)
-  r = cosim(Bounded, [(x = Bits{4}(rand(0:15)), s = SBits{4}(rand(-8:7)), rst = rand() < 0.1, clear = rand() < 0.1) for _ in 1:200])
+  r = cosim(Bounded, [(x = Bits{4}(rand(0:15)), s = SBits{4}(rand(-8:7)), rst = rand() < 0.1, clear = rand() < 0.1,
+                       hi = Bits{8}(rand(0:255))) for _ in 1:200])
   showmismatches(r)
   @test r.ok skip=!HAVE_IVERILOG
   @test step(GuardedWord{1}(); sw = Bits{1}(1)).y == false
