@@ -3481,6 +3481,8 @@ end
   @out p::SBits{33} = 0
   @out q::Bits{16} = 0
   @out r::Bits{18} = 0
+  @out t::Bits{18} = 0
+  @out w::Bits{18} = 0
   @out n::SBits{17} = 0
 end
 
@@ -3488,7 +3490,19 @@ end
   p ← widemul(a, b)
   q ← widemul(u, v)
   r ← widemul(u, 7)
+  t ← widemul(3, u)
+  w ← widemul(u, true) + widemul(false, u)
   n ← a * b
+end
+
+@quartz struct MixedProduct
+  @in a::SBits{8}
+  @in u::Bits{8}
+  @out p::SBits{16} = 0
+end
+
+@on MixedProduct posedge(clk) begin
+  p ← widemul(a, u)
 end
 
 @testset "widemul gives the full product" begin
@@ -3500,9 +3514,11 @@ end
   @test widemul(Bits{64}(typemax(UInt64)), Bits{64}(typemax(UInt64))) == Bits{128}(UInt128(typemax(UInt64)) * typemax(UInt64))
   @test_throws ArgumentError widemul(Bits{65}(1), Bits{64}(1))
   @test_throws ArgumentError widemul(Bits{8}(1), SBits{8}(1))
+  @test widemul(Bits{9}(5), true) == Bits{10}(5) && widemul(false, SBits{9}(5)) == SBits{10}(0)
+  @test_throws ArgumentError sprint(io -> write(io, MixedProduct, Verilog()))
   @test SBits{17}(-60000) * SBits{16}(30000) != -1_800_000_000
   m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127))
-  @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577
+  @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577 && m.t == 1533 && m.w == 511
   v = sprint(io -> write(io, WideProduct, Verilog()))
   @test occursin("wire signed [32:0]", v) && occursin("a * b", v)
   Random.seed!(17)
