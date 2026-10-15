@@ -2119,6 +2119,263 @@ end
   @test r.ok skip=!HAVE_IVERILOG
 end
 
+@blackbox PLL4X begin
+  clock(INCLK0)
+  clockout(C0, from=INCLK0, multiply=4)
+  clockout(C1, from=INCLK0, multiply=2)
+  clockout(C2, from=INCLK0, divide=2)
+  output(LOCKED::Bool)
+end
+
+@quartz struct Multiplied
+  @in en::Bool = true
+  pll::PLL4X = PLL4X()
+  n::Bits{8} = 0
+  m::Bits{8} = 0
+  s::Bits{8} = 0
+  x::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+  @out m_q::Bits{8} = 0
+  @out s_q::Bits{8} = 0
+  @out x_q::Bits{8} = 0
+end
+
+@wire Multiplied begin
+  pll.inclk0 ← clk
+  fast ← pll.c0
+  mid ← pll.c1
+  slow ← pll.c2
+end
+@on Multiplied posedge(fast) begin
+  en && (n ← n + 1)
+  n_q ← n
+end
+@on Multiplied posedge(mid) begin
+  m ← m + 1
+  m_q ← m
+end
+@on Multiplied posedge(slow) begin
+  s ← s + 1
+  s_q ← s
+end
+@on Multiplied posedge(clk) begin
+  x ← x + 1
+  x_q ← x
+end
+
+@blackbox HALF begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2)
+end
+
+@blackbox QUAD begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, multiply=4)
+end
+
+@quartz struct ChainedPLL
+  half::HALF = HALF()
+  quad::QUAD = QUAD()
+  h::Bits{8} = 0
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedPLL begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedPLL posedge(mid) begin
+  h ← h + 1
+end
+@on ChainedPLL posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
+@blackbox HALFLATE begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2, phase=1)
+end
+
+@blackbox HALFLATER begin
+  clock(CLKI)
+  clockout(CLKO, from=CLKI, divide=2, phase=3)
+end
+
+@quartz struct ChainedLater
+  half::HALFLATER = HALFLATER()
+  quad::QUAD = QUAD()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedLater begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedLater posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
+@quartz struct ChainedLate
+  half::HALFLATE = HALFLATE()
+  quad::QUAD = QUAD()
+  h::Bits{8} = 0
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire ChainedLate begin
+  half.clki ← clk
+  mid ← half.clko
+  quad.clki ← mid
+  fast ← quad.clko
+end
+@on ChainedLate posedge(mid) begin
+  h ← h + 1
+end
+@on ChainedLate posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
+@quartz struct HalfInside
+  half::HALF = HALF()
+  h::Bits{8} = 0
+  @out h_q::Bits{8} = 0
+end
+
+@wire HalfInside begin
+  half.clki ← clk
+  fast ← half.clko
+end
+@on HalfInside posedge(fast) begin
+  h ← h + 1
+  h_q ← h
+end
+
+@quartz struct SameName
+  inner::HalfInside = HalfInside()
+  quad::QUAD = QUAD()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire SameName begin
+  inner.clk ← clk
+  quad.clki ← clk
+  fast ← quad.clko
+end
+@on SameName posedge(fast) begin
+  n ← n + 1
+  n_q ← n
+end
+
+@quartz struct Unused
+  @in en::Bool = true
+  pll::PLL4X = PLL4X()
+  n::Bits{8} = 0
+  @out n_q::Bits{8} = 0
+end
+
+@wire Unused begin
+  pll.inclk0 ← clk
+  fast ← pll.c0
+  mid ← pll.c1
+end
+@on Unused posedge(fast) begin
+  en && (n ← n + 1)
+  n_q ← n
+end
+
+@testset "a multiplied clock is on the grid in its own right" begin
+  t = QuartzHDL.blackbox(PLL4X).tree
+  @test [(c.name, c.from, c.divide, c.multiply) for c in t] == [(:c0, :inclk0, 1, 4), (:c1, :inclk0, 1, 2), (:c2, :inclk0, 2, 1)]
+  @test QuartzHDL._multiplied(Multiplied) == [(:fast, :clk, 4, 1), (:mid, :clk, 2, 1)]
+  @test_throws Exception @eval @blackbox BadPhase begin
+    clock(I)
+    clockout(O, from=I, multiply=2, phase=1)
+  end
+  @test_throws Exception @eval @blackbox BadEnable begin
+    clock(I)
+    input(S::Bool)
+    clockout(O, from=I, multiply=2, enable=!s)
+  end
+  @test_throws Exception @eval @blackbox BadSource begin
+    clock(I)
+    clockout(O, multiply=2)
+  end
+  b = Bench(Multiplied(); clocks = (clk = 50_000_000,))
+  @test b.plan.grid == 1 // 200_000_000
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 200_000_000), (:mid, 100_000_000)]
+  b = step(b, 40)
+  @test (b.dut.x, b.dut.n, b.dut.m, b.dut.s) == (10, 40, 20, 5)
+  @test Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 400_000_000)).plan.grid == 1 // 400_000_000
+  # a multiplier fed by a divided clock: the rate comes through the tree, and the
+  # divided clock stays off the grid
+  b = Bench(ChainedPLL(); clocks = (clk = 50_000_000,))
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 100_000_000)]
+  b = step(b, 40)
+  @test (b.dut.h, b.dut.n) == (10, 40)
+  # a phase on the way delays the multiplied clock's first edge to its source's
+  b = Bench(ChainedLate(); clocks = (clk = 50_000_000,))
+  @test b.plan.offset == [0, 2]
+  b = step(b, 2)
+  @test (b.dut.h, b.dut.n) == (0, 0)
+  b = step(b, 38)
+  @test (b.dut.h, b.dut.n) == (10, 38)
+  # listed with its rate, it keeps the offset; a phase past the divider wraps as the divider does
+  b = Bench(ChainedLate(); clocks = (clk = 50_000_000, fast = 100_000_000))
+  @test b.plan.offset == [0, 2]
+  b = Bench(ChainedLater(); clocks = (clk = 50_000_000,))
+  @test b.plan.offset == [0, 2]
+  # cosim schedules it the same way, and checks the ratio against the recipe
+  f = joinpath(mktempdir(), "late.v")
+  simmodels(f, ChainedLate)
+  clks, every, offsets, internal, L = QuartzHDL.clockschedule(ChainedLate, (clk = 1, fast = 2))
+  @test clks == [:clk, :mid, :fast] && offsets == [0, 0, 2]
+  m = QuartzHDL.stepslot(ChainedLate(), clks, every, offsets, internal, 0)
+  @test (m.h, m.n) == (0, 0)
+  @test_throws "takes its ratio from the recipe" QuartzHDL.clockschedule(ChainedLate, (clk = 1, fast = 4))
+  r = cosim(ChainedLate, [NamedTuple() for _ in 1:60]; clocks = (clk = 1, fast = 2), extra_sources = [f])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+  # a rate the plan gives a made clock has to be the recipe's
+  @test_throws "takes its rate from the recipe" Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 100_000_000))
+  @test [e.name for e in Bench(Multiplied(); clocks = (clk = 50_000_000, fast = 200_000_000)).plan.entries] == [:clk, :fast, :mid]
+  # a submodule's net of the same name is another net, and does not set the rate;
+  # the simulator does not run a clock a part makes below the top, which the
+  # constraint writers refuse, so only the plan is checked here
+  b = Bench(SameName(); clocks = (clk = 50_000_000,))
+  @test [(e.name, e.rate) for e in b.plan.entries] == [(:clk, 50_000_000), (:fast, 200_000_000)]
+  # a multiplied output nothing runs on is wired but not scheduled
+  @test QuartzHDL._multiplied(Unused) == [(:fast, :clk, 4, 1)]
+  @test [e.name for e in Bench(Unused(); clocks = (clk = 50_000_000,)).plan.entries] == [:clk, :fast]
+  f = joinpath(mktempdir(), "pll4x.v")
+  simmodels(f, Unused)
+  @test cosim(Unused, [(en = true,) for _ in 1:8]; clocks = (clk = 1, fast = 4), extra_sources = [f]).ok skip=!HAVE_IVERILOG
+  @test_throws ErrorException Bench(Multiplied(); clocks = (clk = 50_000_000, grid = 100_000_000))
+  # a source edge does not tick it, and it has no wave to read as data
+  m = step(QuartzHDL._clearticks(Multiplied()), :clk)
+  @test QuartzHDL.clockedges(m) == [:slow]
+  @test_throws ErrorException clocklevel(m, :fast)
+  @test_throws ErrorException cosim(Multiplied, [(en = true,)]; clocks = (clk = 1,))
+  f = joinpath(mktempdir(), "pll4x.v")
+  simmodels(f, Multiplied)
+  v = read(f, String)
+  @test occursin("output reg C0", v) && !occursin("C0 = 1'b1", v) && occursin("n3_C2 % 32'd2", v)
+  Random.seed!(5)
+  r = cosim(Multiplied, [(en = rand(Bool),) for _ in 1:200]; clocks = (clk = 1, fast = 4, mid = 2), extra_sources = [f])
+  showmismatches(r)
+  @test r.ok skip=!HAVE_IVERILOG
+end
+
 @quartz struct Muxed
   @in sel::Bool
   mux::MUX2 = MUX2()
@@ -2207,12 +2464,12 @@ end
 @on Handover posedge(slow) edges ← edges + 1
 
 @testset "a clock mux read as data follows the selected source" begin
-  clks, every, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
+  clks, every, offsets, internal, L = QuartzHDL.clockschedule(Handover, (clk_a = 1, clk_b = 1))
   m = Handover()
   levels = Bool[]
   edges = Symbol[]
   for i in 1:48
-    m = QuartzHDL.stepslot(m, clks, every, internal, (i - 1) % L; switch = i == 40)
+    m = QuartzHDL.stepslot(m, clks, every, offsets, internal, (i - 1) % L; switch = i == 40)
     push!(levels, clocklevel(m, :slow))
     i == 43 && (edges = QuartzHDL.clockedges(m))
   end
@@ -2862,10 +3119,10 @@ end
   # module whose logic is all continuous has no edge to run, and used to come back
   # from a slot untouched, holding its defaults while the Verilog `assign` followed
   # its inputs
-  clks, every, internal, _ = QuartzHDL.clockschedule(Continuous, nothing)
+  clks, every, offsets, internal, _ = QuartzHDL.clockschedule(Continuous, nothing)
   for (a, b) in ((true, 7), (false, 0), (false, 255))
     direct = step(Continuous(); a = a, b = Bits{8}(b))
-    slot = QuartzHDL.stepslot(Continuous(), clks, every, internal, 0; a = a, b = Bits{8}(b))
+    slot = QuartzHDL.stepslot(Continuous(), clks, every, offsets, internal, 0; a = a, b = Bits{8}(b))
     @test direct.y == slot.y == !a
     @test direct.z == slot.z == Bits{8}(b) + 1
   end

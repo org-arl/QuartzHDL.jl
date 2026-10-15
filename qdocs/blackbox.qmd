@@ -33,7 +33,7 @@ The declaration transcribes the datasheet. Port names keep the vendor's spelling
 - `clock(NAME, ...)` declares clock inputs.
 - `input(NAME::Type, ...)` declares data inputs.
 - `output(NAME::Type, ...)` declares data outputs.
-- `clockout(NAME; from, divide, phase, enable)` declares a clock output *and how it is made*: an edge every `divide` edges of `from`, offset by `phase`, only while `enable` holds, where `enable` may read the part's inputs.
+- `clockout(NAME; from, divide, multiply, phase, enable)` declares a clock output *and how it is made*: an edge every `divide` edges of `from`, offset by `phase`, only while `enable` holds, where `enable` may read the part's inputs. A PLL that multiplies says `multiply=4`, with `divide` for a ratio; a multiplied output takes neither `phase` nor `enable`, since both count edges of the source.
 - `pragma("...")` is emitted as a synthesis attribute on the instance (`/* synthesis syn_noprune=1 */`) and means nothing to the simulator.
 
 `verilog="Name"` after the part's name sets the Verilog module name when it differs. `primitive=true` marks a module the tools know by themselves, such as the `OSCH` oscillator of a MachXO2; a [Diamond or Quartus workspace](compiling.qmd) then lists no netlist file for it.
@@ -87,6 +87,8 @@ simmodels(stdout, Top);
 ```
 
 A `clockout` with no `from` — an oscillator, say — is a port and nothing more: it never ticks in simulation.
+
+A `clockout` that multiplies has edges its source does not, so it cannot be counted from the source's edges the way a divider is. A `Bench` or `Simulation` gives it a place on the slot grid at the rate the recipe makes from the source's — `clockout(C0, from=INCLK0, multiply=4)` on a 50 MHz pin is a 200 MHz clock — and refines the grid to fit it, unless the grid was set by hand. Its first edge is its source's first edge, so a divider with a `phase` on the way delays it too, and a source that is itself divided or multiplied is followed through the top's recipes. The plan may name it, at the recipe's rate and no other. Stepping by hand, `step(m, :clk)`, does not tick it; step it as its own clock. The generated stand-in leaves it resting, and `cosim` drives it on its schedule over the stand-in's output, so it takes a ratio like a pin clock, `clocks = (clk = 1, fast = 4)`, which again has to be the recipe's. Read as data it has no level, as a pin clock has none.
 
 `clocklevel(:clk_1MHz)` reads a clock net as data from inside a block, for the rare design that samples a slow reference.
 

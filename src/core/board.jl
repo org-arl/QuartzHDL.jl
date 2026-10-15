@@ -272,16 +272,19 @@ _boardports(T::Type) =
 # Every clock's rate, worked out from the oscillators the board provides and the
 # dividers the black boxes declare. The design says nothing about frequency; the
 # board says nothing about the tree.
-function clockrates(T::Type, b::Board)
-  rates = Dict{Symbol,Rational{Int}}(oscillators(b)...)
+clockrates(T::Type, b::Board) = _derivedrates!(Dict{Symbol,Rational{Int}}(oscillators(b)...), T)
+
+# the rates the tree makes from the ones given, pin clocks and multiplied clocks
+# alike; `deep` follows the tree into submodules, whose nets share this one map
+function _derivedrates!(rates::Dict{Symbol,Rational{Int}}, T::Type; deep=true)
   default = T()
   for _ in 1:16                      # deep enough for any tree; it settles in one or two
-    _walkrates!(rates, T, default) || break
+    _walkrates!(rates, T, default, deep) || break
   end
   rates
 end
 
-function _walkrates!(rates, T::Type, default)
+function _walkrates!(rates, T::Type, default, deep)
   changed = false
   for (f, FT) in zip(fieldnames(T), fieldtypes(T))
     FT <: QuartzModule || continue
@@ -294,11 +297,11 @@ function _walkrates!(rates, T::Type, default)
         out = _boundnet(binds, c.name)
         (src === nothing || out === nothing || !haskey(rates, src)) && continue
         haskey(rates, out) && continue    # a mux names one output twice; the first wins
-        rates[out] = rates[src] // c.divide
+        rates[out] = rates[src] * c.multiply // c.divide
         changed = true
       end
-    else
-      _walkrates!(rates, FT, v) && (changed = true)
+    elseif deep
+      _walkrates!(rates, FT, v, deep) && (changed = true)
     end
   end
   changed

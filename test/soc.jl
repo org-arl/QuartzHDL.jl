@@ -147,11 +147,11 @@ end
 const SOC_SCALE = (CPLL = (clkos = 2,),)
 
 @testset "soc: three levels step as one" begin
-  clks, every, internal, L = QuartzHDL.clockschedule(Soc, (clk_ref = 4, clk_aux = 1))
+  clks, every, offsets, internal, L = QuartzHDL.clockschedule(Soc, (clk_ref = 4, clk_aux = 1))
   @test internal == [:fast, :slow, :picked] && L == 4
   m = Soc()
   for i in 1:16
-    m = QuartzHDL.stepslot(m, clks, every, internal, (i - 1) % L;
+    m = QuartzHDL.stepslot(m, clks, every, offsets, internal, (i - 1) % L;
                            sb = false, aux = false, en = true, d = Bits{8}(i), we = true, gp = missing)
   end
   @test m.sub.addr == 16                             # the child ran on the PLL's clock

@@ -450,7 +450,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>clock(NAME, ...)</code> declares clock inputs.</li>
 <li><code>input(NAME::Type, ...)</code> declares data inputs.</li>
 <li><code>output(NAME::Type, ...)</code> declares data outputs.</li>
-<li><code>clockout(NAME; from, divide, phase, enable)</code> declares a clock output <em>and how it is made</em>: an edge every <code>divide</code> edges of <code>from</code>, offset by <code>phase</code>, only while <code>enable</code> holds, where <code>enable</code> may read the part’s inputs.</li>
+<li><code>clockout(NAME; from, divide, multiply, phase, enable)</code> declares a clock output <em>and how it is made</em>: an edge every <code>divide</code> edges of <code>from</code>, offset by <code>phase</code>, only while <code>enable</code> holds, where <code>enable</code> may read the part’s inputs. A PLL that multiplies says <code>multiply=4</code>, with <code>divide</code> for a ratio; a multiplied output takes neither <code>phase</code> nor <code>enable</code>, since both count edges of the source.</li>
 <li><code>pragma("...")</code> is emitted as a synthesis attribute on the instance (<code>/* synthesis syn_noprune=1 */</code>) and means nothing to the simulator.</li>
 </ul>
 <p><code>verilog="Name"</code> after the part’s name sets the Verilog module name when it differs. <code>primitive=true</code> marks a module the tools know by themselves, such as the <code>OSCH</code> oscillator of a MachXO2; a <a href="./compiling.html">Diamond or Quartus workspace</a> then lists no netlist file for it.</p>
@@ -533,6 +533,7 @@ endmodule</code></pre>
 </div>
 </div>
 <p>A <code>clockout</code> with no <code>from</code> — an oscillator, say — is a port and nothing more: it never ticks in simulation.</p>
+<p>A <code>clockout</code> that multiplies has edges its source does not, so it cannot be counted from the source’s edges the way a divider is. A <code>Bench</code> or <code>Simulation</code> gives it a place on the slot grid at the rate the recipe makes from the source’s — <code>clockout(C0, from=INCLK0, multiply=4)</code> on a 50 MHz pin is a 200 MHz clock — and refines the grid to fit it, unless the grid was set by hand. Its first edge is its source’s first edge, so a divider with a <code>phase</code> on the way delays it too, and a source that is itself divided or multiplied is followed through the top’s recipes. The plan may name it, at the recipe’s rate and no other. Stepping by hand, <code>step(m, :clk)</code>, does not tick it; step it as its own clock. The generated stand-in leaves it resting, and <code>cosim</code> drives it on its schedule over the stand-in’s output, so it takes a ratio like a pin clock, <code>clocks = (clk = 1, fast = 4)</code>, which again has to be the recipe’s. Read as data it has no level, as a pin clock has none.</p>
 <p><code>clocklevel(:clk_1MHz)</code> reads a clock net as data from inside a block, for the rare design that samples a slow reference.</p>
 </section>
 <section id="parts-with-data-outputs-stand-ins" class="level2">

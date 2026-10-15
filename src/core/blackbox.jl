@@ -5,19 +5,24 @@
 # say -- the simulator acts out a clock tree from the clockout recipes, and a
 # harness supplies a stand-in for anything else. Nothing is emitted for the module.
 
-# What a clock output is made of: which of the part's clock inputs it divides, by
-# how much, with what phase, and under what condition it runs at all. This is the
-# only description of the clock tree -- the simulator computes the edges from it, and
-# the behavioural Verilog used in place of the vendor netlist is generated from it,
-# so the two cannot say different things.
+# What a clock output is made of: which of the part's clock inputs it divides or
+# multiplies, by how much, with what phase, and under what condition it runs at all.
+# This is the only description of the clock tree -- the simulator computes the edges
+# from it, and the behavioural Verilog used in place of the vendor netlist is
+# generated from it, so the two cannot say different things. A multiplied clock has
+# edges its source does not, so it is not counted from the source's edges: a run
+# gives it a place on the slot grid at the rate the recipe states.
 struct ClockOut
   name::Symbol
   from::Union{Nothing,Symbol,Expr}
   divide::Int
+  multiply::Int
   phase::Int                  # in source-clock edges
   hasenable::Bool
   bit::Int                    # the output's place in the part's tick and level masks
 end
+
+ismultiplied(c::ClockOut) = c.multiply > 1
 
 struct BlackboxDef
   verilogname::Symbol
@@ -39,7 +44,7 @@ end
 _gates(tree) =
   [[i for (i, c) in enumerate(tree) if c.name === n]
    for n in unique(c.name for c in tree)
-   if all(c.from !== nothing && c.divide == 1 for c in tree if c.name === n) &&
+   if all(c.from !== nothing && c.divide == 1 && !ismultiplied(c) for c in tree if c.name === n) &&
       any(c.hasenable for c in tree if c.name === n)]
 
 # a gate whose divider a run has scaled away from one has a wave of its own, and
@@ -84,9 +89,15 @@ standin(::Type) = nothing
 
 Declares a Verilog module QuartzHDL does not define -- a vendor PLL, a RAM block,
 an oscillator. The body lists its ports (`input`, `output`, `clock`, `clockout`)
-using the datasheet's names; a `clockout` also says which clock input it divides,
-by how much, and under what condition it runs. Nothing is emitted for the module
-itself, and `QuartzHDL.standin` supplies whatever behaviour a simulation needs.
+using the datasheet's names; a `clockout` also says which clock input it divides or
+multiplies, by how much, and under what condition it runs. Nothing is emitted for
+the module itself, and `QuartzHDL.standin` supplies whatever behaviour a simulation
+needs.
+
+A multiplied clock, `clockout(C0, from=INCLK0, multiply=4)`, has edges its source
+does not, so a `Bench` or `Simulation` gives it a place on the slot grid at the rate
+the recipe makes from the source's, phase-locked to the source; stepping by hand
+leaves it to the caller, and `cosim` takes a ratio for it as for a pin clock.
 
 `primitive=true` marks a module the tools know by themselves, such as `OSCH` on a
 MachXO2: a Diamond workspace then lists no netlist file for it.
@@ -144,37 +155,80 @@ function clockedges(m::QuartzModule)
   out
 end
 
-# One slot of a run: the clocks that come from pins tick on their declared schedule,
-# and every clock a black box makes ticks when its tree says so -- in topological
-# order, since a part cannot produce an edge until its source has had one.
-stepslot(m::QuartzModule, clks, every, internal, slot; kwargs...) =
-  _slotstep(m, [c for (c, ev) in zip(clks, every) if !(c in internal) && slot % ev == 0],
+# One slot of a run: the clocks that come from pins, and the ones a part
+# multiplies, tick on their declared schedule, and every other clock a black box
+# makes ticks when its tree says so -- in topological order, since a part cannot
+# produce an edge until its source has had one.
+stepslot(m::QuartzModule, clks, every, offsets, internal, slot; kwargs...) =
+  _slotstep(m, [c for (c, ev, off) in zip(clks, every, offsets) if !(c in internal) && slot ≥ off && (slot - off) % ev == 0],
             clks, values(kwargs))
 
-# The schedule of a run: only the clocks that come from pins need a ratio, and they
-# are given one relative to each other. Every clock a black box makes is added
-# unscheduled -- the tree says when it ticks.
+# The schedule of a run: the clocks that come from pins, and the ones a part
+# multiplies, need a ratio, and they are given one relative to each other. Every
+# other clock a black box makes is added unscheduled -- the tree says when it ticks.
 function clockschedule(T::Type, clocks)
-  internal = _internalclocks(T)
+  multiplied = [x[1] for x in _multiplied(T)]
+  internal = [c for c in _internalclocks(T) if !(c in multiplied)]
   pinned = [c for c in _clocks(T) if !(c in internal)]
   clks = clocks === nothing ? copy(pinned) : collect(keys(clocks))
   counts = clocks === nothing ? fill(1, length(clks)) : collect(values(clocks))
   if clocks === nothing
     length(pinned) ≤ 1 ||
-      error("this design has several clocks from pins, so it needs a ratio for each: " *
+      error("this design has several clocks from pins or multiplied by a part, so it needs a ratio for each: " *
             join(pinned, ", "))
   else
     missed = setdiff(Set(pinned), Set(clks))
     isempty(missed) ||
-      error("every clock of $(nameof(T)) that comes from a pin needs a ratio: " *
+      error("every clock of $(nameof(T)) that comes from a pin or that a part multiplies needs a ratio: " *
             join(sort(collect(missed)), ", "))
   end
   for c in _clocks(T)
     c in clks || (push!(clks, c); push!(counts, 1))
   end
+  # a multiplied clock takes its turn after the pin its source comes from
+  order = sortperm([c in multiplied for c in clks]; alg=Base.Sort.MergeSort)
+  clks, counts = clks[order], counts[order]
   L = isempty(counts) ? 1 : maximum(counts)
   all(L % n == 0 for n in counts) || error("each clock count must divide the largest ($L)")
-  (clks, [L ÷ n for n in counts], internal, L)
+  every = [L ÷ n for n in counts]
+  offsets = _slotoffsets(T, clks, every, internal, multiplied)
+  (clks, every, offsets, internal, L)
+end
+
+# Where each clock the top's parts make has its first edge, in slots, and how many
+# slots its period is, from the pins' schedule through the recipes: a divided
+# clock's first edge is its source's edge number `phase`, a multiplied clock's is
+# its source's first. The ratio given for a multiplied clock has to be the
+# recipe's, as it is for a Bench.
+function _slotoffsets(T::Type, clks, every, internal, multiplied)
+  known = Dict{Symbol,Tuple{Int,Int}}(c => (ev, 0) for (c, ev) in zip(clks, every) if !(c in internal || c in multiplied))
+  for _ in 1:16
+    changed = false
+    for (f, FT) in zip(fieldnames(T), fieldtypes(T))
+      isblackbox(FT) || continue
+      binds = _clockbind(T, f)
+      for c in blackbox(FT).tree
+        c.from === nothing && continue
+        src, out = _boundnet(binds, c.from), _boundnet(binds, c.name)
+        (src === nothing || out === nothing || !haskey(known, src) || haskey(known, out)) && continue
+        ev, off = known[src]
+        d = _divide(FT, c)
+        period = ev * d // c.multiply
+        isinteger(period) || error("$out is made at $(c.multiply)/$d of $src, which has $ev slots per edge; give $src a higher ratio")
+        known[out] = (Int(period), off + mod(c.phase, d) * ev)
+        changed = true
+      end
+    end
+    changed || break
+  end
+  for (c, ev) in zip(clks, every)
+    c in multiplied || continue
+    haskey(known, c) || error("$c is multiplied from a clock with no ratio")
+    known[c][1] == ev ||
+      error("$c is made by a part at one edge every $(known[c][1]) slots, and the ratio given makes it $ev; " *
+            "a clock a part makes takes its ratio from the recipe")
+  end
+  [c in multiplied ? known[c][2] : 0 for c in clks]
 end
 
 ### helpers
@@ -278,7 +332,7 @@ function _stepbb(x::T, port::Symbol) where T
   ticked = getfield(x, :ticked)
   levels = getfield(x, :levels)
   for (i, c) in enumerate(bb.tree)
-    c.from === port || continue
+    c.from === port && !ismultiplied(c) || continue
     c.hasenable && !Bool(_clockenable(T, Val(i), inputs)) && continue
     d = _divide(T, c)
     n = counts[i]
@@ -378,6 +432,7 @@ function _resolvelevel(T::Type, net::Symbol, seen::Vector{Symbol})
   found = _findlevel(T, net)
   found === nothing && error("no black box in this design drives a clock net called $net")
   path, FT, c, binds = found
+  ismultiplied(c) && return nothing             # on the grid in its own right: full rate
   tree = blackbox(FT).tree
   groups = _gategroups(FT)
   group = findfirst(g -> tree[first(g)].name === c.name, groups)
@@ -472,8 +527,8 @@ function _blackbox(name, args, mod)
           push!(names, a)
         elseif a isa Expr && a.head in (:kw, :(=)) && a.args[1] isa Symbol
           kind == :clockout || error("@blackbox: $kind takes port names only")
-          a.args[1] in (:from, :divide, :phase, :enable) ||
-            error("@blackbox: clockout takes from, divide, phase and enable")
+          a.args[1] in (:from, :divide, :multiply, :phase, :enable) ||
+            error("@blackbox: clockout takes from, divide, multiply, phase and enable")
           opts[a.args[1]] = a.args[2]
         else
           error("@blackbox: $kind takes port names, got $a")
@@ -490,9 +545,16 @@ function _blackbox(name, args, mod)
                                           $(QuoteNode(kind)), 1, false, true, $(QuoteNode(a))))))
         kind == :clockout || continue
         _juliaport(a) in clockouts || push!(clockouts, _juliaport(a))
+        multiply = get(opts, :multiply, 1)
+        multiply isa Integer && multiply ≥ 1 || error("@blackbox: multiply takes a positive integer, got $multiply")
+        multiply == 1 || !haskey(opts, :phase) ||
+          error("@blackbox: $a is multiplied, and a phase counts edges of the source; it has none to offset by")
+        multiply == 1 || !haskey(opts, :enable) ||
+          error("@blackbox: $a is multiplied, and runs on the slot grid where an enable has no say")
+        multiply == 1 || haskey(opts, :from) || error("@blackbox: $a multiplies, so it needs a `from`")
         push!(tree, (name = _juliaport(a),
                      from = haskey(opts, :from) ? _juliaport(opts[:from]) : nothing,
-                     divide = get(opts, :divide, 1), phase = get(opts, :phase, 0),
+                     divide = get(opts, :divide, 1), multiply = multiply, phase = get(opts, :phase, 0),
                      enable = get(opts, :enable, nothing)))
       end
     elseif kind == :pragma
@@ -505,7 +567,7 @@ function _blackbox(name, args, mod)
   store = Symbol("#quartz_blackbox#", name)
   treeexprs = [:($QuartzHDL.ClockOut($(QuoteNode(c.name)),
                                      $(c.from === nothing ? :nothing : QuoteNode(c.from)),
-                                     $(c.divide), $(c.phase), $(c.enable !== nothing),
+                                     $(c.divide), $(c.multiply), $(c.phase), $(c.enable !== nothing),
                                      $(findfirst(==(c.name), clockouts) - 1)))
                for c in tree]
   enablefns = [Expr(:function,
