@@ -3531,6 +3531,21 @@ end
   @test widemul(Bits{1}(1), Bits{1}(1)) === Bits{1}(1) && widemul(SBits{1}(-1), SBits{1}(-1)) === SBits{2}(1)
   @test_throws ArgumentError sprint(io -> write(io, MixedProduct, Verilog()))
   @test SBits{17}(-60000) * SBits{16}(30000) != -1_800_000_000
+  # every operand shape against every other, the same answer in both worlds: a
+  # width and signedness, or a refusal
+  W = QuartzHDL.Wire
+  shapes = [(Bits{9}(5), W{9}(:input, Any[]; name = :u)), (SBits{9}(-5), W{9}(:input, Any[]; signed = true, name = :a)),
+            (Bits{1}(1), W{1}(:input, Any[]; name = :o)), (SBits{1}(-1), W{1}(:input, Any[]; signed = true, name = :so)),
+            (true, nothing), (7, nothing), (-7, nothing), (Bits{7}(3), nothing), (SBits{7}(-3), nothing),
+            (Bits{64}(1), W{64}(:input, Any[]; name = :big)), (Bits{65}(1), W{65}(:input, Any[]; name = :bigger))]
+  shape(v::QuartzHDL.HWInt) = (bitwidth(v), v isa SBits)
+  shape(v::Bool) = (1, false)
+  shape(v::W) = (bitwidth(v), v.signed)
+  outcome(f) = try; (:ok, shape(f())); catch e; (:err,); end
+  for (sa, ta) in shapes, (sb, tb) in shapes
+    ta === nothing && tb === nothing && continue
+    @test outcome(() -> widemul(sa, sb)) == outcome(() -> widemul(something(ta, sa), something(tb, sb)))
+  end
   m = step(WideProduct(); a = SBits{17}(-60000), b = SBits{16}(30000), u = Bits{9}(511), v = Bits{7}(127),
            en = true, en2 = true, one = Bits{1}(1))
   @test m.p == -1_800_000_000 && m.q == 64897 && m.r == 3577 && m.t == 1533 && m.w == 511
