@@ -118,7 +118,7 @@ Options:
 
 - `reference = "movsum.v"` compares against a hand-written Verilog module instead of the generated one. This is how a ported design is checked against its original, and the original is left untouched — an independent oracle rather than a mirror of our own output.
 - `ref_init = ["state" => "3'd0"]` initializes registers of the reference that the Julia model powers up differently.
-- `clocks = (clk=48MHz, clk_slow=1MHz)` for a module with several clocks; the testbench then advances them in the right ratio. A clock a part multiplies is given a ratio the same way.
+- `clocks = (clk=48MHz, clk_slow=1MHz)` for a module with several clocks; the testbench then advances them in the right ratio. A clock a part multiplies is given a ratio the same way, and it has to be the one its recipe makes from its source's.
 - `scale = (clk_slow=10,)` runs a slow clock faster than the board would, so a test with a 400 kHz bus does not take a minute of wall time. A property of the run, not of the design.
 - `debug = true` emits `@info` messages and `@check` failures into the Verilog as `$display` and `$error`.
 
