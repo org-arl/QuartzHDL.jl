@@ -562,13 +562,12 @@ function _validate(T::Type)
 end
 
 # the width of the input a MetaGuard shadows; one whose type names a parameter of
-# the struct is only known per instantiation, and is taken on trust here
+# the struct is only known per instantiation, and is taken on trust here rather
+# than read against a module global of the same name
 function _guardedwidth(T::Type, p::PortDecl)
-  try
-    _portinfo(_porttype(p.typeexpr, parentmodule(T), Dict{Symbol,Any}()))[1]
-  catch e
-    e isa UndefVarError ? 1 : rethrow()
-  end
+  params = [v.name for v in Base.unwrap_unionall(T).parameters if v isa TypeVar]
+  any(in(params), _freesyms(p.typeexpr, Symbol[])) && return 1
+  _portinfo(_porttype(p.typeexpr, parentmodule(T), Dict{Symbol,Any}()))[1]
 end
 
 # The declarations and the fields have to agree: a port that is not a field, a pad

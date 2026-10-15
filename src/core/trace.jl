@@ -115,7 +115,20 @@ Base.max(a::Wire, b::BIGLIT) = max(a, constant(b, bitwidth(a); signed=a.signed))
 Base.max(a::BIGLIT, b::Wire) = max(constant(a, bitwidth(b); signed=b.signed), b)
 Base.min(a::Wire, b::BIGLIT) = min(a, constant(b, bitwidth(a); signed=a.signed))
 Base.min(a::BIGLIT, b::Wire) = min(constant(a, bitwidth(b); signed=b.signed), b)
+# a hardware-typed bound keeps its width, as reg.jl's resulttype gives the wider
+# operand's: the wire is widened to it rather than the bound narrowed to the wire
+Base.max(a::Wire, b::HWInt) = max(_lifted(a, b)...)
+Base.max(a::HWInt, b::Wire) = max(reverse(_lifted(b, a))...)
+Base.min(a::Wire, b::HWInt) = min(_lifted(a, b)...)
+Base.min(a::HWInt, b::Wire) = min(reverse(_lifted(b, a))...)
 Base.clamp(x::Wire, lo, hi) = min(max(x, lo), hi)
+
+function _lifted(a::Wire, b::HWInt)
+  a.signed == issigned(typeof(b)) ||
+    throw(ArgumentError("mixing signed and unsigned hardware integers needs an explicit conversion"))
+  W = max(bitwidth(a), bitwidth(b))
+  (W == bitwidth(a) ? a : resize(a.signed ? SBits{W} : Bits{W}, a), constant(Int128(b), W; signed=a.signed))
+end
 Base.abs(a::Wire) = a.signed ? ifelse(a < 0, -a, a) : a
 Base.zero(::Wire{N}) where N = constant(0, N)
 Base.zero(::Type{Wire{N}}) where N = constant(0, N)
